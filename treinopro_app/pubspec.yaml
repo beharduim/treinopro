@@ -1,0 +1,208 @@
+name: treinopro_app
+description: "TreinoPro - Conecte-se com personal trainers e alcance seus objetivos fitness."
+
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+27
+
+environment:
+  sdk: ^3.8.1
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  
+  # BLoC for state management
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.5
+  
+  # Dependency injection
+  get_it: ^8.2.0
+  
+  # Date formatting
+  intl: ^0.20.2
+  
+  # Local storage
+  shared_preferences: ^2.2.3
+
+  # URL launcher (OAuth, external links)
+  url_launcher: ^6.2.5
+  
+  # Image picker
+  image_picker: ^1.0.4
+  
+  # Image processing (para correção de orientação EXIF)
+  image: ^4.1.7
+  
+  # SVG support
+  flutter_svg: ^2.0.7
+  
+  # HTTP client
+  http: ^1.1.0
+  dio: ^5.4.0
+  
+  # WebSocket
+  web_socket_channel: ^2.4.0
+  socket_io_client: ^2.0.3
+  
+  # Audio playback for proposal modal alert
+  audioplayers: ^6.1.0
+  
+  # JSON serialization
+  json_annotation: ^4.8.1
+  
+  # Environment variables
+  flutter_dotenv: ^5.1.0
+  
+  # Geolocation
+  geolocator: ^10.1.0
+  permission_handler: ^11.3.1
+  device_info_plus: ^10.1.2
+  flutter_native_splash: ^2.4.6
+
+  # Android intents (para abrir configurações do sistema)
+  android_intent_plus: ^5.0.2
+
+  # Foreground service (opcional - estilo Uber)
+  flutter_foreground_task: ^8.15.0
+
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_messaging: ^15.2.10
+  flutter_local_notifications: ^19.5.0
+  
+  # WorkManager para reliability em Doze Mode
+  workmanager: ^0.6.0
+
+  # Wakelock: mantém tela ativa enquanto personal está online/disponível
+  wakelock_plus: ^1.3.4
+  
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # BLoC & Mocking
+  bloc_test: ^10.0.0
+  mocktail: ^1.0.3
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+  
+  # JSON serialization code generation
+  json_serializable: ^6.7.1
+  build_runner: ^2.4.7
+  
+  # App icon generation
+  flutter_launcher_icons: ^0.14.4
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/images/
+    - assets/images/onboarding/onboarding_01.jpg
+    - assets/images/onboarding/onboarding_02.jpg
+    - assets/images/onboarding/onboarding_03.jpg
+    - assets/icons/
+    - assets/sounds/
+    - .env
+    - .env
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
+
+# Flutter Launcher Icons configuration
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/images/logo.png"
+    background_color: "#ffffff"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/images/logo.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/images/logo.png"
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+
+# Flutter Native Splash configuration
+# ✅ DESABILITADO: Usando apenas splash do Flutter (splash_page.dart)
+# flutter_native_splash:
+#   color: "#ffffff"
+#   image: assets/images/logo.png
+#   android: true
+#   ios: true
+#   web: true
+#   android_12:
+#     image: assets/images/logo.png
+#     color: "#ffffff"
+#   ios_content_mode: center

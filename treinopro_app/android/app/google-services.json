@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "270790876602",
+    "project_id": "treinopro-c0ee5",
+    "storage_bucket": "treinopro-c0ee5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:270790876602:android:b01fcac64349781bc31183",
+        "android_client_info": {
+          "package_name": "com.treinopro.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCli1_Isq3jfr31HCYsz_qJxJEl1NNQ9h4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

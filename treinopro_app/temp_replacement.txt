@@ -1,0 +1,10 @@
+                    // Transforma a aula em "Em andamento"
+                    setState(() {
+                      int index = _allClasses.indexWhere((classe) => classe['id'] == aula['id']);
+                      if (index != -1) {
+                        _allClasses[index]['type'] = 'active';
+                        _allClasses[index]['status'] = 'Em andamento';
+                        _allClasses[index]['remainingMinutes'] = 59;
+                        _allClasses[index]['startTime'] = DateTime.now();
+                      }
+                    });

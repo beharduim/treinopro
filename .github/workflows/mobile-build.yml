@@ -1,0 +1,393 @@
+name: Build Mobile Artifacts
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    name: Build iOS IPA (Signed)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: treinopro_app
+    env:
+      APP_API_BASE_URL: https://api.treinopro.com
+      APP_JWT_SECRET: 9421ebfdca9cd70be09b5319ee5fcc44f284bda393d802c6b2c9143adafc048deea3d96d4476c3f3937faf2ef8dfac13e0a6bc6be487dc397d72e5bf8550713c
+      IOS_TEAM_ID: "CQNC9U55RT"
+      IOS_BUNDLE_ID: "com.treinopro.oficial"
+      IOS_EXTENSION_BUNDLE_ID: "com.treinopro.oficial.ProposalLiveActivity"
+      APPSTORE_ISSUER_ID: "5aa12238-f9ae-4cde-88e5-1dc2d94509e7"
+      APPSTORE_KEY_ID: "3ADQADQHNQ"
+      P12_PASSWORD: "treinoPRO123"
+      PROVISIONING_PROFILE_NAME: "TreinoPro App Store"
+      PROVISIONING_PROFILE_EXT_NAME: "TreinoPro LiveActivity App Store"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare app .env
+        run: |
+          cat > .env <<EOF
+          API_BASE_URL=${APP_API_BASE_URL}
+          JWT_SECRET=${APP_JWT_SECRET}
+          EOF
+          sed -i '' 's/^[[:space:]]*//' .env
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios
+          # Workaround for CocoaPods/xcodeproj issue with objectVersion 70.
+          # CocoaPods 1.16.2 (xcodeproj 1.27.0) may fail parsing this version.
+          if grep -q "objectVersion = 70;" Runner.xcodeproj/project.pbxproj; then
+            sed -i '' 's/objectVersion = 70;/objectVersion = 77;/' Runner.xcodeproj/project.pbxproj
+          fi
+          pod install
+
+      - name: Install Apple certificate and provisioning profile
+        run: |
+          # Criar keychain temporário
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Importar o certificado P12 diretamente do repositório
+          security import "../Certificates.p12" \
+            -P "$P12_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Adicionar keychain à lista de busca
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # Instalar provisioning profile
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+
+          install_profile() {
+            local profile_path="$1"
+            local plist_path
+            local profile_uuid
+            plist_path="$(mktemp)"
+            security cms -D -i "$profile_path" > "$plist_path"
+            profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$plist_path")"
+            cp "$profile_path" "$PROFILE_DIR/${profile_uuid}.mobileprovision"
+            rm -f "$plist_path"
+          }
+
+          install_profile "../TreinoPro_App_Store.mobileprovision"
+          install_profile "../TreinoPro_LiveActivity_App_Store.mobileprovision"
+
+      - name: Configure iOS targets signing
+        run: |
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("ios/Runner.xcodeproj")
+            targets_signing = {
+              "Runner" => {
+                "bundle_id" => ENV["IOS_BUNDLE_ID"],
+                "profile" => ENV["PROVISIONING_PROFILE_NAME"]
+              },
+              "ProposalLiveActivityExtension" => {
+                "bundle_id" => ENV["IOS_EXTENSION_BUNDLE_ID"],
+                "profile" => ENV["PROVISIONING_PROFILE_EXT_NAME"]
+              },
+              "ProposalLiveActivity" => {
+                "bundle_id" => ENV["IOS_EXTENSION_BUNDLE_ID"],
+                "profile" => ENV["PROVISIONING_PROFILE_EXT_NAME"]
+              }
+            }
+
+            project.targets.each do |target|
+              next unless targets_signing.key?(target.name)
+              signing = targets_signing[target.name]
+              target.build_configurations.each do |config|
+                config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "Apple Distribution"
+                config.build_settings["DEVELOPMENT_TEAM"] = ENV["IOS_TEAM_ID"]
+                config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = signing["profile"]
+                config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = signing["bundle_id"]
+              end
+            end
+            project.save
+          '
+
+      - name: Create ExportOptions.plist
+        run: |
+          if grep -Eq "ProposalLiveActivityExtension|ProposalLiveActivity" ios/Runner.xcodeproj/project.pbxproj; then
+            HAS_LIVE_ACTIVITY_TARGET=true
+          else
+            HAS_LIVE_ACTIVITY_TARGET=false
+          fi
+
+          cat > ios/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>CQNC9U55RT</string>
+              <key>compileBitcode</key>
+              <false/>
+              <key>provisioningProfiles</key>
+              <dict>
+                <key>${IOS_BUNDLE_ID}</key>
+                <string>${PROVISIONING_PROFILE_NAME}</string>
+          PLIST
+
+          if [ "$HAS_LIVE_ACTIVITY_TARGET" = true ]; then
+            printf '%s\n' \
+              "                <key>${IOS_EXTENSION_BUNDLE_ID}</key>" \
+              "                <string>${PROVISIONING_PROFILE_EXT_NAME}</string>" \
+              >> ios/ExportOptions.plist
+          fi
+
+          printf '%s\n' \
+            "              </dict>" \
+            "            </dict>" \
+            "          </plist>" \
+            >> ios/ExportOptions.plist
+
+      - name: Setup App Store Connect API Key
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          cp "../AuthKey_${APPSTORE_KEY_ID}.p8" "$HOME/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8"
+
+      - name: Build IPA
+        run: |
+          set -eo pipefail
+
+          flutter build ios --release --no-codesign
+
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/ios/Runner.xcarchive \
+            clean archive
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/ios/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa
+
+      - name: Upload to App Store Connect
+        run: |
+          IPA_PATH="$(find build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$IPA_PATH"
+
+          xcrun altool \
+            --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "${APPSTORE_KEY_ID}" \
+            --apiIssuer "${APPSTORE_ISSUER_ID}"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: treinopro_app/build/ios/ipa/*.ipa
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
+
+  build-android:
+    name: Build Android APK and AAB (Signed)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: treinopro_app
+    env:
+      APP_API_BASE_URL: https://api.treinopro.com
+      APP_JWT_SECRET: 9421ebfdca9cd70be09b5319ee5fcc44f284bda393d802c6b2c9143adafc048deea3d96d4476c3f3937faf2ef8dfac13e0a6bc6be487dc397d72e5bf8550713c
+      APP_JWT_EXPIRES_IN: 24h
+      APP_JWT_REFRESH_EXPIRES_IN: 7d
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare app .env
+        run: |
+          cat > .env <<EOF
+          API_BASE_URL=${APP_API_BASE_URL}
+          JWT_SECRET=${APP_JWT_SECRET}
+          JWT_EXPIRES_IN=${APP_JWT_EXPIRES_IN}
+          JWT_REFRESH_EXPIRES_IN=${APP_JWT_REFRESH_EXPIRES_IN}
+          EOF
+          sed -i 's/^[[:space:]]*//' .env
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK build-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.android
+          key: android-sdk-${{ runner.os }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Resolve Android signing source
+        id: android_signing
+        run: |
+          required_vars=(
+            ANDROID_KEYSTORE_BASE64
+            ANDROID_KEYSTORE_PASSWORD
+            ANDROID_KEY_ALIAS
+            ANDROID_KEY_PASSWORD
+          )
+          missing_vars=()
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              missing_vars+=("$var_name")
+            fi
+          done
+
+          if [ ${#missing_vars[@]} -eq 0 ]; then
+            echo "source=env" >> "$GITHUB_OUTPUT"
+            echo "Android signing will use GitHub Actions secrets."
+            exit 0
+          fi
+
+          if [ -s ../upload-keystore.jks ]; then
+            echo "source=repo_upload_keystore" >> "$GITHUB_OUTPUT"
+            echo "Android signing will use upload-keystore.jks from the repository root."
+            exit 0
+          fi
+
+          if [ -s android/keystore.properties ] && [ -s android/app/release-keystore.jks ]; then
+            echo "source=workspace" >> "$GITHUB_OUTPUT"
+            echo "Android signing will use files already available in the workspace."
+            exit 0
+          fi
+
+          echo "Missing Android signing inputs: ${missing_vars[*]}"
+          echo "Android release artifacts uploaded to Google Play must be signed."
+          echo "Configure these GitHub Actions secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+          exit 1
+
+      - name: Configure Android signing
+        if: steps.android_signing.outputs.source == 'env'
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+          [ -s android/app/release-keystore.jks ] || {
+            echo "Decoded Android keystore is empty."
+            exit 1
+          }
+
+          cat > android/keystore.properties <<EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=release-keystore.jks
+          EOF
+          sed -i 's/^[[:space:]]*//' android/keystore.properties
+
+      - name: Configure Android signing from repository keystore
+        if: steps.android_signing.outputs.source == 'repo_upload_keystore'
+        run: |
+          install -m 600 ../upload-keystore.jks android/app/release-keystore.jks
+
+          cat > android/keystore.properties <<EOF
+          storePassword=treinoPRO123
+          keyPassword=treinoPRO123
+          keyAlias=upload
+          storeFile=release-keystore.jks
+          EOF
+          sed -i 's/^[[:space:]]*//' android/keystore.properties
+
+      - name: Build signed Android artifacts
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-arm64
+          path: treinopro_app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: treinopro_app/build/app/outputs/bundle/release/app-release.aab
+
+  notify:
+    name: Notify Results
+    needs: [build-ios, build-android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Notification Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: hakanluiz96@gmail.com
+          password: "kbog vxuq vjen bztd"
+          subject: "TreinoPro Build: iOS (${{ needs.build-ios.result }}) | Android (${{ needs.build-android.result }})"
+          to: luizhakan2@protonmail.com
+          from: GitHub Actions - TreinoPro
+          body: |
+            O processo de Build do TreinoPro foi concluído.
+
+            STATUS DOS JOBS:
+            - Build iOS: ${{ needs.build-ios.result }}
+            - Build Android: ${{ needs.build-android.result }}
+
+            🔗 LINK PARA BAIXAR OS ARTEFATOS (IPA/APK/AAB):
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Verifique a seção 'Artifacts' no final da página do link acima.

@@ -1,0 +1,87 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+.metadata
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# Documentation generated
+**/doc/api/
+
+# Symbolication related and Obfuscation related
+app.*.symbols
+app.*.map.json
+
+# Android Studio will place build artifacts here
+**/android/app/build/
+**/android/.gradle/
+**/android/local.properties
+**/android/.idea/
+**/android/captures/
+
+# iOS
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Flutter.podspec
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/build/
+**/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/xcuserdata/
+
+# macOS
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+**/macos/build/
+**/macos/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+**/macos/Runner.xcworkspace/xcuserdata/
+
+# Windows
+**/windows/build/
+**/windows/Runner/Debug/
+**/windows/Runner/Release/
+
+# Linux
+**/linux/build/
+
+# Environment variables
+.env
+
+# IDE / Tools
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.DS_Store
+.atom/
+.history
+.svn/
+.swiftpm/
+

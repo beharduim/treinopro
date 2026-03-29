@@ -1,0 +1,549 @@
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  IsEnum,
+  IsIn,
+  IsUUID,
+  IsDateString,
+  IsEmail,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+// ===== PERSONAL APPROVAL DTOs =====
+
+export class ReviewPersonalApprovalDto {
+  @ApiProperty({
+    description: 'Decisão de aprovação',
+    enum: ['approved', 'rejected'],
+    example: 'approved',
+  })
+  @IsEnum(['approved', 'rejected'])
+  status: 'approved' | 'rejected';
+
+  @ApiPropertyOptional({
+    description: 'Notas administrativas sobre a decisão',
+    example: 'Documentação verificada manualmente. CREF confirmado por ligação.',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class PendingPersonalItemDto {
+  @ApiProperty({ description: 'ID do personal trainer' })
+  id: string;
+
+  @ApiProperty({ description: 'Email' })
+  email: string;
+
+  @ApiProperty({ description: 'Primeiro nome' })
+  firstName: string;
+
+  @ApiProperty({ description: 'Sobrenome' })
+  lastName: string;
+
+  @ApiPropertyOptional({ description: 'CREF informado no cadastro' })
+  cref?: string;
+
+  @ApiPropertyOptional({ description: 'Imagem do CREF (ID)' })
+  crefImageId?: string;
+
+  @ApiPropertyOptional({ description: 'URL da imagem do CREF' })
+  crefImageUrl?: string;
+
+  @ApiProperty({ description: 'Status de aprovação', enum: ['pending_review', 'approved', 'rejected'] })
+  approvalStatus: string;
+
+  @ApiPropertyOptional({ description: 'Notas administrativas sobre a pendência' })
+  adminNotes?: string;
+
+  @ApiProperty({ description: 'Data de criação da conta' })
+  createdAt: string;
+}
+
+// ===== DASHBOARD DTOs =====
+
+export class DashboardSummaryResponseDto {
+  @ApiProperty({
+    description: 'Total de usuários',
+    example: 150,
+  })
+  users: number;
+
+  @ApiProperty({
+    description: 'Estatísticas de propostas',
+    example: {
+      total: 300,
+      pending: 45,
+      matched: 180,
+      completed: 60,
+      cancelled: 15,
+    },
+  })
+  proposals: {
+    total: number;
+    pending: number;
+    matched: number;
+    completed: number;
+    cancelled: number;
+  };
+
+  @ApiProperty({
+    description: 'Estatísticas de aulas',
+    example: {
+      total: 450,
+      scheduled: 50,
+      active: 25,
+      completed: 350,
+      cancelled: 25,
+    },
+  })
+  classes: {
+    total: number;
+    scheduled: number;
+    active: number;
+    completed: number;
+    cancelled: number;
+  };
+
+  @ApiProperty({
+    description: 'Pagamentos recentes',
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        totalAmount: { type: 'number' },
+        status: { type: 'string' },
+        createdAt: { type: 'string' },
+        studentName: { type: 'string' },
+        personalName: { type: 'string' },
+        mpPaymentId: { type: 'string' },
+      },
+    },
+  })
+  latestPayments: Array<{
+    id: string;
+    totalAmount: number;
+    status: string;
+    createdAt: string;
+    studentName?: string | null;
+    personalName?: string | null;
+    mpPaymentId?: string | null;
+  }>;
+
+  @ApiProperty({
+    description: 'Quantidade de disputas não resolvidas',
+    example: 5,
+  })
+  unresolvedDisputes: number;
+}
+
+// ===== USER DTOs =====
+
+export class UserItemDto {
+  @ApiProperty({ description: 'ID do usuário' })
+  id: string;
+
+  @ApiProperty({ description: 'Email do usuário' })
+  email: string;
+
+  @ApiProperty({ description: 'Primeiro nome' })
+  firstName: string;
+
+  @ApiProperty({ description: 'Sobrenome' })
+  lastName: string;
+
+  @ApiProperty({
+    description: 'Tipo de usuário',
+    enum: ['student', 'personal', 'admin'],
+  })
+  userType: string;
+
+  @ApiProperty({
+    description: 'Status do usuário',
+    enum: ['active', 'inactive', 'suspended'],
+  })
+  status: string;
+
+  @ApiProperty({ description: 'Se o usuário está verificado' })
+  isVerified: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Status de aprovação profissional (personals)',
+    enum: ['pending_review', 'approved', 'rejected'],
+  })
+  approvalStatus?: string;
+
+  @ApiProperty({ description: 'Data de criação' })
+  createdAt: string;
+
+  @ApiProperty({ description: 'Data de atualização' })
+  updatedAt: string;
+}
+
+export class UserDetailsDto extends UserItemDto {
+  @ApiPropertyOptional({ description: 'Data de nascimento' })
+  birthDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tipo de documento',
+    enum: ['RG', 'CNH'],
+  })
+  documentType?: string;
+
+  @ApiPropertyOptional({ description: 'Número do documento' })
+  documentNumber?: string;
+
+  @ApiPropertyOptional({ description: 'ID da imagem do documento' })
+  documentImageId?: string;
+
+  @ApiPropertyOptional({ description: 'URL da imagem do documento' })
+  documentImageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'CREF (apenas para personais)' })
+  cref?: string;
+
+  @ApiPropertyOptional({ description: 'CREF validado' })
+  crefValidated?: boolean;
+
+  @ApiPropertyOptional({ description: 'ID da imagem do CREF' })
+  crefImageId?: string;
+
+  @ApiPropertyOptional({ description: 'URL da imagem do CREF' })
+  crefImageUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Especialidades', type: [String] })
+  specialties?: string[];
+
+  @ApiPropertyOptional({ description: 'Rating médio' })
+  rating?: number;
+
+  @ApiPropertyOptional({ description: 'Total de avaliações' })
+  totalRatings?: number;
+
+  @ApiPropertyOptional({ description: 'É menor de idade' })
+  isMinor?: boolean;
+
+  @ApiPropertyOptional({ description: 'Nome do responsável' })
+  guardianName?: string;
+
+  @ApiPropertyOptional({ description: 'Email do responsável' })
+  guardianEmail?: string;
+
+  @ApiPropertyOptional({ description: 'ID da imagem de perfil' })
+  profileImageId?: string;
+
+  @ApiPropertyOptional({ description: 'URL da imagem de perfil' })
+  profileImageUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Status de aprovação profissional (personals)',
+    enum: ['pending_review', 'approved', 'rejected'],
+  })
+  approvalStatus?: string;
+
+  @ApiPropertyOptional({ description: 'Notas administrativas' })
+  adminNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Data da revisão de aprovação' })
+  approvalReviewedAt?: string;
+}
+
+export class UserListResponseDto {
+  @ApiProperty({
+    description: 'Lista de usuários',
+    type: [UserItemDto],
+  })
+  users: UserItemDto[];
+
+  @ApiProperty({ description: 'Total de registros' })
+  total: number;
+
+  @ApiProperty({ description: 'Página atual' })
+  page: number;
+
+  @ApiProperty({ description: 'Itens por página' })
+  limit: number;
+
+  @ApiProperty({ description: 'Total de páginas' })
+  totalPages: number;
+}
+
+export class UpdateUserDto {
+  @ApiPropertyOptional({
+    description: 'Status do usuário',
+    enum: ['active', 'inactive', 'suspended'],
+  })
+  @IsOptional()
+  @IsEnum(['active', 'inactive', 'suspended'])
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Se o usuário está verificado' })
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
+
+  @ApiPropertyOptional({ description: 'Primeiro nome' })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({ description: 'Sobrenome' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ description: 'Email do usuário' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Notas administrativas' })
+  @IsOptional()
+  @IsString()
+  adminNotes?: string;
+}
+
+// ===== FINANCIAL DTOs =====
+
+export class FinancialSummaryResponseDto {
+  @ApiProperty({
+    description: 'Resumo financeiro',
+    example: {
+      totalPayments: 150,
+      totalAmount: 12500.5,
+      platformFees: 1250.05,
+      personalAmounts: 11250.45,
+    },
+  })
+  summary: {
+    totalPayments: number;
+    totalAmount: number;
+    platformFees: number;
+    personalAmounts: number;
+  };
+
+  @ApiProperty({
+    description: 'Pagamentos recentes',
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        totalAmount: { type: 'number' },
+        platformFee: { type: 'number' },
+        personalAmount: { type: 'number' },
+        status: { type: 'string' },
+        createdAt: { type: 'string' },
+        studentName: { type: 'string' },
+        personalName: { type: 'string' },
+        mpPaymentId: { type: 'string' },
+      },
+    },
+  })
+  latest: Array<{
+    id: string;
+    totalAmount: number;
+    platformFee: number;
+    personalAmount: number;
+    status: string;
+    createdAt: string;
+    studentName: string | null;
+    personalName: string | null;
+    mpPaymentId: string | null;
+  }>;
+
+  @ApiPropertyOptional({
+    description: 'Total de pagamentos no período filtrado',
+  })
+  total?: number;
+
+  @ApiPropertyOptional({ description: 'Página atual' })
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Itens por página' })
+  limit?: number;
+
+  @ApiPropertyOptional({ description: 'Total de páginas' })
+  totalPages?: number;
+
+  @ApiPropertyOptional({ description: 'Data inicial do filtro (YYYY-MM-DD)' })
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Data final do filtro (YYYY-MM-DD)' })
+  endDate?: string;
+}
+
+// ===== MISSION DTOs =====
+
+export class MissionListResponseDto {
+  @ApiProperty({ description: 'ID da missão' })
+  id: string;
+
+  @ApiProperty({ description: 'Título da missão' })
+  title: string;
+
+  @ApiProperty({ description: 'Descrição da missão' })
+  description: string;
+
+  @ApiProperty({ description: 'Tipo da missão' })
+  type: string;
+
+  @ApiProperty({ description: 'XP de recompensa' })
+  xpReward: number;
+
+  @ApiProperty({ description: 'Se a missão está ativa' })
+  isActive: boolean;
+
+  @ApiPropertyOptional({ description: 'Data de início da missão' })
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Data de fim da missão' })
+  endDate?: string;
+
+  @ApiProperty({ description: 'Data de criação' })
+  createdAt: string;
+
+  @ApiPropertyOptional({ description: 'Data de atualização' })
+  updatedAt?: string;
+}
+
+export class UpdateMissionDto {
+  @ApiPropertyOptional({ description: 'Título da missão' })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({ description: 'Descrição da missão' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'XP de recompensa' })
+  @IsOptional()
+  @IsNumber()
+  xpReward?: number;
+
+  @ApiPropertyOptional({ description: 'Tipo da missão' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional({ description: 'Se a missão está ativa' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Data de início da missão (null = fixa)',
+  })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string | null;
+
+  @ApiPropertyOptional({ description: 'Data de fim da missão (null = fixa)' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string | null;
+
+  @ApiPropertyOptional({ description: 'Requisitos da missão' })
+  @IsOptional()
+  requirements?: {
+    action: string;
+    count: number;
+    timeframe?: string;
+    conditions?: Record<string, any>;
+  };
+}
+
+// ===== ANALYTICS DTOs =====
+
+export class AnalyticsResponseDto {
+  @ApiProperty({
+    description: 'Métricas de usuários',
+    example: {
+      totalUsers: 150,
+      newUsersThisMonth: 25,
+      activeUsersThisWeek: 80,
+      userRetentionRate: 85.5,
+    },
+  })
+  users: {
+    totalUsers: number;
+    newUsersThisMonth: number;
+    activeUsersThisWeek: number;
+    userRetentionRate: number;
+  };
+
+  @ApiProperty({
+    description: 'Métricas de propostas',
+    example: {
+      totalProposals: 300,
+      acceptedProposals: 180,
+      pendingProposals: 45,
+      averageResponseTime: 2.5,
+    },
+  })
+  proposals: {
+    totalProposals: number;
+    acceptedProposals: number;
+    pendingProposals: number;
+    averageResponseTime: number;
+  };
+
+  @ApiProperty({
+    description: 'Métricas de aulas',
+    example: {
+      totalClasses: 450,
+      completedClasses: 380,
+      cancelledClasses: 20,
+      averageClassRating: 4.7,
+    },
+  })
+  classes: {
+    totalClasses: number;
+    completedClasses: number;
+    cancelledClasses: number;
+    averageClassRating: number;
+  };
+
+  @ApiProperty({
+    description: 'Métricas de pagamentos',
+    example: {
+      totalRevenue: 12500.5,
+      monthlyRevenue: 3200.75,
+      averageTransactionValue: 85.5,
+      paymentSuccessRate: 98.5,
+    },
+  })
+  payments: {
+    totalRevenue: number;
+    monthlyRevenue: number;
+    averageTransactionValue: number;
+    paymentSuccessRate: number;
+  };
+}
+
+// ===== DISPUTA DE AULA (NO-SHOW) =====
+
+export class ResolveClassDisputeDto {
+  @ApiProperty({
+    description: 'Resolução da disputa de aula',
+    enum: ['resolved_for_student', 'resolved_for_personal'],
+    example: 'resolved_for_personal',
+  })
+  @IsString()
+  @IsIn(['resolved_for_student', 'resolved_for_personal'])
+  resolution: 'resolved_for_student' | 'resolved_for_personal';
+
+  @ApiPropertyOptional({
+    description: 'Notas do admin sobre a resolução',
+  })
+  @IsString()
+  @IsOptional()
+  adminNotes?: string;
+}
