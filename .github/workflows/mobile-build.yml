@@ -2,7 +2,7 @@ name: Build Mobile Artifacts
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build-ios:
