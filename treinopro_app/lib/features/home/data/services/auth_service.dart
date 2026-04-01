@@ -4,29 +4,29 @@ import '../../../../core/error/exceptions.dart';
 
 /// Serviço para gerenciar autenticação local
 class AuthService {
+  static const String _pushNotificationsEnabledKey =
+      'push_notifications_enabled';
   final SharedPreferences _prefs;
-  
+
   // Cache para token válido
   String? _cachedValidToken;
   DateTime? _tokenCacheTime;
   static const Duration _tokenCacheTTL = Duration(minutes: 5);
 
-  AuthService({
-    required SharedPreferences prefs,
-  }) : _prefs = prefs;
+  AuthService({required SharedPreferences prefs}) : _prefs = prefs;
 
   /// Obtém o token de acesso atual
   String? get accessToken => _prefs.getString('access_token');
-  
+
   /// Obtém o token de refresh atual
   String? get refreshToken => _prefs.getString('refresh_token');
-  
+
   /// Verifica se o usuário está autenticado
   bool get isAuthenticated => accessToken != null;
-  
+
   /// Obtém o ID do usuário atual
   String? get currentUserId => _prefs.getString('user_id');
-  
+
   /// Obtém o tipo de usuário atual
   String? get currentUserType => _prefs.getString('user_type');
 
@@ -45,6 +45,7 @@ class AuthService {
   }) async {
     await _prefs.setString('access_token', accessToken);
     await _prefs.setString('refresh_token', refreshToken);
+    await _prefs.setBool(_pushNotificationsEnabledKey, true);
     await _prefs.setString('user_id', userId);
     if (userType != null) {
       await _prefs.setString('user_type', userType);
@@ -64,21 +65,22 @@ class AuthService {
   Future<void> clearTokens() async {
     print('🗑️ [AUTH_SERVICE] Limpando tokens...');
     print('🗑️ [AUTH_SERVICE] Cache de token antes: $_cachedValidToken');
-    
+
     // ⚠️ CRÍTICO: Limpar cache de token em memória PRIMEIRO!
     _cachedValidToken = null;
     _tokenCacheTime = null;
     print('✅ [AUTH_SERVICE] Cache de token limpo');
-    
+
     await _prefs.remove('access_token');
     await _prefs.remove('refresh_token');
+    await _prefs.setBool(_pushNotificationsEnabledKey, false);
     await _prefs.remove('user_id');
     await _prefs.remove('user_type');
     await _prefs.remove('first_name');
     await _prefs.remove('last_name');
     await _prefs.remove('profile_image_url');
     await _prefs.remove('approval_status');
-    
+
     print('✅ [AUTH_SERVICE] Todos os tokens limpos');
   }
 
@@ -92,7 +94,7 @@ class AuthService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
-      
+
       // Decodificar payload
       final payload = parts[1];
       // Adicionar padding se necessário
@@ -108,24 +110,28 @@ class AuthService {
           normalized += '=';
           break;
       }
-      
+
       final decoded = utf8.decode(base64Url.decode(normalized));
       final Map<String, dynamic> tokenData = json.decode(decoded);
-      
+
       // Verificar expiração
       final exp = tokenData['exp'] as int?;
       if (exp == null) return true;
-      
+
       final expirationDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
       final now = DateTime.now();
-      
+
       // ✅ Considerar expirado se faltar menos de 1 minuto (margem de segurança)
-      final isExpired = now.isAfter(expirationDate.subtract(const Duration(minutes: 1)));
-      
+      final isExpired = now.isAfter(
+        expirationDate.subtract(const Duration(minutes: 1)),
+      );
+
       if (isExpired) {
-        print('⏰ [AUTH_SERVICE] Token expirado. Exp: $expirationDate, Now: $now');
+        print(
+          '⏰ [AUTH_SERVICE] Token expirado. Exp: $expirationDate, Now: $now',
+        );
       }
-      
+
       return isExpired;
     } catch (e) {
       print('⚠️ [AUTH_SERVICE] Erro ao verificar expiração do token: $e');
@@ -140,37 +146,41 @@ class AuthService {
     if (!isAuthenticated) {
       return null;
     }
-    
+
     final token = accessToken;
     if (token == null) {
       return null;
     }
-    
+
     // ✅ NOVO: Verificar se token está expirado
     if (_isTokenExpired(token)) {
       print('⏰ [AUTH_SERVICE] Token expirado detectado');
-      print('⏰ [AUTH_SERVICE] Retornando null - ApiService deve renovar via interceptor');
-      
+      print(
+        '⏰ [AUTH_SERVICE] Retornando null - ApiService deve renovar via interceptor',
+      );
+
       // Verificar se refresh token também está expirado
       final refresh = refreshToken;
       if (refresh != null && _isTokenExpired(refresh)) {
-        print('❌ [AUTH_SERVICE] Refresh token também está expirado - limpando tokens');
+        print(
+          '❌ [AUTH_SERVICE] Refresh token também está expirado - limpando tokens',
+        );
         await clearTokens();
         return null;
       }
-      
+
       // Retornar null para que ApiService tente renovar via interceptor
       // O interceptor vai usar o refresh token para renovar
       return null;
     }
-    
+
     // Verificar cache primeiro
-    if (_cachedValidToken != null && 
-        _tokenCacheTime != null && 
+    if (_cachedValidToken != null &&
+        _tokenCacheTime != null &&
         DateTime.now().difference(_tokenCacheTime!) < _tokenCacheTTL) {
       return _cachedValidToken;
     }
-    
+
     // Token válido - atualizar cache
     _cachedValidToken = token;
     _tokenCacheTime = DateTime.now();
@@ -185,8 +195,10 @@ class AuthService {
     }
 
     final profileImageUrl = _prefs.getString('profile_image_url');
-    print('🔍 [AUTH_SERVICE] Recuperando profileImageUrl do SharedPreferences: "$profileImageUrl"');
-    
+    print(
+      '🔍 [AUTH_SERVICE] Recuperando profileImageUrl do SharedPreferences: "$profileImageUrl"',
+    );
+
     // Debug: verificar todas as chaves salvas
     final allKeys = _prefs.getKeys();
     print('🔍 [AUTH_SERVICE] Todas as chaves no SharedPreferences: $allKeys');
@@ -206,7 +218,7 @@ class AuthService {
       'profileImageUrl': profileImageUrl,
     };
   }
-  
+
   /// Limpa o cache de token (útil quando token é atualizado)
   void clearTokenCache() {
     _cachedValidToken = null;

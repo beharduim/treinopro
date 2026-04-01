@@ -691,12 +691,8 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
     }
 
     if (event.action == 'class_cancelled') {
-      _classes = classesCopy.where((c) => c.id != event.classData.id).toList();
-      _timelines.remove(event.classData.id);
       _timers.remove(event.classData.id);
       _pendingStartCodes.remove(event.classData.id);
-      _emitLoaded(emit);
-      return;
     }
 
     final current = classesCopy[idx];

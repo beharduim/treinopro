@@ -431,9 +431,7 @@ void main() {
 
           expect(find.text('Recontratar personal trainer'), findsNothing);
           expect(
-            find.text(
-              'Prazo de recontratação encerrado. Essa opção fica disponível por até 24h após a aula.',
-            ),
+            find.text('Recontratação indisponível após 24h da aula.'),
             findsOneWidget,
           );
         },

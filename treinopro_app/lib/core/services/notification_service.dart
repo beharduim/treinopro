@@ -48,6 +48,14 @@ Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
   }
 
   try {
+    final pushEnabled = await NotificationService.arePushNotificationsEnabled();
+    if (!pushEnabled) {
+      print(
+        '🚫 [BACKGROUND] Push ignorado porque o dispositivo está deslogado/com notificações desabilitadas',
+      );
+      return;
+    }
+
     // ✅ CRÍTICO: Firebase DEVE ser inicializado no background isolate
     print('🔄 [BACKGROUND] Inicializando Firebase...');
     await Firebase.initializeApp(
@@ -195,6 +203,8 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
   static const String _proposalChannelId = 'proposal_channel_v3';
+  static const String _pushNotificationsEnabledKey =
+      'push_notifications_enabled';
   static const List<String> _legacyProposalChannelIds = <String>[
     'proposal_channel',
     'proposal_channel_v1',
@@ -221,6 +231,29 @@ class NotificationService {
   /// Stream que emite quando uma nova notificação é adicionada
   static Stream<void> get notificationAddedStream =>
       _notificationAddedController.stream;
+
+  static Future<bool> arePushNotificationsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pushEnabled = prefs.getBool(_pushNotificationsEnabledKey) ?? true;
+    final accessToken = prefs.getString('access_token');
+
+    return pushEnabled && accessToken != null && accessToken.isNotEmpty;
+  }
+
+  static Future<void> setPushNotificationsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_pushNotificationsEnabledKey, enabled);
+
+    if (!enabled) {
+      await flutterLocalNotificationsPlugin.cancelAll();
+      await LocalNotificationsStorage.clearAll();
+      print(
+        '🚫 [NOTIF] Push/local notifications desabilitados para este dispositivo',
+      );
+    } else {
+      print('✅ [NOTIF] Push notifications reabilitados para este dispositivo');
+    }
+  }
 
   /// Atualiza o estado do app (foreground/background)
   static void updateAppLifecycleState(AppLifecycleState state) {
@@ -364,11 +397,9 @@ class NotificationService {
       print('ℹ️ [NOTIF] Listeners já registrados, pulando registro...');
     } else {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        // Guard: ignorar notificações se usuário não estiver logado
-        final prefs = await SharedPreferences.getInstance();
-        final accessToken = prefs.getString('access_token');
-        if (accessToken == null || accessToken.isEmpty) {
-          print('⚠️ [NOTIF] Usuário não logado - ignorando onMessage');
+        final pushEnabled = await arePushNotificationsEnabled();
+        if (!pushEnabled) {
+          print('⚠️ [NOTIF] Push desabilitado - ignorando onMessage');
           return;
         }
 
@@ -424,11 +455,9 @@ class NotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen((
         RemoteMessage message,
       ) async {
-        // Guard: ignorar se usuário não estiver logado
-        final prefs = await SharedPreferences.getInstance();
-        final accessToken = prefs.getString('access_token');
-        if (accessToken == null || accessToken.isEmpty) {
-          print('⚠️ [NOTIF] Usuário não logado - ignorando onMessageOpenedApp');
+        final pushEnabled = await arePushNotificationsEnabled();
+        if (!pushEnabled) {
+          print('⚠️ [NOTIF] Push desabilitado - ignorando onMessageOpenedApp');
           return;
         }
 
@@ -708,6 +737,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: notificationType == 'new_message' ? 'alert_proposal.caf' : null,
       threadIdentifier: threadId,
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
@@ -1203,6 +1233,14 @@ class NotificationService {
     RemoteMessage message,
   ) async {
     try {
+      final pushEnabled = await arePushNotificationsEnabled();
+      if (!pushEnabled) {
+        print(
+          '🚫 [CONVERT] Ignorando notificação porque o dispositivo está deslogado/com push desabilitado',
+        );
+        return;
+      }
+
       final data = message.data;
       final notification = message.notification;
       final type = data['type'] as String?;
@@ -1319,6 +1357,12 @@ class NotificationService {
   // ao tocar em uma notificação FCM
   static Future<void> _getInitialNotification() async {
     try {
+      final pushEnabled = await arePushNotificationsEnabled();
+      if (!pushEnabled) {
+        print('🚫 [NOTIF] Push desabilitado - ignorando initial notification');
+        return;
+      }
+
       print('🔄 [NOTIF] Verificando se app foi lançado via notificação...');
 
       RemoteMessage? message = await FirebaseMessaging.instance

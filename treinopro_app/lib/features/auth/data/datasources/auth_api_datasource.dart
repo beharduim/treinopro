@@ -10,6 +10,7 @@ import '../models/email_verification_response.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/services/realtime_data_service.dart';
 import '../../../../core/services/fcm_token_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../home/data/services/auth_service.dart';
 
 class AuthApiDataSource {
@@ -195,6 +196,14 @@ class AuthApiDataSource {
 
   Future<void> logout() async {
     print('🚪 [AUTH_DATASOURCE] Iniciando logout...');
+
+    try {
+      await NotificationService.setPushNotificationsEnabled(false);
+    } catch (e) {
+      print(
+        '⚠️ [AUTH_DATASOURCE] Erro ao desabilitar push no início do logout: $e',
+      );
+    }
 
     // 1. Remover token FCM do backend e limpar localmente
     try {

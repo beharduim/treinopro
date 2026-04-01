@@ -20,14 +20,10 @@ import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
 import '../../data/models/confirm_class_start_dto.dart';
 import '../../data/models/report_no_show_dto.dart';
-import '../../data/models/get_classes_dto.dart';
 import '../widgets/confirm_class_start_modal.dart';
 import '../widgets/report_no_show_modal.dart';
 import '../widgets/dispute_defense_modal.dart';
-import '../../data/services/classes_api_service.dart';
 import '../bloc/classes_bloc.dart';
-import '../bloc/classes_event.dart';
-import '../bloc/classes_state.dart';
 import '../../../../core/services/class_presence_snapshot_service.dart';
 import '../utils/class_dispute_status_helper.dart';
 
@@ -1767,7 +1763,7 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
                   border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: Text(
-                  'Prazo de recontratação encerrado. Essa opção fica disponível por até 24h após a aula.',
+                  'Recontratação indisponível após 24h da aula.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Fira Sans',
@@ -2003,8 +1999,11 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 4,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2023,7 +2022,6 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           _formatClassPrice(classData.proposalPrice),
           style: TextStyle(

@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
 class ApiService {
+  static const String _pushNotificationsEnabledKey =
+      'push_notifications_enabled';
   String get baseUrl => AppConfig.apiBaseUrl;
   late final Dio _dio;
   String? _accessToken;
@@ -13,15 +15,17 @@ class ApiService {
   Completer<void>? _refreshCompleter;
 
   ApiService() {
-    _dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      // ✅ CORREÇÃO: Aumentar timeouts para evitar erros de timeout
-      // Especialmente importante para login que pode demorar mais
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 60),
-      sendTimeout: const Duration(seconds: 60),
-      // Remove o Content-Type padrão para permitir configuração por request
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        // ✅ CORREÇÃO: Aumentar timeouts para evitar erros de timeout
+        // Especialmente importante para login que pode demorar mais
+        connectTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
+        // Remove o Content-Type padrão para permitir configuração por request
+      ),
+    );
 
     _setupInterceptors();
     _loadTokens();
@@ -36,7 +40,7 @@ class ApiService {
             options.headers['Authorization'] = 'Bearer $_accessToken';
           }
           // Adiciona Content-Type padrão apenas se não estiver definido
-          if (!options.headers.containsKey('Content-Type') && 
+          if (!options.headers.containsKey('Content-Type') &&
               options.data is! FormData) {
             options.headers['Content-Type'] = 'application/json';
           }
@@ -44,13 +48,19 @@ class ApiService {
         },
         onError: (error, handler) async {
           // Não tentar renovar token se for uma rota de login ou refresh
-          final isLoginRoute = error.requestOptions.path.contains('/auth/login');
-          final isRefreshRoute = error.requestOptions.path.contains('/auth/refresh');
+          final isLoginRoute = error.requestOptions.path.contains(
+            '/auth/login',
+          );
+          final isRefreshRoute = error.requestOptions.path.contains(
+            '/auth/refresh',
+          );
 
           // Não limpar tokens se for erro 401 em rota de login (credenciais inválidas)
           if (error.response?.statusCode == 401) {
             if (isLoginRoute) {
-              print('🔐 [API_SERVICE] Erro 401 em rota de login - credenciais inválidas');
+              print(
+                '🔐 [API_SERVICE] Erro 401 em rota de login - credenciais inválidas',
+              );
               handler.next(error);
               return;
             }
@@ -60,7 +70,9 @@ class ApiService {
               // Renovação com lock para evitar concorrência
               try {
                 if (_isRefreshing) {
-                  print('⏳ [API_SERVICE] Aguardando renovação de token em andamento...');
+                  print(
+                    '⏳ [API_SERVICE] Aguardando renovação de token em andamento...',
+                  );
                   await _refreshCompleter?.future;
                 } else {
                   _isRefreshing = true;
@@ -77,7 +89,9 @@ class ApiService {
                 final updatedHeaders = Map<String, dynamic>.from(req.headers);
                 if (_accessToken != null) {
                   updatedHeaders['Authorization'] = 'Bearer $_accessToken';
-                  print('🔄 [API_SERVICE] Repetindo requisição com novo token: ${req.path}');
+                  print(
+                    '🔄 [API_SERVICE] Repetindo requisição com novo token: ${req.path}',
+                  );
                 } else {
                   updatedHeaders.remove('Authorization');
                   print('⚠️ [API_SERVICE] Token ainda null após renovação');
@@ -111,17 +125,24 @@ class ApiService {
 
                 // Só limpar tokens se o refresh endpoint confirmou que o token é inválido (401/403)
                 // Erros de rede, timeout ou outros não devem causar logout
-                final isAuthError = e is DioException &&
-                    (e.response?.statusCode == 401 || e.response?.statusCode == 403);
-                final isExplicitAuthError = e.toString().contains('401') ||
+                final isAuthError =
+                    e is DioException &&
+                    (e.response?.statusCode == 401 ||
+                        e.response?.statusCode == 403);
+                final isExplicitAuthError =
+                    e.toString().contains('401') ||
                     e.toString().contains('Unauthorized') ||
                     e.toString().contains('expired');
 
                 if (isAuthError || isExplicitAuthError) {
-                  print('🗑️ [API_SERVICE] Limpando tokens: refresh confirmou sessão inválida');
+                  print(
+                    '🗑️ [API_SERVICE] Limpando tokens: refresh confirmou sessão inválida',
+                  );
                   await _clearTokens();
                 } else {
-                  print('⚠️ [API_SERVICE] Erro transitório no refresh - mantendo sessão');
+                  print(
+                    '⚠️ [API_SERVICE] Erro transitório no refresh - mantendo sessão',
+                  );
                 }
 
                 handler.next(error);
@@ -131,11 +152,15 @@ class ApiService {
               // Sem refresh token: NÃO limpar tokens agressivamente.
               // Propagar o erro para a camada de UI decidir o que fazer.
               // Isso evita "deslogar" o aluno por um 401 isolado em chamada de fundo.
-              print('⚠️ [API_SERVICE] Erro 401 sem refresh token - propagando erro (sem limpar sessão)');
+              print(
+                '⚠️ [API_SERVICE] Erro 401 sem refresh token - propagando erro (sem limpar sessão)',
+              );
 
               // Só limpar se realmente não temos nenhum token (sessão já perdida)
               if (_accessToken == null) {
-                print('🗑️ [API_SERVICE] Sessão já perdida (_accessToken == null)');
+                print(
+                  '🗑️ [API_SERVICE] Sessão já perdida (_accessToken == null)',
+                );
                 await _clearTokens();
               }
             }
@@ -152,7 +177,16 @@ class ApiService {
     _refreshToken = prefs.getString('refresh_token');
   }
 
-  Future<void> _saveTokens(String accessToken, String refreshToken, {String? userId, String? userType, String? firstName, String? lastName, String? profileImageUrl, String? approvalStatus}) async {
+  Future<void> _saveTokens(
+    String accessToken,
+    String refreshToken, {
+    String? userId,
+    String? userType,
+    String? firstName,
+    String? lastName,
+    String? profileImageUrl,
+    String? approvalStatus,
+  }) async {
     print('💾 [API_SERVICE] Salvando tokens...');
     print('💾 [API_SERVICE] userId: $userId');
     print('💾 [API_SERVICE] userType: $userType');
@@ -167,6 +201,7 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', accessToken);
     await prefs.setString('refresh_token', refreshToken);
+    await prefs.setBool(_pushNotificationsEnabledKey, true);
     if (userId != null) {
       await prefs.setString('user_id', userId);
     }
@@ -194,36 +229,39 @@ class ApiService {
 
   Future<void> _clearTokens() async {
     print('🗑️ [API_SERVICE] Limpando TODOS os dados do SharedPreferences...');
-    
+
     // ⚠️ CRÍTICO: Limpar variáveis de instância PRIMEIRO
     // Isso garante que nenhum request use o token antigo enquanto limpamos o storage
     final oldAccessToken = _accessToken;
     _accessToken = null;
     _refreshToken = null;
     print('🗑️ [API_SERVICE] Variáveis de instância limpas');
-    print('🗑️ [API_SERVICE] Token antigo: ${oldAccessToken?.substring(0, 20)}...');
-    
+    print(
+      '🗑️ [API_SERVICE] Token antigo: ${oldAccessToken?.substring(0, 20)}...',
+    );
+
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Limpar tokens de autenticação
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
+    await prefs.setBool(_pushNotificationsEnabledKey, false);
     await prefs.remove('user_id');
     await prefs.remove('user_type');
-    
+
     // Limpar dados do perfil
     await prefs.remove('first_name');
     await prefs.remove('last_name');
     await prefs.remove('profile_image_url');
-    
+
     // ⚠️ CORREÇÃO DO BUG: Limpar TODOS os dados em cache
     // Isso garante que quando outro usuário logar, não verá dados do usuário anterior
     final keys = prefs.getKeys();
     for (final key in keys) {
       // Manter apenas configurações do app que não são específicas do usuário
       // Também preservar notificações locais (são específicas do dispositivo, não do usuário)
-      if (!key.startsWith('app_') && 
-          !key.startsWith('settings_') && 
+      if (!key.startsWith('app_') &&
+          !key.startsWith('settings_') &&
           key != 'local_notifications' && // Preservar notificações locais
           key != 'onboarding_completed' && // Preservar estado de onboarding
           key != 'onboarding_current_page') {
@@ -231,7 +269,7 @@ class ApiService {
         print('🗑️ [API_SERVICE] Removido: $key');
       }
     }
-    
+
     print('✅ [API_SERVICE] Todos os dados limpos com sucesso');
     print('✅ [API_SERVICE] _accessToken agora é: $_accessToken');
     print('✅ [API_SERVICE] _refreshToken agora é: $_refreshToken');
@@ -247,7 +285,7 @@ class ApiService {
     try {
       // ✅ CORREÇÃO: Usar dio sem interceptor para evitar loop infinito
       final dioWithoutInterceptor = Dio(_dio.options);
-      
+
       final response = await dioWithoutInterceptor.post(
         '/auth/refresh',
         data: {'refreshToken': _refreshToken},
@@ -256,7 +294,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = response.data;
         print('✅ [API_SERVICE] Token renovado com sucesso');
-        final refreshedApprovalStatus = data['user']?['approvalStatus'] as String?;
+        final refreshedApprovalStatus =
+            data['user']?['approvalStatus'] as String?;
         await _saveTokens(
           data['accessToken'],
           data['refreshToken'],
@@ -264,7 +303,9 @@ class ApiService {
           approvalStatus: refreshedApprovalStatus,
         );
       } else {
-        print('❌ [API_SERVICE] Falha ao renovar token - Status: ${response.statusCode}');
+        print(
+          '❌ [API_SERVICE] Falha ao renovar token - Status: ${response.statusCode}',
+        );
         throw Exception('Falha ao renovar token');
       }
     } on DioException catch (e) {
@@ -279,9 +320,27 @@ class ApiService {
   }
 
   // Métodos públicos para gerenciar tokens
-  Future<void> setTokens(String accessToken, String refreshToken, {String? userId, String? userType, String? firstName, String? lastName, String? profileImageUrl, String? approvalStatus}) async {
+  Future<void> setTokens(
+    String accessToken,
+    String refreshToken, {
+    String? userId,
+    String? userType,
+    String? firstName,
+    String? lastName,
+    String? profileImageUrl,
+    String? approvalStatus,
+  }) async {
     print('🔑 [API_SERVICE] setTokens chamado');
-    await _saveTokens(accessToken, refreshToken, userId: userId, userType: userType, firstName: firstName, lastName: lastName, profileImageUrl: profileImageUrl, approvalStatus: approvalStatus);
+    await _saveTokens(
+      accessToken,
+      refreshToken,
+      userId: userId,
+      userType: userType,
+      firstName: firstName,
+      lastName: lastName,
+      profileImageUrl: profileImageUrl,
+      approvalStatus: approvalStatus,
+    );
     print('🔑 [API_SERVICE] setTokens concluído');
   }
 
@@ -295,10 +354,12 @@ class ApiService {
 
   // Getter para o access token
   String? getAccessToken() {
-    print('🔍 [API_SERVICE] getAccessToken chamado - Token: ${_accessToken?.substring(0, 20)}...');
+    print(
+      '🔍 [API_SERVICE] getAccessToken chamado - Token: ${_accessToken?.substring(0, 20)}...',
+    );
     return _accessToken;
   }
-  
+
   // Getter para o user type
   Future<String?> getUserType() async {
     final prefs = await SharedPreferences.getInstance();

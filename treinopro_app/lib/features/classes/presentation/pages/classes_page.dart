@@ -9,17 +9,13 @@ import '../../data/models/report_no_show_dto.dart';
 import '../widgets/class_timer_widget.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
-import '../../data/models/get_classes_dto.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../evaluation/presentation/pages/class_evaluation_page.dart';
 import 'personal_class_tracking_page.dart';
 import '../bloc/classes_bloc.dart';
-import '../bloc/classes_event.dart';
-import '../bloc/classes_state.dart';
 import '../widgets/report_no_show_modal.dart';
 import '../widgets/dispute_defense_modal.dart';
 import '../../data/models/start_class_dto.dart';
-import '../../data/services/classes_api_service.dart';
 import '../../../health_questionnaire/health_questionnaire.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
 import '../../../home/presentation/bloc/home_state.dart' as home_states;
@@ -661,8 +657,15 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
+    final alignment = crossAxisAlignment == CrossAxisAlignment.start
+        ? WrapAlignment.start
+        : WrapAlignment.end;
+
+    return Wrap(
+      alignment: alignment,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 4,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -681,7 +684,6 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           _formatClassPrice(classData.proposalPrice),
           style: TextStyle(
