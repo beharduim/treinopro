@@ -190,6 +190,53 @@ void main() {
         },
       );
 
+      testWidgets(
+        'cancelled filter should hide future cancelled classes on personal view',
+        (WidgetTester tester) async {
+          final now = DateTime.now();
+          final cancelledPastClass = _buildClass(
+            id: 'pt-cancelled-past',
+            location: 'Academia Cancelada Passada Personal',
+            date: now.subtract(const Duration(hours: 2)),
+            time:
+                '${now.subtract(const Duration(hours: 2)).hour.toString().padLeft(2, '0')}:${now.subtract(const Duration(hours: 2)).minute.toString().padLeft(2, '0')}',
+            status: ClassStatus.CANCELLED,
+          );
+          final cancelledFutureClass = _buildClass(
+            id: 'pt-cancelled-future',
+            location: 'Academia Cancelada Futura Personal',
+            date: now.add(const Duration(hours: 2)),
+            time:
+                '${now.add(const Duration(hours: 2)).hour.toString().padLeft(2, '0')}:${now.add(const Duration(hours: 2)).minute.toString().padLeft(2, '0')}',
+            status: ClassStatus.CANCELLED,
+          );
+          final initialState = ClassesLoaded(
+            classes: [cancelledPastClass, cancelledFutureClass],
+            timelines: const {},
+            timers: const {},
+          );
+
+          when(
+            () => mockClassesBloc.stream,
+          ).thenAnswer((_) => Stream.value(initialState));
+          when(() => mockClassesBloc.state).thenReturn(initialState);
+
+          await tester.pumpWidget(createWidgetUnderTest(const ClassesPage()));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Status'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Aula cancelada').last);
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text('Academia Cancelada Passada Personal'),
+            findsOneWidget,
+          );
+          expect(find.text('Academia Cancelada Futura Personal'), findsNothing);
+        },
+      );
+
       testWidgets('CUSTODY: should show "Em análise" and NO defense button', (
         WidgetTester tester,
       ) async {
@@ -315,6 +362,52 @@ void main() {
             find.textContaining('O personal reportou sua ausência'),
             findsOneWidget,
           );
+        },
+      );
+
+      testWidgets(
+        'cancelled filter should hide future cancelled classes on student view',
+        (WidgetTester tester) async {
+          final now = DateTime.now();
+          final cancelledPastClass = _buildClass(
+            id: 'st-cancelled-past',
+            location: 'Academia Cancelada Passada Aluno',
+            date: now.subtract(const Duration(hours: 2)),
+            time:
+                '${now.subtract(const Duration(hours: 2)).hour.toString().padLeft(2, '0')}:${now.subtract(const Duration(hours: 2)).minute.toString().padLeft(2, '0')}',
+            status: ClassStatus.CANCELLED,
+          );
+          final cancelledFutureClass = _buildClass(
+            id: 'st-cancelled-future',
+            location: 'Academia Cancelada Futura Aluno',
+            date: now.add(const Duration(hours: 2)),
+            time:
+                '${now.add(const Duration(hours: 2)).hour.toString().padLeft(2, '0')}:${now.add(const Duration(hours: 2)).minute.toString().padLeft(2, '0')}',
+            status: ClassStatus.CANCELLED,
+          );
+          final initialState = ClassesLoaded(
+            classes: [cancelledPastClass, cancelledFutureClass],
+            timelines: const {},
+            timers: const {},
+          );
+
+          when(
+            () => mockClassesBloc.stream,
+          ).thenAnswer((_) => Stream.value(initialState));
+          when(() => mockClassesBloc.state).thenReturn(initialState);
+
+          await tester.pumpWidget(
+            createWidgetUnderTest(const StudentClassesPage()),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Status'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Aula cancelada').last);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Academia Cancelada Passada Aluno'), findsOneWidget);
+          expect(find.text('Academia Cancelada Futura Aluno'), findsNothing);
         },
       );
 

@@ -621,7 +621,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
       case 'Aula concluída':
         return classData.status == ClassStatus.COMPLETED;
       case 'Aula cancelada':
-        return classData.status == ClassStatus.CANCELLED;
+        return classData.status == ClassStatus.CANCELLED &&
+            !_isFutureScheduledClass(classData);
       case 'Aula em disputa':
         return classData.status == ClassStatus.NO_SHOW_DISPUTE ||
             classData.status == ClassStatus.CUSTODY;
@@ -640,6 +641,21 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
     }
 
     return true;
+  }
+
+  bool _isFutureScheduledClass(ClassResponseDto classData) {
+    final parts = classData.time.split(':');
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    final scheduledDateTime = DateTime(
+      classData.date.year,
+      classData.date.month,
+      classData.date.day,
+      hour,
+      minute,
+    );
+
+    return scheduledDateTime.isAfter(DateTime.now());
   }
 
   String _formatClassPrice(double? price) {
