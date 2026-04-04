@@ -251,6 +251,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
         break;
       
       case 'class_reminder':
+      case 'class_cancelled':
         _navigateToClassesPage(notification);
         break;
       

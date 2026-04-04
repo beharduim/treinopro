@@ -54,6 +54,8 @@ private struct ProposalAttributes: ActivityAttributes {
 
     let didFinish = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
+    cleanupLiveActivitiesIfNeeded()
+
     // ✅ Configurar Method Channel para Live Activities.
     // Alguns ciclos de inicialização deixam window/rootViewController indisponíveis aqui,
     // então tentamos imediatamente e novamente no próximo runloop.
@@ -68,6 +70,7 @@ private struct ProposalAttributes: ActivityAttributes {
   override func applicationDidBecomeActive(_ application: UIApplication) {
     super.applicationDidBecomeActive(application)
     setupLiveActivityChannelIfNeeded()
+    cleanupLiveActivitiesIfNeeded()
   }
 
   private func setupLiveActivityChannelIfNeeded() {
@@ -118,33 +121,16 @@ private struct ProposalAttributes: ActivityAttributes {
   // MARK: - Live Activity Handlers
 
   private func handleStartLiveActivity(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    print("[LiveActivity] Start ignored because Live Activity is disabled on iOS")
+    result(nil)
+  }
+
+  private func cleanupLiveActivitiesIfNeeded() {
     guard #available(iOS 16.1, *) else {
-      result(nil) // Silently no-op on older iOS
       return
     }
 
-    guard let args = call.arguments as? [String: Any],
-          let proposalId = args["proposalId"] as? String,
-          let studentName = args["studentName"] as? String,
-          let location = args["location"] as? String,
-          let modality = args["modality"] as? String,
-          let price = args["price"] as? String,
-          let trainingTime = args["trainingTime"] as? String,
-          let expiresIn = args["expiresIn"] as? Int else {
-      result(FlutterError(code: "INVALID_ARGS", message: "Missing required arguments", details: nil))
-      return
-    }
-
-    startLiveActivityImpl(
-      proposalId: proposalId,
-      studentName: studentName,
-      location: location,
-      modality: modality,
-      price: price,
-      trainingTime: trainingTime,
-      expiresIn: expiresIn,
-      result: result
-    )
+    endLiveActivityImpl(proposalId: nil) { _ in }
   }
 
   @available(iOS 16.1, *)

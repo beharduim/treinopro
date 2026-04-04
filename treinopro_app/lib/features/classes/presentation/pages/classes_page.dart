@@ -364,37 +364,12 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
   String? _getDateFilter() {
     if (_selectedDate == null) return null;
 
-    final now = DateTime.now();
-    String? result;
-
-    switch (_selectedDate) {
-      case 'Todos':
-        result = null;
-        break;
-      case 'Hoje':
-        result =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-        break;
-      case 'Amanhã':
-        final tomorrow = now.add(const Duration(days: 1));
-        result =
-            '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
-        break;
-      case 'Essa semana':
-        // Filtrado localmente.
-        result = null;
-        break;
-      case 'Esse mês':
-        // Filtrado localmente.
-        result = null;
-        break;
-      default:
-        result = null;
-    }
-
-    print('🔍 [PERSONAL_FILTERS] Filtro de data selecionado: $_selectedDate');
-    print('🔍 [PERSONAL_FILTERS] Filtro de data convertido: $result');
-    return result;
+    // O backend tem apresentado inconsistência ao receber datas relativas
+    // (ex.: "Hoje"), então o filtro de calendário fica 100% local na UI.
+    print(
+      '🔍 [PERSONAL_FILTERS] Filtro de data selecionado: $_selectedDate -> filtro aplicado apenas localmente',
+    );
+    return null;
   }
 
   /// Converte filtro de horário do chip para formato da API

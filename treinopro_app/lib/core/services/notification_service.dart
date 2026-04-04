@@ -14,7 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fcm_token_service.dart';
 import 'deep_link_service.dart';
-import 'live_activity_service.dart';
 import '../../features/notifications/data/models/notification_model.dart';
 import '../../features/notifications/data/services/local_notifications_storage.dart';
 import '../navigation/app_navigator.dart';
@@ -778,6 +777,11 @@ class NotificationService {
         case 'class_reminder':
           if (data['classId'] != null) payloadData['classId'] = data['classId'];
           break;
+        case 'class_cancelled':
+          if (data['classId'] != null) payloadData['classId'] = data['classId'];
+          if (data['actorName'] != null)
+            payloadData['actorName'] = data['actorName'];
+          break;
         case 'payment_received':
           if (data['classId'] != null) payloadData['classId'] = data['classId'];
           break;
@@ -1017,35 +1021,10 @@ class NotificationService {
   }) async {
     if (!Platform.isIOS) return false;
 
-    final normalized = _normalizeLiveActivityPayload(data);
-    final proposalId = normalized['proposalId'] as String;
-    if (proposalId.isEmpty) {
-      print('⚠️ [NOTIF] Live Activity ignorada ($source): proposalId vazio');
-      return false;
-    }
-
-    final activityId = await LiveActivityService.instance.startActivity(
-      proposalId: proposalId,
-      studentName: normalized['studentName'] as String,
-      location: normalized['location'] as String,
-      modality: normalized['modality'] as String,
-      price: normalized['price'] as String,
-      trainingTime: normalized['trainingTime'] as String,
-      expiresIn: normalized['expiresIn'] as int,
+    final proposalId = data['proposalId']?.toString() ?? '';
+    print(
+      'ℹ️ [NOTIF] Live Activity desativada no iOS; ignorando ($source): $proposalId | persistOnFailure=$persistOnFailure',
     );
-
-    if (activityId != null) {
-      await _removePendingLiveActivityPayload(proposalId);
-      print(
-        '✅ [NOTIF] Live Activity iniciada com sucesso ($source): $proposalId',
-      );
-      return true;
-    }
-
-    print('⚠️ [NOTIF] Falha ao iniciar Live Activity ($source): $proposalId');
-    if (persistOnFailure) {
-      await _persistPendingLiveActivityPayload(normalized);
-    }
     return false;
   }
 
@@ -1286,6 +1265,9 @@ class NotificationService {
         case 'class_reminder':
           inAppNotificationType = 'info';
           break;
+        case 'class_cancelled':
+          inAppNotificationType = 'warning';
+          break;
         case 'payment_received':
           inAppNotificationType = 'success';
           break;
@@ -1304,6 +1286,7 @@ class NotificationService {
       print('🔄 [CONVERT] Criando NotificationModel...');
       final notificationModel = NotificationModel(
         id:
+            data['notificationId']?.toString() ??
             message.messageId ??
             'notif_${DateTime.now().millisecondsSinceEpoch}',
         title: title,
@@ -1344,6 +1327,42 @@ class NotificationService {
           '💬 [CONVERT] ===== ERRO AO CONVERTER NOTIFICAÇÃO DE MENSAGEM =====',
         );
       }
+    }
+  }
+
+  static Future<void> saveInAppNotificationFromData({
+    required String id,
+    required String title,
+    required String message,
+    String type = 'info',
+    Map<String, dynamic>? data,
+    DateTime? createdAt,
+  }) async {
+    try {
+      final pushEnabled = await arePushNotificationsEnabled();
+      if (!pushEnabled) {
+        print(
+          '🚫 [NOTIF] Ignorando salvamento local porque o dispositivo está deslogado/com push desabilitado',
+        );
+        return;
+      }
+
+      final notificationModel = NotificationModel(
+        id: id,
+        title: title,
+        message: message,
+        type: type,
+        isRead: false,
+        createdAt: createdAt ?? DateTime.now(),
+        data: data,
+      );
+
+      await LocalNotificationsStorage.addNotification(notificationModel);
+      _notificationAddedController.add(null);
+      print('✅ [NOTIF] Informe salvo localmente: $title | $message');
+    } catch (e, stackTrace) {
+      print('❌ [NOTIF] Erro ao salvar informe local: $e');
+      print('❌ [NOTIF] StackTrace: $stackTrace');
     }
   }
 
@@ -1473,6 +1492,7 @@ class NotificationService {
         break;
 
       case 'class_reminder':
+      case 'class_cancelled':
         await _navigateToClasses(payloadData, context);
         break;
 

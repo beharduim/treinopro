@@ -12,6 +12,7 @@ import '../../core/di/dependency_injection.dart';
 import '../../features/home/data/services/auth_service.dart';
 import 'websocket_service.dart';
 import 'live_activity_service.dart';
+import 'notification_service.dart';
 import '../../features/proposals/presentation/bloc/proposal_search_bloc.dart' as proposal_search;
 import '../../features/users/data/services/users_api_service.dart';
 // import 'fcm_service.dart'; // COMENTADO: Não usando FCMService por enquanto
@@ -661,6 +662,37 @@ class RealtimeDataService {
     
     if (action == 'class_cancelled') {
       debugPrint('❌ [CLASS_UPDATE] Aula cancelada - removendo apenas o card específico');
+
+      final cancelledBy = data['cancelledBy']?.toString();
+      final currentUserId = _getCurrentUserId();
+      if (classData != null &&
+          cancelledBy != null &&
+          currentUserId != null &&
+          cancelledBy != currentUserId) {
+        final actorName =
+            data['actorName']?.toString().trim().isNotEmpty == true
+            ? data['actorName'].toString().trim()
+            : _resolveCancellationActorName(classData, cancelledBy);
+        final classId = classData['id']?.toString() ?? '';
+        final notificationId =
+            data['notificationId']?.toString() ??
+            'class_cancelled_${classId}_$cancelledBy';
+        unawaited(
+          NotificationService.saveInAppNotificationFromData(
+            id: notificationId,
+            title: 'Informe',
+            message: '$actorName cancelou a aula',
+            type: 'warning',
+            data: {
+              'type': 'class_cancelled',
+              'classId': classId,
+              'cancelledBy': cancelledBy,
+              'actorName': actorName,
+              'notificationId': notificationId,
+            },
+          ),
+        );
+      }
       
       // ✅ CORREÇÃO: Usar ClassesUpdateFromWebSocket para atualizar apenas o card específico
       // ao invés de fazer refresh completo da lista (evita refresh contínuo)
@@ -712,6 +744,32 @@ class RealtimeDataService {
     }
     
     debugPrint('🏁 [CLASS_UPDATE] Handler finalizado');
+  }
+
+  String _resolveCancellationActorName(
+    Map<String, dynamic> classData,
+    String cancelledBy,
+  ) {
+    final personalId = classData['personalId']?.toString();
+    final studentId = classData['studentId']?.toString();
+    final personal = classData['personal'] as Map<String, dynamic>?;
+    final student = classData['student'] as Map<String, dynamic>?;
+
+    if (cancelledBy == personalId) {
+      final name =
+          classData['personalName']?.toString().trim() ??
+          '${personal?['firstName'] ?? ''} ${personal?['lastName'] ?? ''}'.trim();
+      return name.isNotEmpty ? name : 'O personal';
+    }
+
+    if (cancelledBy == studentId) {
+      final name =
+          classData['studentName']?.toString().trim() ??
+          '${student?['firstName'] ?? ''} ${student?['lastName'] ?? ''}'.trim();
+      return name.isNotEmpty ? name : 'O aluno';
+    }
+
+    return 'Alguém';
   }
 
   Future<void> _handleClassCreated(Map<String, dynamic>? data) async {
