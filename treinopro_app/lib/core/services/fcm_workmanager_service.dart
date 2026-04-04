@@ -7,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:treinopro_app/firebase_options.dart';
+import 'package:treinopro_app/core/config/app_config.dart';
 
 /// Serviço WorkManager para garantir reliability do FCM mesmo em Doze Mode
 /// Executa verificações periódicas (a cada 15 minutos) para garantir que o FCM está funcionando
@@ -53,11 +54,14 @@ class FcmWorkManagerService {
           networkType: NetworkType.connected, // Requer conexão com internet
           requiresBatteryNotLow: false, // Executa mesmo com bateria baixa
           requiresCharging: false, // Executa mesmo sem estar carregando
-          requiresDeviceIdle: false, // Executa mesmo que dispositivo esteja em uso
+          requiresDeviceIdle:
+              false, // Executa mesmo que dispositivo esteja em uso
           requiresStorageNotLow: false, // Executa mesmo com storage baixo
         ),
         existingWorkPolicy: ExistingWorkPolicy.keep, // Manter work existente
-        initialDelay: const Duration(minutes: 15), // Primeira execução após 15min
+        initialDelay: const Duration(
+          minutes: 15,
+        ), // Primeira execução após 15min
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 1),
       );
@@ -116,7 +120,7 @@ void callbackDispatcher() {
         case 'fcmHealthCheck':
           await _performFcmHealthCheck();
           break;
-        
+
         default:
           if (kDebugMode) {
             print('⚠️ [WORKMANAGER] Task desconhecida: $task');
@@ -158,19 +162,21 @@ Future<void> _performFcmHealthCheck() async {
     // 1. Verificar se FCM token existe
     final messaging = FirebaseMessaging.instance;
     final token = await messaging.getToken();
-    
+
     if (token == null || token.isEmpty) {
       if (kDebugMode) {
         print('⚠️ [FCM_HEALTH] Token FCM não disponível!');
       }
-      
+
       // Tentar obter novo token
       await messaging.deleteToken();
       final newToken = await messaging.getToken();
-      
+
       if (newToken != null) {
         if (kDebugMode) {
-          print('✅ [FCM_HEALTH] Novo token obtido: ${newToken.substring(0, 20)}...');
+          print(
+            '✅ [FCM_HEALTH] Novo token obtido: ${newToken.substring(0, 20)}...',
+          );
         }
       } else {
         if (kDebugMode) {
@@ -186,7 +192,9 @@ Future<void> _performFcmHealthCheck() async {
     // 2. Verificar permissões de notificação
     final settings = await messaging.getNotificationSettings();
     if (kDebugMode) {
-      print('📋 [FCM_HEALTH] Status de permissão: ${settings.authorizationStatus}');
+      print(
+        '📋 [FCM_HEALTH] Status de permissão: ${settings.authorizationStatus}',
+      );
     }
 
     if (settings.authorizationStatus != AuthorizationStatus.authorized) {
@@ -217,7 +225,6 @@ Future<void> _performFcmHealthCheck() async {
     if (kDebugMode) {
       print('✅ [FCM_HEALTH] Health check concluído com sucesso');
     }
-
   } catch (e) {
     if (kDebugMode) {
       print('❌ [FCM_HEALTH] Erro no health check: $e');
@@ -237,24 +244,24 @@ Future<void> _pingServer() async {
 
     // Obter URL base do servidor
     // WorkManager roda em isolate separado, não pode acessar GetIt ou AppConfig
-    // Usar variável de ambiente ou valor padrão
     String baseUrl;
     try {
-      // Tentar carregar .env se ainda não foi carregado
       if (dotenv.env.isEmpty) {
-        // Se não conseguir carregar, usar valor padrão de desenvolvimento
-        baseUrl = 'http://localhost:3000';
+        baseUrl = AppConfig.apiBaseUrl;
         if (kDebugMode) {
-          print('⚠️ [FCM_HEALTH] .env não carregado, usando URL padrão: $baseUrl');
+          print(
+            '⚠️ [FCM_HEALTH] .env não carregado, usando baseUrl resolvida: $baseUrl',
+          );
         }
       } else {
-        baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+        baseUrl = AppConfig.apiBaseUrl;
       }
     } catch (e) {
-      // Fallback para URL padrão se houver erro ao carregar .env
-      baseUrl = 'http://localhost:3000';
+      baseUrl = AppConfig.defaultApiBaseUrl;
       if (kDebugMode) {
-        print('⚠️ [FCM_HEALTH] Erro ao carregar .env, usando URL padrão: $baseUrl');
+        print(
+          '⚠️ [FCM_HEALTH] Erro ao resolver baseUrl, usando fallback: $baseUrl',
+        );
       }
     }
 
@@ -273,11 +280,15 @@ Future<void> _pingServer() async {
 
     if (response.statusCode == 200) {
       if (kDebugMode) {
-        print('✅ [FCM_HEALTH] Servidor respondendo corretamente (${response.statusCode})');
+        print(
+          '✅ [FCM_HEALTH] Servidor respondendo corretamente (${response.statusCode})',
+        );
         try {
           final body = response.body;
           if (body.isNotEmpty) {
-            print('📋 [FCM_HEALTH] Resposta: ${body.substring(0, body.length > 100 ? 100 : body.length)}...');
+            print(
+              '📋 [FCM_HEALTH] Resposta: ${body.substring(0, body.length > 100 ? 100 : body.length)}...',
+            );
           }
         } catch (e) {
           // Ignorar erro ao parsear resposta
@@ -285,14 +296,18 @@ Future<void> _pingServer() async {
       }
     } else {
       if (kDebugMode) {
-        print('⚠️ [FCM_HEALTH] Servidor respondeu com status: ${response.statusCode}');
+        print(
+          '⚠️ [FCM_HEALTH] Servidor respondeu com status: ${response.statusCode}',
+        );
       }
     }
   } on SocketException catch (e) {
     // Erro de conexão (sem internet, servidor offline, etc)
     if (kDebugMode) {
       print('⚠️ [FCM_HEALTH] Erro de conexão ao pingar servidor: ${e.message}');
-      print('⚠️ [FCM_HEALTH] Possíveis causas: sem internet, servidor offline, ou URL incorreta');
+      print(
+        '⚠️ [FCM_HEALTH] Possíveis causas: sem internet, servidor offline, ou URL incorreta',
+      );
     }
   } on TimeoutException catch (e) {
     // Timeout na requisição

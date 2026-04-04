@@ -2,10 +2,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
+  static const String _releaseApiBaseUrl = 'https://api.treinopro.com';
+  static const String _debugApiBaseUrl = 'http://localhost:3000';
+  static const String _apiBaseUrlFromDefine = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
+
   static String get apiBaseUrl {
-    final configuredUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+    final configuredUrl = _apiBaseUrlFromDefine.isNotEmpty
+        ? _apiBaseUrlFromDefine
+        : (dotenv.env['API_BASE_URL'] ?? defaultApiBaseUrl);
     return _normalizeApiBaseUrl(configuredUrl);
   }
+
+  static String get defaultApiBaseUrl =>
+      kDebugMode ? _debugApiBaseUrl : _releaseApiBaseUrl;
 
   static String get jwtSecret => dotenv.env['JWT_SECRET'] ?? '';
   static String get jwtExpiresIn => dotenv.env['JWT_EXPIRES_IN'] ?? '24h';
@@ -38,6 +50,14 @@ class AppConfig {
   }
 
   static Future<void> load() async {
-    await dotenv.load(fileName: '.env');
+    try {
+      await dotenv.load(fileName: '.env');
+    } catch (_) {
+      if (kDebugMode) {
+        debugPrint(
+          '⚠️ [APP_CONFIG] .env não carregado, usando fallback: $defaultApiBaseUrl',
+        );
+      }
+    }
   }
 }

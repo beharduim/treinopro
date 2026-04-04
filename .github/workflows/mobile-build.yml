@@ -177,7 +177,8 @@ jobs:
         run: |
           set -eo pipefail
 
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL="${APP_API_BASE_URL}"
 
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
@@ -349,8 +350,10 @@ jobs:
 
       - name: Build signed Android artifacts
         run: |
-          flutter build apk --release
-          flutter build appbundle --release
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="${APP_API_BASE_URL}"
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="${APP_API_BASE_URL}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
