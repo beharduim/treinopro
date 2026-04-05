@@ -532,7 +532,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       final type = message['type'] as String?;
       print('📥 [PERSONAL_HOME] Mensagem WebSocket recebida - tipo: $type');
 
-      if (type == 'new_proposal') {
+      if (type == 'new_proposal' || type == 'proposal_created') {
         print('📨 [PERSONAL_HOME] Nova proposta recebida via WebSocket');
         final data = message['data'] as Map<String, dynamic>?;
         if (data != null) {
@@ -1001,6 +1001,23 @@ class _PersonalHomePageState extends State<PersonalHomePage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (latestUnreadCancellationNotification != null) ...[
+                  PersistentNoticeCard(
+                    title: latestUnreadCancellationNotification!.title,
+                    message: latestUnreadCancellationNotification!.message,
+                    onTap: () async {
+                      await markAsRead(
+                        latestUnreadCancellationNotification!.id,
+                      );
+                      if (!mounted) return;
+                      _onBottomNavTap(1);
+                    },
+                    onDismiss: () {
+                      markAsRead(latestUnreadCancellationNotification!.id);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 // Card principal escuro
                 _buildMainCard(state),
 
@@ -1963,7 +1980,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
   void _maybeShowIncomingProposal(Map<String, dynamic> data) async {
     try {
       final action = data['action'] as String?;
-      if (action != 'proposal_created') {
+      if (action != null && action != 'proposal_created') {
         print(
           '⚠️ [PERSONAL_HOME] Action não é proposal_created, ignorando. Action: $action',
         );

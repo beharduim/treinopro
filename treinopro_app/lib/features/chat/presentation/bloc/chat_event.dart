@@ -102,3 +102,8 @@ class ChatUpdateWebSocketConnection extends ChatEvent {
   @override
   List<Object?> get props => [isConnected];
 }
+
+/// Recupera a sessão do chat após retorno do background/foco
+class ChatRecoverSession extends ChatEvent {
+  const ChatRecoverSession();
+}

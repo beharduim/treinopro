@@ -354,6 +354,21 @@ class _StudentHomePageState extends State<StudentHomePage>
         ),
         child: Column(
           children: [
+            if (latestUnreadCancellationNotification != null) ...[
+              PersistentNoticeCard(
+                title: latestUnreadCancellationNotification!.title,
+                message: latestUnreadCancellationNotification!.message,
+                onTap: () async {
+                  await markAsRead(latestUnreadCancellationNotification!.id);
+                  if (!mounted) return;
+                  _onBottomNavTap(1);
+                },
+                onDismiss: () {
+                  markAsRead(latestUnreadCancellationNotification!.id);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             // Header (avatar + saudação + nível/xp)
             UserGreetingCard(
               homeState: state,
