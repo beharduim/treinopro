@@ -69,8 +69,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
   ];
 
   final List<String> _statuses = [
+    'Aula futura',
     'Aula concluída',
-    'Aula cancelada',
     'Aula em disputa',
   ];
 

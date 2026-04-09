@@ -91,10 +91,20 @@ class NotificationsApiService {
 
   /// Remove todas as notificações
   Future<void> clearAllNotifications(String token) async {
-    // Nota: O backend não tem endpoint específico para limpar todas as notificações in-app
-    // Por enquanto, vamos apenas retornar sucesso
-    // TODO: Implementar endpoint no backend ou fazer delete individual
-    print('⚠️ [NOTIFICATIONS] clearAllNotifications não implementado no backend');
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/notifications/in-app'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      print('❌ [NOTIFICATIONS_API] Erro ao limpar todas as notificações: ${response.statusCode}');
+      throw Exception('Falha ao limpar todas as notificações: ${response.statusCode}');
+    }
+    
+    print('✅ [NOTIFICATIONS_API] Todas as notificações foram limpas no backend');
   }
 
   /// Obtém contagem de notificações não lidas

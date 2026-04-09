@@ -1154,9 +1154,62 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
             ),
 
             const SizedBox(height: 24),
+
+            // ✅ NOVO: Card de Atenção para o Aluno
+            _buildAttentionCard(),
           ],
         ),
       );
+  }
+
+  /// Card de atenção com layout escuro (replicado do MatchModal do personal)
+  Widget _buildAttentionCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D3748),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.warning,
+                size: 21,
+                color: Color(0xFFF9F9F9),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Atenção',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFF9F9F9),
+                  fontFamily: 'Fira Sans',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Esta aula é individual e não pode ser compartilhada. O treino com amigo será liberado futuramente, conforme seu nível no app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFFF9F9F9),
+                fontFamily: 'Fira Sans',
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchAndEnrichMatchData(ProposalSearchMatched state) async {

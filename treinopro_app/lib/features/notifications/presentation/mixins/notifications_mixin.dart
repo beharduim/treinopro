@@ -254,20 +254,41 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// Limpa todas as notificações (apenas localmente)
+  /// Limpa todas as notificações (backend e local)
   Future<void> clearAllNotifications() async {
     try {
-      // Limpar armazenamento local
-      await LocalNotificationsStorage.clearAll();
+      print('🗑️ [NOTIFICATIONS] Iniciando limpeza total de notificações...');
 
+      // 1. Tentar limpar no backend primeiro
+      final authService = di.sl<AuthService>();
+      final token =
+          await authService.getValidToken() ?? authService.accessToken;
+
+      if (token != null && token.isNotEmpty) {
+        try {
+          print('📡 [NOTIFICATIONS] Solicitando limpeza no backend...');
+          await di.sl<NotificationsApiService>().clearAllNotifications(token);
+          print('✅ [NOTIFICATIONS] Backend limpo com sucesso');
+        } catch (e) {
+          print('⚠️ [NOTIFICATIONS] Falha ao limpar no backend: $e');
+          // Continuamos para limpar localmente mesmo se o backend falhar
+        }
+      }
+
+      // 2. Limpar armazenamento local
+      await LocalNotificationsStorage.clearAll();
+      print('💾 [NOTIFICATIONS] Armazenamento local limpo');
+
+      // 3. Atualizar estado local
       if (mounted) {
         setState(() {
           _notifications.clear();
           _unreadCount = 0;
         });
+        print('📱 [NOTIFICATIONS] Estado visual resetado');
       }
     } catch (e) {
-      print('❌ [NOTIFICATIONS] Erro ao limpar notificações: $e');
+      print('❌ [NOTIFICATIONS] Erro crítico ao limpar notificações: $e');
     }
   }
 

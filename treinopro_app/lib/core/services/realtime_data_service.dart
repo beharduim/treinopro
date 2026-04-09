@@ -563,59 +563,50 @@ class RealtimeDataService {
           debugPrint('🔍 [MATCH_CONFIRMED] personal[$key]: $value');
         });
         
-        // ✅ ESTRATÉGIA UBER: Não mudar para matched com dados genéricos
-        // Só avançaremos o modal para matched se houver pelo menos nome OU foto
-        final hasMeaningfulPersonalData = (personalName != null && personalName.trim().isNotEmpty && personalName != 'Personal Trainer') ||
-                                          (personalImage != null && personalImage.trim().isNotEmpty);
-        if (!hasMeaningfulPersonalData) {
-          debugPrint('🚗 [MATCH_CONFIRMED] Mantendo estado "searching" (dados genéricos) até class_created trazer dados completos');
-        }
+        // ✅ CORREÇÃO: Remover "Estratégia Uber" — Se o match foi confirmado, a busca ACABOU.
+        // Se os dados forem genéricos, mostramos placeholders, mas o estado de "Searching" deve ser encerrado.
+        debugPrint('🤝 [MATCH_CONFIRMED] Match confirmado oficialmente pelo backend. Encerrando estado de busca.');
         
-        // Armazenar dados temporariamente para quando class_created chegar
+        // Armazenar dados para o caso do class_created demorar
         _pendingMatchData = {
           'location': proposal['locationName'] ?? 'Localização',
           'date': proposal['trainingDate'] ?? DateTime.now().toIso8601String(),
           'time': proposal['trainingTime'] ?? '00:00',
-          'personalName': personalName,
-          'personalImage': personalImage,
-          'personalRating': personalRating,
+          'personalName': personalName ?? 'Personal Trainer',
+          'personalImage': personalImage ?? '',
+          'personalRating': personalRating ?? 0.0,
           'personalTimeOnPlatform': personalResponseTime,
           'proposalId': proposal['id']?.toString() ?? '',
         };
         
-        // ✅ Só enviar WebSocketMatchFound se houver dados minimamente úteis
-        if (hasMeaningfulPersonalData) {
-          debugPrint('📦 [MATCH_CONFIRMED] Dados suficientes, enviando WebSocketMatchFound com nome/foto');
-          if (_proposalSearchBloc != null && !_proposalSearchBloc!.isClosed) {
-            final modality = proposal['modality']?.toString() ?? 'Personal Training';
-            _proposalSearchBloc!.add(proposal_search.WebSocketMatchFound(
-              personalName: personalName ?? 'Personal Trainer',
-              personalPhoto: personalImage ?? '',
-              personalRating: personalRating ?? 0.0,
-              personalResponseTime: personalResponseTime,
-              proposalId: proposal['id']?.toString() ?? '',
-              modality: modality,
-            ));
-            debugPrint('✅ [MATCH_CONFIRMED] WebSocketMatchFound enviado (com dados úteis)');
-          } else {
-            debugPrint('⚠️ [MATCH_CONFIRMED] ProposalSearchBloc não disponível');
-          }
+        // 1. Notificar ProposalSearchBloc IMEDIATAMENTE para fechar o modal ou mostrar tela de match
+        if (_proposalSearchBloc != null && !_proposalSearchBloc!.isClosed) {
+          final modality = proposal['modality']?.toString() ?? 'Personal Training';
+          _proposalSearchBloc!.add(proposal_search.WebSocketMatchFound(
+            personalName: personalName ?? 'Personal Trainer',
+            personalPhoto: personalImage ?? '',
+            personalRating: personalRating ?? 0.0,
+            personalResponseTime: personalResponseTime,
+            proposalId: proposal['id']?.toString() ?? '',
+            modality: modality,
+          ));
+          debugPrint('✅ [MATCH_CONFIRMED] WebSocketMatchFound enviado para fechar modal de busca');
         } else {
-          debugPrint('⏳ [MATCH_CONFIRMED] Aguardando class_created para dados completos');
+          debugPrint('⚠️ [MATCH_CONFIRMED] ProposalSearchBloc não disponível para fechar modal');
+        }
+        
+        // 2. Notificar HomeBloc IMEDIATAMENTE que a busca foi concluída (para sumir o card de busca)
+        if (_homeBloc != null && !_homeBloc!.isClosed) {
+          _homeBloc!.add(home_events.ProposalMatched(_pendingMatchData!));
+          debugPrint('📤 [MATCH_CONFIRMED] ProposalMatched enviado para HomeBloc parar card de busca');
+          
+          // Agendar um refresh de dados para garantir que tudo esteja sincronizado
+          _homeBloc!.add(const home_events.LoadWorkoutCardData());
         }
         
         // Tentar obter classId do evento (se disponível)
         final classId = data['classId'] as String? ?? data['class']?['id'] as String?;
         debugPrint('🔍 [MATCH_CONFIRMED] ClassId encontrado: ${classId ?? "null"}');
-        
-        // ClassId será atualizado pelo class_created com dados completos
-        debugPrint('📦 [MATCH_CONFIRMED] ClassId será atualizado pelo class_created: ${classId ?? "aguardando"}');
-        
-        // Notificar HomeBloc imediatamente (com lock de refresh no ApiService não há race condition)
-        if (_homeBloc != null && !_homeBloc!.isClosed) {
-          _homeBloc!.add(const home_events.LoadWorkoutCardData());
-          debugPrint('📤 [MATCH_CONFIRMED] HomeBloc notificado IMEDIATAMENTE para aluno');
-        }
       } else if (currentUserId != null && currentUserId == personalId) {
         debugPrint('👨‍🏫 [MATCH_CONFIRMED] Usuário é o PERSONAL que aceitou - apenas recarregando dados');
         // Apenas recarregar dados para o personal

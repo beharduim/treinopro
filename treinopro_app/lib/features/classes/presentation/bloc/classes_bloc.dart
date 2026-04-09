@@ -109,13 +109,33 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
   }
 
   String? _mapSelectedStatusToApiStatus() {
+    // ✅ Como as novas opções ('Aula futura', etc) são agrupamentos ou mapeamentos complexos,
+    // vamos buscar todas as aulas do servidor e filtrar localmente para garantir consistência.
+    // Retornamos null para o status na API.
+    return null;
+  }
+
+  /// Filtra as aulas localmente baseado no status selecionado na UI
+  List<ClassResponseDto> _applyLocalStatusFilter(List<ClassResponseDto> classes) {
+    if (_selectedStatus == null || _selectedStatus!.isEmpty) return classes;
+
+    print('🔍 [CLASSES_BLOC] Aplicando filtro local de status: $_selectedStatus');
+
     switch (_selectedStatus) {
+      case 'Aula futura':
+        // Agrupa todos os status que representam aulas não finalizadas
+        return classes.where((c) => 
+          c.status == ClassStatus.SCHEDULED || 
+          c.status == ClassStatus.ACTIVE || 
+          c.status == ClassStatus.PENDING_CONFIRMATION || 
+          c.status == ClassStatus.CUSTODY
+        ).toList();
       case 'Aula concluída':
-        return 'completed';
-      case 'Aula cancelada':
-        return 'cancelled';
+        return classes.where((c) => c.status == ClassStatus.COMPLETED).toList();
+      case 'Aula em disputa':
+        return classes.where((c) => c.status == ClassStatus.NO_SHOW_DISPUTE).toList();
       default:
-        return null;
+        return classes;
     }
   }
 
@@ -516,9 +536,12 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         }
       }
 
+      // Aplicar o filtro local de status na lista antes de emitir o estado
+      final filteredClasses = _applyLocalStatusFilter(_classes);
+
       emit(
         ClassesLoaded(
-          classes: _classes,
+          classes: filteredClasses,
           timelines: Map<String, ClassTimelineDto>.from(_timelines),
           timers: Map<String, ClassTimerState>.from(_timers),
           selectedDate: _selectedDate,
@@ -1087,9 +1110,10 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
 
   void _emitLoaded(Emitter<ClassesState> emit) {
     if (!isClosed) {
+      final filteredClasses = _applyLocalStatusFilter(_classes);
       emit(
         ClassesLoaded(
-          classes: List<ClassResponseDto>.from(_classes),
+          classes: List<ClassResponseDto>.from(filteredClasses),
           timelines: Map<String, ClassTimelineDto>.from(_timelines),
           timers: Map<String, ClassTimerState>.from(_timers),
           selectedDate: _selectedDate,
@@ -1447,10 +1471,11 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
 
       // Emitir estado atualizado com as fotos carregadas apenas se emit foi fornecido
       if (emit != null && state is ClassesLoaded) {
+        final filteredClasses = _applyLocalStatusFilter(_classes);
         emit(
           ClassesLoaded(
             classes: List<ClassResponseDto>.from(
-              _classes,
+              filteredClasses,
             ), // ✅ Usar cópia para evitar referência mutável
             timelines: Map<String, ClassTimelineDto>.from(_timelines),
             timers: Map<String, ClassTimerState>.from(_timers),

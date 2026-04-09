@@ -652,12 +652,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
       }
 
       // Atualizar estado com dados carregados
+      // ✅ CORREÇÃO: Se não há propostas pendentes reais, isSearchingActive deve ser false.
+      // Além disso, se a proposta que iniciou a busca sumiu da lista de pendentes, a busca acabou.
+      final bool hasPendingProposals = pendingProposals.isNotEmpty;
+      
       final updatedState = currentState.homeState.copyWith(
         scheduledClasses: scheduledClasses,
         pendingProposals: pendingProposals,
-        // CORREÇÃO: Se não há propostas pendentes, isSearchingActive deve ser false
-        isSearchingActive: pendingProposals.isNotEmpty
-            ? currentState.homeState.isSearchingActive
+        // Se a lista de pendentes esvaziou, a busca COM CERTEZA acabou.
+        // Se ainda há pendentes, mantemos o estado anterior (que pode ter sido setado para false pelo ProposalMatched)
+        isSearchingActive: hasPendingProposals 
+            ? currentState.homeState.isSearchingActive 
             : false,
       );
 
