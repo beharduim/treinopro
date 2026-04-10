@@ -741,22 +741,37 @@ class RealtimeDataService {
     Map<String, dynamic> classData,
     String cancelledBy,
   ) {
-    final personalId = classData['personalId']?.toString();
-    final studentId = classData['studentId']?.toString();
     final personal = classData['personal'] as Map<String, dynamic>?;
     final student = classData['student'] as Map<String, dynamic>?;
 
+    // Aceitar ID tanto no campo top-level quanto aninhado dentro do objeto
+    final personalId = classData['personalId']?.toString()
+        ?? personal?['id']?.toString();
+    final studentId = classData['studentId']?.toString()
+        ?? student?['id']?.toString();
+
+    String _resolveName(Map<String, dynamic>? obj, String? topLevelName) {
+      // 1. Campo top-level (ex.: classData['personalName'])
+      if (topLevelName != null && topLevelName.trim().isNotEmpty) {
+        return topLevelName.trim();
+      }
+      if (obj == null) return '';
+      // 2. Campo "name" direto no objeto
+      final name = obj['name']?.toString().trim() ?? '';
+      if (name.isNotEmpty) return name;
+      // 3. Composição firstName + lastName
+      final first = obj['firstName']?.toString().trim() ?? '';
+      final last  = obj['lastName']?.toString().trim()  ?? '';
+      return '$first $last'.trim();
+    }
+
     if (cancelledBy == personalId) {
-      final name =
-          classData['personalName']?.toString().trim() ??
-          '${personal?['firstName'] ?? ''} ${personal?['lastName'] ?? ''}'.trim();
+      final name = _resolveName(personal, classData['personalName']?.toString());
       return name.isNotEmpty ? name : 'O personal';
     }
 
     if (cancelledBy == studentId) {
-      final name =
-          classData['studentName']?.toString().trim() ??
-          '${student?['firstName'] ?? ''} ${student?['lastName'] ?? ''}'.trim();
+      final name = _resolveName(student, classData['studentName']?.toString());
       return name.isNotEmpty ? name : 'O aluno';
     }
 
