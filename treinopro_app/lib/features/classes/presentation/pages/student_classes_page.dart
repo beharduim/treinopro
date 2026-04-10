@@ -2304,6 +2304,11 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
 
   bool _matchesSelectedStatusFilter(ClassResponseDto classData) {
     switch (_selectedStatus) {
+      case 'Aula futura':
+        return classData.status == ClassStatus.SCHEDULED ||
+            classData.status == ClassStatus.ACTIVE ||
+            classData.status == ClassStatus.PENDING_CONFIRMATION ||
+            classData.status == ClassStatus.CUSTODY;
       case 'Aula concluída':
         return classData.status == ClassStatus.COMPLETED;
       case 'Aula cancelada':
