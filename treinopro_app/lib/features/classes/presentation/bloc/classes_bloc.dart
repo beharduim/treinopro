@@ -206,8 +206,20 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         break;
       case 'report_personal_no_show':
         allowed = tl.canReportPersonalNoShow == true;
-        if (!allowed)
-          reason = 'Reporte de ausência do personal indisponível agora.';
+        if (!allowed) {
+          if (tl.noShowReportDeadline != null) {
+            final deadline = DateTime.tryParse(tl.noShowReportDeadline!);
+            if (deadline != null) {
+              final h = deadline.hour.toString().padLeft(2, '0');
+              final m = deadline.minute.toString().padLeft(2, '0');
+              reason = 'O reporte de ausência estará disponível a partir das $h:$m (10 minutos após o horário da aula).';
+            } else {
+              reason = 'O reporte de ausência estará disponível 10 minutos após o horário da aula.';
+            }
+          } else {
+            reason = 'O reporte de ausência estará disponível 10 minutos após o horário da aula.';
+          }
+        }
         break;
       default:
         allowed = true;
@@ -947,6 +959,8 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           isWebSocketConnected: _ws.isConnected,
         ),
       );
+      // Restaurar estado carregado para evitar loading infinito na tela
+      add(const ClassesRefresh());
     }
   }
 

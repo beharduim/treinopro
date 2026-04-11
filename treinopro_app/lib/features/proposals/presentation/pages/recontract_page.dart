@@ -53,7 +53,7 @@ class _RecontractPageState extends State<RecontractPage> {
   void initState() {
     super.initState();
     // Inicializar com valor padrão
-    _valueController.text = '35,00';
+    _valueController.text = '40,00';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -553,13 +553,13 @@ class _RecontractPageState extends State<RecontractPage> {
           onChanged: (value) {
             // Validar em tempo real
             final doubleValue = double.tryParse(value.replaceAll(',', '.'));
-            if (doubleValue != null && doubleValue < 35.0) {
+            if (doubleValue != null && doubleValue < 40.0) {
               // Mostrar erro visual
               setState(() {});
             }
           },
           decoration: InputDecoration(
-            hintText: 'Digite o valor que deseja pagar (mínimo R\$ 35,00)',
+            hintText: 'Digite o valor que deseja pagar (mínimo R\$ 40,00)',
             hintStyle: const TextStyle(
               fontFamily: 'Fira Sans',
               fontSize: 16,
@@ -608,8 +608,8 @@ class _RecontractPageState extends State<RecontractPage> {
             if (doubleValue == null) {
               return 'Por favor, digite um valor válido';
             }
-            if (doubleValue < 35.0) {
-              return 'O valor mínimo é R\$ 35,00';
+            if (doubleValue < 40.0) {
+              return 'O valor mínimo é R\$ 40,00';
             }
             return null;
           },
@@ -695,7 +695,7 @@ class _RecontractPageState extends State<RecontractPage> {
 
   bool _isValidValue() {
     final value = double.tryParse(_valueController.text.replaceAll(',', '.'));
-    return value != null && value >= 35.0;
+    return value != null && value >= 40.0;
   }
 
   List<String> _getMissingFields(ProposalsLoaded state) {
@@ -713,7 +713,7 @@ class _RecontractPageState extends State<RecontractPage> {
     if (_valueController.text.trim().isEmpty) {
       missingFields.add('valor');
     } else if (!_isValidValue()) {
-      missingFields.add('valor (mínimo R\$ 35,00)');
+      missingFields.add('valor (mínimo R\$ 40,00)');
     }
     if (state.proposal.paymentMethodId == null) {
       missingFields.add('forma de pagamento');

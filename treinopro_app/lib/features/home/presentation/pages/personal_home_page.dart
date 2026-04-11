@@ -1283,11 +1283,20 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                       );
                     } else {
                       print(
-                        '⚠️ [PERSONAL_HOME] WebSocket não conectado, não é possível emitir personal_online',
+                        '⚠️ [PERSONAL_HOME] WebSocket não conectado, tentando conectar antes de emitir personal_online...',
                       );
-                      print(
-                        '⏳ [PERSONAL_HOME] personal_online será emitido quando WebSocket conectar',
-                      );
+                      // Conectar WebSocket e emitir personal_online após conexão estabelecida
+                      wsService.connect().then((_) {
+                        // O listener _setupConnectionListener emitirá personal_online
+                        // automaticamente quando a conexão for estabelecida (_isOnline == true)
+                        print(
+                          '⏳ [PERSONAL_HOME] Aguardando conexão do WebSocket para emitir personal_online...',
+                        );
+                      }).catchError((e) {
+                        print(
+                          '❌ [PERSONAL_HOME] Falha ao conectar WebSocket: $e',
+                        );
+                      });
                     }
 
                     _attemptForegroundRecovery();

@@ -164,6 +164,13 @@ class ClassesApiService {
       } else {
         throw Exception('Erro ao confirmar início: ${response.statusCode}');
       }
+    } on DioException catch (dioE) {
+      final data = dioE.response?.data;
+      String msg = 'Código inválido. Verifique o código com seu personal e tente novamente.';
+      if (data is Map<String, dynamic> && data['message'] != null) {
+        msg = data['message'].toString();
+      }
+      throw Exception(msg);
     } catch (e) {
       throw Exception('Erro na requisição: $e');
     }

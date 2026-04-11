@@ -24,8 +24,8 @@ class ClassTimelineCalculator {
     final cancellationDeadline = classDateTime.subtract(const Duration(hours: 2)); // 2h antes
     final noShowReportDeadline = classDateTime.add(const Duration(minutes: 10)); // 10min depois
     
-    // Janela para iniciar aula: 30min antes até 10min depois
-    final startWindowBegin = classDateTime.subtract(const Duration(minutes: 30));
+    // Janela para iniciar aula: 10min antes até 10min depois
+    final startWindowBegin = classDateTime.subtract(const Duration(minutes: 10));
     final startWindowEnd = classDateTime.add(const Duration(minutes: 10));
     
     // Lógica dos botões baseada no tempo (mesma lógica do backend)
