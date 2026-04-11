@@ -717,29 +717,30 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
   /// Valida se todos os dados obrigatórios estão preenchidos (versão V2)
   bool _validateRegistrationData(RegistrationStep state) {
     print('🔍 [VALIDATION] Iniciando validação completa do registro...');
-    print('🔍 [VALIDATION] UserType: ${state.userType}');
+    print('🔍 [VALIDATION] UserType: ${state.userType}, isMinor: ${state.isMinor}');
 
-    // Dados pessoais obrigatórios (phone não é obrigatório)
+    // Dados pessoais obrigatórios
     if (state.firstName.isEmpty) {
-      print('❌ [VALIDATION] firstName vazio: "${state.firstName}"');
+      print('❌ [VALIDATION] firstName vazio');
       return false;
     }
     if (state.lastName.isEmpty) {
-      print('❌ [VALIDATION] lastName vazio: "${state.lastName}"');
+      print('❌ [VALIDATION] lastName vazio');
       return false;
     }
     if (state.birthDate == null) {
       print('❌ [VALIDATION] birthDate null');
       return false;
     }
-    print('✅ [VALIDATION] Dados pessoais OK (firstName: ${state.firstName}, lastName: ${state.lastName}, birthDate: ${state.birthDate})');
 
-    // Upload de documento obrigatório
-    if (state.documentUpload == null) {
-      print('❌ [VALIDATION] documentUpload null');
+    // Upload de documento obrigatório APENAS para maiores de idade
+    if (!state.isMinor && state.documentUpload == null) {
+      print('❌ [VALIDATION] documentUpload null (obrigatório para maiores)');
       return false;
     }
-    print('✅ [VALIDATION] Document upload OK (id: ${state.documentUpload?.id})');
+    if (state.isMinor) {
+      print('ℹ️ [VALIDATION] Minor user: documentUpload skip');
+    }
 
     // Validações específicas por tipo de usuário
     if (state.userType == UserType.personalTrainer) {

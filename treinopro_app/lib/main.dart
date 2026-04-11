@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -56,20 +55,20 @@ void main() async {
   // ✅ CRÍTICO: Registrar background handler ANTES de qualquer outra coisa
   // Este handler é executado quando app está em background ou terminado
   FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessageHandler);
-  print('✅ [MAIN] Background message handler registrado');
+  debugPrint('✅ [MAIN] Background message handler registrado');
 
   // Inicializar notificações e obter FCM Token
   await NotificationService.initializeNotification();
 
   // ✅ NOVO: Configurar listener de token refresh
   await NotificationService.setupTokenRefreshListener();
-  print('✅ [MAIN] Token refresh listener configurado');
+  debugPrint('✅ [MAIN] Token refresh listener configurado');
 
   // ✅ Inicializar Live Activity Service (iOS only)
   if (Platform.isIOS) {
     LiveActivityService.instance.initialize();
     LiveActivityService.instance.onTokenReceived = _sendLiveActivityToken;
-    print('✅ [MAIN] LiveActivityService inicializado');
+    debugPrint('✅ [MAIN] LiveActivityService inicializado');
 
     // Processa tentativas pendentes salvas quando push chegou em background isolate.
     await NotificationService.processPendingLiveActivities();
@@ -84,7 +83,7 @@ void main() async {
   // Garante wake-up a cada 15 minutos para verificar FCM
   if (Platform.isAndroid) {
     await FcmWorkManagerService.initialize();
-    print(
+    debugPrint(
       '✅ [MAIN] WorkManager inicializado - Health checks periódicos ativos',
     );
   }
@@ -96,7 +95,7 @@ void main() async {
   if (Platform.isAndroid) {
     // Apenas inicializar - NÃO iniciar ainda (precisa de permissões primeiro)
     await NotificationForegroundService.initialize();
-    print(
+    debugPrint(
       '✅ [MAIN] Foreground service inicializado (será iniciado após permissões serem concedidas)',
     );
   }
@@ -144,7 +143,7 @@ Future<void> _sendLiveActivityToken(String proposalId, String token) async {
     '/users/$userId/live-activity-token',
     data: {'token': token, 'proposalId': proposalId},
   );
-  print('[LiveActivity] Token enviado ao backend: proposal=$proposalId');
+  debugPrint('[LiveActivity] Token enviado ao backend: proposal=$proposalId');
 }
 
 /// Configura otimizações de performance para animações suaves
@@ -203,7 +202,7 @@ void _performWarmUpAnimations() {
 
 /// Executa aquecimento adicional do sistema de animações
 void _performAdditionalWarmUp() {
-  // Força a criação de múltiplos objetos de animação
+  // Força la criação de múltiplos objetos de animação
   final vsync = _WarmUpTickerProvider();
 
   // Cria múltiplos controllers para diferentes tipos de animação

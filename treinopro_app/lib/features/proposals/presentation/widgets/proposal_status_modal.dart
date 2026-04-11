@@ -150,6 +150,8 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
       child: BlocListener<ProposalSearchBloc, ProposalSearchState>(
         listener: (context, state) {
           // Se habilitado, fechar modal automaticamente após 3 segundos quando match é encontrado
+          // NOTA: Desativado para alinhar com o comportamento do Personal (manter aberto até fechar ou ir para o chat)
+          /*
           if (state.modalState == ProposalModalState.matched && widget.autoCloseOnMatched) {
             Future.delayed(const Duration(seconds: 3), () {
               if (!mounted) return;
@@ -162,6 +164,7 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
               }
             });
           }
+          */
         },
         child: AnimatedBuilder(
           animation: _scaleAnimation,

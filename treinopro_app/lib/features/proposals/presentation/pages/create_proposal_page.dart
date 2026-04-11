@@ -561,15 +561,17 @@ class _CreateProposalView extends StatelessWidget {
                               });
                             } else if (state
                                 is proposal_search.ProposalSearchMatched) {
-                              // Match encontrado: mostrar tela de confirmação por 3 segundos e fechar
+                              // Match encontrado: manter modal aberto até o aluno fechar ou ir para o chat (comportamento do Personal)
                               print(
-                                '🔔 [PROPOSAL_MODAL] Match confirmado! Fechando modal após 3 segundos...',
+                                '🔔 [PROPOSAL_MODAL] Match confirmado! Mantendo modal aberto para o aluno.',
                               );
+                              /*
                               Future.delayed(const Duration(seconds: 3), () {
                                 try {
                                   overlayEntry?.remove();
                                 } catch (_) {}
                               });
+                              */
                             }
                           },
                           child: ProposalStatusModal(

@@ -57,11 +57,11 @@ class RegistrationStepsHelper {
         case 3:
           return isMinor ? const GuardianOtpStep() : const DocumentsStep();
         case 4:
-          return const EmailStep();
+          return isMinor ? const DocumentsStep() : const EmailStep();
         case 5:
-          return const VerificationStep();
+          return isMinor ? const EmailStep() : const VerificationStep();
         case 6:
-          return const PasswordStep();
+          return isMinor ? const VerificationStep() : const PasswordStep();
         case 7:
           return const PasswordStep();
         default:
