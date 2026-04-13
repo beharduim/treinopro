@@ -202,7 +202,7 @@ class ClassesApiService {
       }
 
       if (code == 'MIN_45_RULE') {
-        throw Exception('MIN_45_RULE: ${msg ?? 'A aula precisa durar pelo menos 1 minuto.'}');
+        throw Exception('MIN_45_RULE: ${msg ?? 'A aula precisa durar pelo menos 45 minutos.'}');
       }
       if (msg != null) {
         throw Exception('Erro: $msg');

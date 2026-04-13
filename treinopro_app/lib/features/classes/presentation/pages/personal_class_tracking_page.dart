@@ -33,7 +33,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
   // Código de confirmação 4 dígitos para o aluno confirmar
   String? _startConfirmationCode;
 
-  // Controle de 1 minuto mínimo (temporário para testes)
+  // Controle de 45 minutos mínimos
   Timer? _minimumTimer;
   int _remainingToCompleteSeconds = 0; // 0 = já pode finalizar
   bool _canCompleteByTime = false;
@@ -44,7 +44,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
     // Capturar código de confirmação se foi recém iniciado
     _startConfirmationCode = widget.aula['startConfirmationCode']?.toString();
 
-    // Calcular tempo restante para poder finalizar (1min mínimo)
+    // Calcular tempo restante para poder finalizar (45min mínimo)
     _initMinimumCompletionTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -56,7 +56,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
   }
 
   void _initMinimumCompletionTimer() {
-    // Tenta usar minimumCompletionAt do aula map, fallback para startedAt + 1min
+    // Tenta usar minimumCompletionAt do aula map, fallback para startedAt + 45min
     DateTime? minimumAt;
     final rawMinimum = widget.aula['minimumCompletionAt'];
     if (rawMinimum != null) {
@@ -67,7 +67,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
       if (rawStarted != null) {
         final startedAt = DateTime.tryParse(rawStarted.toString());
         if (startedAt != null) {
-          minimumAt = startedAt.add(const Duration(minutes: 1));
+          minimumAt = startedAt.add(const Duration(minutes: 45));
         }
       }
     }
@@ -203,13 +203,12 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
         }
         // Verificar se é erro de regra de tempo mínimo
         else if (e.toString().contains('MIN_45_RULE') ||
-            e.toString().contains('pelo menos 1 minuto') ||
             e.toString().contains('pelo menos 45 minutos')) {
           // Extrair tempo restante da mensagem do backend
           final match = RegExp(r'Faltam (\d+) minuto').firstMatch(e.toString());
           final remaining = match?.group(1) ?? '?';
           errorMessage =
-              'A aula precisa durar pelo menos 1 minuto. Faltam $remaining minuto(s).';
+              'A aula precisa durar pelo menos 45 minutos. Faltam $remaining minuto(s).';
           snackBarColor = Colors.red;
         }
         // Verificar se é erro de aula já finalizada
@@ -662,7 +661,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Aviso de 1 minuto mínimo (teste)
+                        // Aviso de 45 minutos mínimos
                         if (!_canCompleteByTime) ...[
                           Container(
                             width: double.infinity,
@@ -686,7 +685,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Mínimo de 1 minuto',
+                                        'Mínimo de 45 minutos',
                                         style: TextStyle(
                                           fontFamily: 'Outfit',
                                           fontWeight: FontWeight.w600,
