@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import 'proposal_step2_page.dart';
 import 'proposal_step3_page.dart';
 import 'proposal_review_page.dart';
 import '../../../../core/services/realtime_data_service.dart';
+import '../../data/services/proposals_api_service.dart';
 
 /// Página principal de criação de proposta
 class CreateProposalPage extends StatelessWidget {
@@ -418,6 +420,7 @@ class _CreateProposalView extends StatelessWidget {
         qrCode: state.qrCode,
         qrCodeBase64: state.qrCodeBase64,
         expiresAt: state.expiresAt,
+        proposalId: state.proposalId,
       ),
     ).then((_) {
       if (context.mounted) {
@@ -612,16 +615,59 @@ class _CreateProposalView extends StatelessWidget {
 }
 
 /// Bottom sheet com QR Code PIX para pagamento
-class _PixQrCodeSheet extends StatelessWidget {
+class _PixQrCodeSheet extends StatefulWidget {
   final String qrCode;
   final String? qrCodeBase64;
   final DateTime? expiresAt;
+  final String proposalId;
 
   const _PixQrCodeSheet({
     required this.qrCode,
     this.qrCodeBase64,
     this.expiresAt,
+    required this.proposalId,
   });
+
+  @override
+  State<_PixQrCodeSheet> createState() => _PixQrCodeSheetState();
+}
+
+class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
+  Timer? _pollingTimer;
+  bool _paymentConfirmed = false;
+  final _proposalsApiService = sl<ProposalsApiService>();
+
+  static const _confirmedStatuses = {'captured', 'approved', 'authorized'};
+
+  @override
+  void initState() {
+    super.initState();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (_paymentConfirmed || !mounted) return;
+      try {
+        final proposal =
+            await _proposalsApiService.getProposalById(widget.proposalId);
+        final status = (proposal.paymentStatus ?? '').toLowerCase();
+        if (_confirmedStatuses.contains(status)) {
+          _paymentConfirmed = true;
+          _pollingTimer?.cancel();
+          if (mounted) Navigator.of(context).pop();
+        }
+      } catch (_) {
+        // Ignora erros de rede — continua tentando
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -679,7 +725,7 @@ class _PixQrCodeSheet extends StatelessWidget {
           const SizedBox(height: 24),
 
           // QR Code image (base64) ou placeholder
-          if (qrCodeBase64 != null && qrCodeBase64!.isNotEmpty)
+          if (widget.qrCodeBase64 != null && widget.qrCodeBase64!.isNotEmpty)
             Container(
               width: 220,
               height: 220,
@@ -689,7 +735,7 @@ class _PixQrCodeSheet extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: _decodeQrImage(qrCodeBase64!),
+                child: _decodeQrImage(widget.qrCodeBase64!),
               ),
             )
           else
@@ -698,7 +744,7 @@ class _PixQrCodeSheet extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Expiração
-          if (expiresAt != null)
+          if (widget.expiresAt != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -716,7 +762,7 @@ class _PixQrCodeSheet extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Expira em ${_formatExpiry(expiresAt!)}',
+                    'Expira em ${_formatExpiry(widget.expiresAt!)}',
                     style: const TextStyle(
                       fontFamily: 'Fira Sans',
                       fontSize: 13,
@@ -742,7 +788,7 @@ class _PixQrCodeSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    qrCode,
+                    widget.qrCode,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -871,7 +917,7 @@ class _PixQrCodeSheet extends StatelessWidget {
   }
 
   void _copyToClipboard(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: qrCode));
+    Clipboard.setData(ClipboardData(text: widget.qrCode));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Código PIX copiado!'),
