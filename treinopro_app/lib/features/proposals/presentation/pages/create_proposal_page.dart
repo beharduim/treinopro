@@ -634,6 +634,7 @@ class _PixQrCodeSheet extends StatefulWidget {
 
 class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
   Timer? _pollingTimer;
+  Timer? _expiryTimer;
   bool _paymentConfirmed = false;
   final _proposalsApiService = sl<ProposalsApiService>();
 
@@ -643,11 +644,16 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
   void initState() {
     super.initState();
     _startPolling();
+    // Atualiza o contador de expiração a cada 30 segundos
+    _expiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
@@ -663,8 +669,27 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
           _pollingTimer?.cancel();
           if (mounted) Navigator.of(context).pop();
         }
-      } catch (_) {
-        // Ignora erros de rede — continua tentando
+      } on Exception catch (e) {
+        final msg = e.toString().toLowerCase();
+        // Proposta deletada/expirada no servidor (404) — fechar o modal
+        if (msg.contains('404') ||
+            msg.contains('não encontrada') ||
+            msg.contains('not found')) {
+          _pollingTimer?.cancel();
+          _expiryTimer?.cancel();
+          if (mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Proposta expirada. Nenhum treino foi cobrado.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+        // Outros erros de rede — continua tentando
       }
     });
   }
