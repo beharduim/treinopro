@@ -31,6 +31,7 @@ class _CardFormWidgetState extends State<CardFormWidget> {
 
   CardBrand? _detectedBrand;
   bool _isLoading = false;
+  bool _isSavingCard = false;
 
   @override
   void dispose() {
@@ -45,18 +46,42 @@ class _CardFormWidgetState extends State<CardFormWidget> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<PaymentMethodsBloc, PaymentMethodsState>(
+      // Só reagir quando estamos no meio de um salvamento
+      listenWhen: (previous, current) {
+        if (!_isSavingCard) return false;
+        // Detectar conclusão: isUpdating passou de true para false
+        return previous is PaymentMethodsLoaded &&
+            previous.isUpdating &&
+            current is PaymentMethodsLoaded;
+      },
       listener: (context, state) {
-        if (state is PaymentMethodsLoaded && !state.isUpdating) {
-          // Quando o estado indica que a operação terminou, apenas atualizamos
-          // flags locais. O fechamento do bottom sheet agora acontece imediatamente
-          // ao clicar em "Salvar" (no método _saveCard), para evitar navegações
-          // indesejadas.
-          _isLoading = false;
-        } else if (state is PaymentMethodsLoaded && state.error != null) {
-          _isLoading = false;
-          // Log técnico para debugging
+        if (state is! PaymentMethodsLoaded) return;
+
+        if (state.error == null) {
+          // Salvamento concluído com sucesso
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _isSavingCard = false;
+            });
+          }
+          // Notifica o pai (recarrega métodos em PaymentMethodsBloc)
+          try {
+            widget.onCardSaved();
+          } catch (_) {}
+          // Fecha o bottom sheet somente após confirmação de sucesso
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        } else {
+          // Salvamento falhou
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _isSavingCard = false;
+            });
+          }
           debugPrint('PaymentMethods save error: ${state.error}');
-          // Mensagem amigável ao usuário
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -378,15 +403,16 @@ class _CardFormWidgetState extends State<CardFormWidget> {
 
   void _saveCard() {
     if (!_formKey.currentState!.validate()) return;
-    // Dispara o evento de salvar e fecha imediatamente o bottom sheet. O bloco
-    // continuará o processo de salvamento em background e o listener na
-    // página principal (`PaymentMethodsPage`) poderá reagir e atualizar a UI.
+
     setState(() {
       _isLoading = true;
+      _isSavingCard = true;
     });
 
-    final bloc = context.read<PaymentMethodsBloc>();
-    bloc.add(
+    // Dispara o evento e aguarda: o BlocListener fechará o bottom sheet
+    // somente após o BLoC confirmar o salvamento com sucesso, eliminando
+    // a condição de corrida que fazia o cartão não aparecer na lista da proposta.
+    context.read<PaymentMethodsBloc>().add(
       SaveCard(
         cardNumber: _cardNumberController.text.replaceAll(RegExp(r'\D'), ''),
         cardHolderName: _cardHolderController.text.trim(),
@@ -396,19 +422,6 @@ class _CardFormWidgetState extends State<CardFormWidget> {
         cardType: widget.cardType,
       ),
     );
-
-    // Notifica o callback passado pelo bottom sheet para que a página pai
-    // possa recarregar os métodos (disparando LoadPaymentMethods uma vez).
-    try {
-      widget.onCardSaved();
-    } catch (_) {
-      // Ignorar erros aqui; o bloco ainda fará o trabalho pesado.
-    }
-
-    // Fecha o modal imediatamente sem realizar qualquer navegação adicional.
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
   }
 
   String _getCardTypeName() {

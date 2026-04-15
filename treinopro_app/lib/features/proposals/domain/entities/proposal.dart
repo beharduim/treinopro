@@ -17,6 +17,7 @@ class Proposal extends Equatable {
   final String? paymentMethodId;
   final String? paymentMethodName;
   final dynamic selectedPaymentMethod; // PaymentMethod? - usando dynamic para evitar dependência circular
+  final String? savedCardCvv; // CVV temporário para cartões AMEX (transient, não persiste)
   final bool isCompleted;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -37,6 +38,7 @@ class Proposal extends Equatable {
     this.paymentMethodId,
     this.paymentMethodName,
     this.selectedPaymentMethod,
+    this.savedCardCvv,
     this.isCompleted = false,
     this.createdAt,
     this.updatedAt,
@@ -58,6 +60,8 @@ class Proposal extends Equatable {
     String? paymentMethodId,
     String? paymentMethodName,
     dynamic selectedPaymentMethod,
+    String? savedCardCvv,
+    bool clearSavedCardCvv = false,
     bool? isCompleted,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -78,6 +82,7 @@ class Proposal extends Equatable {
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       paymentMethodName: paymentMethodName ?? this.paymentMethodName,
       selectedPaymentMethod: selectedPaymentMethod ?? this.selectedPaymentMethod,
+      savedCardCvv: clearSavedCardCvv ? null : (savedCardCvv ?? this.savedCardCvv),
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -141,6 +146,7 @@ class Proposal extends Equatable {
         paymentMethodId,
         paymentMethodName,
         selectedPaymentMethod,
+        savedCardCvv,
         isCompleted,
         createdAt,
         updatedAt,

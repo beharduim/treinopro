@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
+import '../../../payment_methods/domain/entities/payment_method.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
 import '../../../payment_methods/presentation/bloc/payment_methods_bloc.dart';
 import '../bloc/proposals_bloc.dart';
@@ -265,6 +267,14 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
             context.read<ProposalsBloc>().add(
               ProposalsUpdatePaymentMethod(methodId, methodName),
             );
+            // Verificar se é AMEX para exigir CVV
+            final selectedMethod = state.availablePaymentMethods
+                .where((m) => m.id == methodId)
+                .firstOrNull;
+            final isAmex = selectedMethod?.cardBrand == CardBrand.americanExpress;
+            if (isAmex) {
+              _showAmexCvvDialog(context);
+            }
           },
         ),
         
@@ -301,6 +311,92 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
         ),
       ],
     );
+  }
+
+  Future<void> _showAmexCvvDialog(BuildContext context) async {
+    final cvvController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final cvv = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(
+          'CVV do American Express',
+          style: TextStyle(fontFamily: 'Fira Sans', fontWeight: FontWeight.w600),
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Cartões American Express exigem o CVV (4 dígitos na frente do cartão) para cada pagamento.',
+                style: TextStyle(fontFamily: 'Fira Sans', fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: cvvController,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'CVV (4 dígitos)',
+                  hintText: '1234',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppColors.primaryOrange),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'CVV é obrigatório';
+                  if (v.length != 4) return 'AMEX usa CVV de 4 dígitos';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogContext).pop(cvvController.text);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text(
+              'Confirmar',
+              style: TextStyle(fontFamily: 'Fira Sans'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (cvv != null && cvv.isNotEmpty) {
+      context.read<ProposalsBloc>().add(ProposalsSetAmexCvv(cvv));
+    } else {
+      // Usuário cancelou — limpar seleção de método de pagamento (voltar para PIX)
+      context.read<ProposalsBloc>().add(
+        const ProposalsUpdatePaymentMethod('pix', 'PIX'),
+      );
+    }
   }
 
   Future<void> _navigateToPaymentMethods(BuildContext context) async {

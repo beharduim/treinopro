@@ -116,6 +116,16 @@ class ProposalsLoadPaymentMethods extends ProposalsEvent {
   const ProposalsLoadPaymentMethods();
 }
 
+/// Definir CVV para cartão AMEX salvo
+class ProposalsSetAmexCvv extends ProposalsEvent {
+  final String cvv;
+
+  const ProposalsSetAmexCvv(this.cvv);
+
+  @override
+  List<Object> get props => [cvv];
+}
+
 /// Buscar locais
 class ProposalsSearchLocations extends ProposalsEvent {
   final String query;

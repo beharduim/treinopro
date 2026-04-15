@@ -22,6 +22,7 @@ CreateProposalDto _$CreateProposalDtoFromJson(Map<String, dynamic> json) =>
       additionalNotes: json['additionalNotes'] as String?,
       paymentMethod: json['paymentMethod'] as String,
       cardId: json['cardId'] as String?,
+      savedCardCvv: json['savedCardCvv'] as String?,
       cardData: json['cardData'] == null
           ? null
           : CardData.fromJson(json['cardData'] as Map<String, dynamic>),
@@ -48,6 +49,7 @@ Map<String, dynamic> _$CreateProposalDtoToJson(CreateProposalDto instance) =>
       'additionalNotes': instance.additionalNotes,
       'paymentMethod': instance.paymentMethod,
       'cardId': instance.cardId,
+      'savedCardCvv': instance.savedCardCvv,
       'cardData': instance.cardData,
       'installments': instance.installments,
       'saveCard': instance.saveCard,

@@ -451,6 +451,7 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
       paymentMethod: paymentMethod,
       // PIX não usa cardId; cartões salvos só enviam UUID válido
       cardId: _resolveCardId(paymentMethod, proposal.selectedPaymentMethod?.id),
+      savedCardCvv: proposal.savedCardCvv,
       cardData: null, // TODO: Implementar captura de dados de cartão novo
       installments: '1',
       saveCard: false,

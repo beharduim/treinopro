@@ -77,6 +77,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<ProposalsUpdatePrice>(_onUpdatePrice);
     on<ProposalsUpdateNotes>(_onUpdateNotes);
     on<ProposalsUpdatePaymentMethod>(_onUpdatePaymentMethod);
+    on<ProposalsSetAmexCvv>(_onSetAmexCvv);
     on<ProposalsLoadPaymentMethods>(_onLoadPaymentMethods);
     on<ProposalsSearchLocations>(_onSearchLocations);
     on<ProposalsSearchLocationsDebounced>(_onSearchLocationsDebounced);
@@ -623,16 +624,31 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
             (method) => method.id == event.paymentMethodId,
           );
 
+    final isAmex = selectedMethod.cardBrand == CardBrand.americanExpress;
     final updatedProposal = currentState.proposal.copyWith(
       paymentMethodId: event.paymentMethodId,
       paymentMethodName: event.paymentMethodName,
       selectedPaymentMethod: selectedMethod,
+      // Limpar CVV AMEX ao trocar de cartão (evita envio de CVV stale)
+      clearSavedCardCvv: !isAmex,
     );
 
     print('💳 [PROPOSALS BLOC] Método de pagamento selecionado:');
     print('  - ID: ${selectedMethod.id}');
     print('  - Type: ${selectedMethod.type}');
 
+    emit(currentState.copyWith(proposal: updatedProposal));
+  }
+
+  Future<void> _onSetAmexCvv(
+    ProposalsSetAmexCvv event,
+    Emitter<ProposalsState> emit,
+  ) async {
+    if (state is! ProposalsLoaded) return;
+    final currentState = state as ProposalsLoaded;
+    final updatedProposal = currentState.proposal.copyWith(
+      savedCardCvv: event.cvv,
+    );
     emit(currentState.copyWith(proposal: updatedProposal));
   }
 

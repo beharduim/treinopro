@@ -18,6 +18,7 @@ class CreateProposalDto {
   final String? additionalNotes;
   final String paymentMethod;
   final String? cardId;
+  final String? savedCardCvv;
   final CardData? cardData;
   final String? installments;
   final bool? saveCard;
@@ -41,6 +42,7 @@ class CreateProposalDto {
     this.additionalNotes,
     required this.paymentMethod,
     this.cardId,
+    this.savedCardCvv,
     this.cardData,
     this.installments,
     this.saveCard,
