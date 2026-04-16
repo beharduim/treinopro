@@ -21,6 +21,7 @@ import 'proposal_step3_page.dart';
 import 'proposal_review_page.dart';
 import '../../../../core/services/realtime_data_service.dart';
 import '../../data/services/proposals_api_service.dart';
+import '../../domain/entities/proposal.dart';
 import '../widgets/saved_card_cvv_dialog.dart';
 
 /// Página principal de criação de proposta
@@ -448,12 +449,7 @@ class _CreateProposalView extends StatelessWidget {
   }
 
   void _showPixModal(BuildContext context, ProposalsPixPending state) {
-    // Mostrar o QR code na página atual (contexto válido).
-    // Decisão de UX intencional: após o usuário fechar/copiar o código PIX,
-    // o app retorna à home onde o card de proposta mostra "aguardando pagamento".
-    // Isso é o fluxo esperado — o usuário já tem o código e não precisa permanecer
-    // na tela de criação.
-    showModalBottomSheet<void>(
+    showModalBottomSheet<_PixCheckoutResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -465,14 +461,36 @@ class _CreateProposalView extends StatelessWidget {
         expiresAt: state.expiresAt,
         proposalId: state.proposalId,
       ),
-    ).then((_) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
+    ).then((result) {
+      if (!context.mounted) return;
+
+      if (result == _PixCheckoutResult.approved) {
+        _showSuccessAndNavigate(
+          context,
+          submittedProposal: state.submittedProposal,
+          proposalId: state.proposalId,
+        );
+        return;
       }
+
+      if (result == _PixCheckoutResult.expired) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Proposta expirada. Nenhum treino foi cobrado.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+
+      Navigator.of(context).pop();
     });
   }
 
-  void _showSuccessAndNavigate(BuildContext context) {
+  void _showSuccessAndNavigate(
+    BuildContext context, {
+    Proposal? submittedProposal,
+    String? proposalId,
+  }) {
     print('🔄 [PROPOSALS BLOC] _showSuccessAndNavigate iniciado');
 
     // Verificar se o contexto ainda está montado
@@ -486,15 +504,22 @@ class _CreateProposalView extends StatelessWidget {
     String location = 'Local não informado';
     DateTime? trainingDate;
     String? trainingTime;
-    String? proposalId;
+    Proposal? proposal = submittedProposal;
+    String? resolvedProposalId = proposalId;
 
     if (proposalsState is ProposalsSubmitted) {
-      final proposal = proposalsState.submittedProposal;
+      proposal = proposalsState.submittedProposal;
+      resolvedProposalId ??= proposalsState.proposalId;
+    } else if (proposalsState is ProposalsPixPending) {
+      proposal = proposalsState.submittedProposal;
+      resolvedProposalId ??= proposalsState.proposalId;
+    }
+
+    if (proposal != null) {
       location = proposal.locationName ?? 'Local não informado';
       trainingDate = proposal.trainingDate;
       trainingTime = proposal.trainingTime;
-      proposalId = proposalsState.proposalId;
-      print('🔄 [PROPOSALS BLOC] ProposalId obtido: $proposalId');
+      print('🔄 [PROPOSALS BLOC] ProposalId obtido: $resolvedProposalId');
     }
 
     // 1. PRIMEIRO: Disparar estado de busca no HomeBloc (para o card dinâmico)
@@ -533,7 +558,7 @@ class _CreateProposalView extends StatelessWidget {
           location: location,
           trainingDate: trainingDate,
           trainingTime: trainingTime,
-          proposalId: proposalId,
+          proposalId: resolvedProposalId,
         ),
       );
       print(
@@ -623,7 +648,8 @@ class _CreateProposalView extends StatelessWidget {
                           child: ProposalStatusModal(
                             location:
                                 location, // Usar localização real da proposta
-                            proposalId: proposalId, // Passar o ID da proposta
+                            proposalId:
+                                resolvedProposalId, // Passar o ID da proposta
                             onClose: () {
                               overlayEntry?.remove();
                               // Quando o modal for fechado, a busca continua em background
@@ -711,7 +737,9 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
         if (_confirmedStatuses.contains(status)) {
           _paymentConfirmed = true;
           _pollingTimer?.cancel();
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) {
+            Navigator.of(context).pop(_PixCheckoutResult.approved);
+          }
         }
       } on Exception catch (e) {
         final msg = e.toString().toLowerCase();
@@ -722,13 +750,7 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
           _pollingTimer?.cancel();
           _expiryTimer?.cancel();
           if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Proposta expirada. Nenhum treino foi cobrado.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            Navigator.of(context).pop(_PixCheckoutResult.expired);
           }
         }
         // Outros erros de rede — continua tentando
@@ -1003,3 +1025,5 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
     return '${diff.inDays} dias';
   }
 }
+
+enum _PixCheckoutResult { approved, expired }
