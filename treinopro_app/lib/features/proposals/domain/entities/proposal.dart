@@ -16,8 +16,10 @@ class Proposal extends Equatable {
   final String? additionalNotes;
   final String? paymentMethodId;
   final String? paymentMethodName;
-  final dynamic selectedPaymentMethod; // PaymentMethod? - usando dynamic para evitar dependência circular
-  final String? savedCardCvv; // CVV temporário para cartões AMEX (transient, não persiste)
+  final dynamic
+  selectedPaymentMethod; // PaymentMethod? - usando dynamic para evitar dependência circular
+  final String?
+  savedCardCvv; // CVV temporário para cartão salvo (transient, não persiste)
   final bool isCompleted;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -81,8 +83,11 @@ class Proposal extends Equatable {
       additionalNotes: additionalNotes ?? this.additionalNotes,
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
       paymentMethodName: paymentMethodName ?? this.paymentMethodName,
-      selectedPaymentMethod: selectedPaymentMethod ?? this.selectedPaymentMethod,
-      savedCardCvv: clearSavedCardCvv ? null : (savedCardCvv ?? this.savedCardCvv),
+      selectedPaymentMethod:
+          selectedPaymentMethod ?? this.selectedPaymentMethod,
+      savedCardCvv: clearSavedCardCvv
+          ? null
+          : (savedCardCvv ?? this.savedCardCvv),
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -90,17 +95,15 @@ class Proposal extends Equatable {
   }
 
   /// Validação da Etapa 1: Local, Data e Horário
-  bool get isStep1Valid => 
-      locationId != null && 
-      locationId!.isNotEmpty && 
+  bool get isStep1Valid =>
+      locationId != null &&
+      locationId!.isNotEmpty &&
       trainingDate != null &&
       trainingTime != null &&
       trainingTime!.isNotEmpty;
 
   /// Validação da Etapa 2: Modalidade
-  bool get isStep2Valid => 
-      modalityId != null && 
-      modalityId!.isNotEmpty;
+  bool get isStep2Valid => modalityId != null && modalityId!.isNotEmpty;
 
   /// Validação da Etapa 3: Preço e Método de Pagamento
   bool get isStep3Valid =>
@@ -131,24 +134,24 @@ class Proposal extends Equatable {
 
   @override
   List<Object?> get props => [
-        locationId,
-        locationName,
-        locationAddress,
-        locationLat,
-        locationLng,
-        trainingDate,
-        trainingTime,
-        durationMinutes,
-        modalityId,
-        modalityName,
-        price,
-        additionalNotes,
-        paymentMethodId,
-        paymentMethodName,
-        selectedPaymentMethod,
-        savedCardCvv,
-        isCompleted,
-        createdAt,
-        updatedAt,
-      ];
+    locationId,
+    locationName,
+    locationAddress,
+    locationLat,
+    locationLng,
+    trainingDate,
+    trainingTime,
+    durationMinutes,
+    modalityId,
+    modalityName,
+    price,
+    additionalNotes,
+    paymentMethodId,
+    paymentMethodName,
+    selectedPaymentMethod,
+    savedCardCvv,
+    isCompleted,
+    createdAt,
+    updatedAt,
+  ];
 }

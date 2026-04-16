@@ -17,6 +17,7 @@ import '../bloc/proposals_state.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
 import '../../../payment_methods/presentation/bloc/payment_methods_bloc.dart';
 import '../../../payment_methods/domain/entities/payment_method.dart';
+import '../widgets/saved_card_cvv_dialog.dart';
 
 /// Tela de recontratação para o cliente
 class RecontractPage extends StatefulWidget {
@@ -781,6 +782,8 @@ class _RecontractPageState extends State<RecontractPage> {
   }
 
   Future<void> _navigateToPaymentMethods(BuildContext context) async {
+    final proposalsBloc = context.read<ProposalsBloc>();
+
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -792,7 +795,7 @@ class _RecontractPageState extends State<RecontractPage> {
     );
 
     if (!mounted) return;
-    context.read<ProposalsBloc>().add(const ProposalsLoadPaymentMethods());
+    proposalsBloc.add(const ProposalsLoadPaymentMethods());
   } // Métodos de callback para os novos campos
 
   void _onDateSelected(DateTime date) {
@@ -907,9 +910,36 @@ class _RecontractPageState extends State<RecontractPage> {
     final paymentData = _resolvePaymentDataForApi(currentState);
     final paymentMethod = paymentData['paymentMethod'] ?? 'pix';
     final cardId = paymentData['cardId'];
+    final selectedMethod = _findSelectedPaymentMethod(currentState);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final appNavigator = Navigator.of(context);
+    String? savedCardCvvForRequest = currentState.proposal.savedCardCvv?.trim();
+
+    if (selectedMethod != null &&
+        selectedMethod.type == PaymentMethodType.creditCard) {
+      final cvv = await showSavedCardCvvDialog(
+        context,
+        paymentMethod: selectedMethod,
+      );
+
+      if (!mounted) return;
+
+      if (cvv == null || cvv.isEmpty) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Por motivos de segurança, o código de segurança (CVV) do seu cartão é obrigatório para confirmar o pagamento.',
+            ),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        return;
+      }
+
+      savedCardCvvForRequest = cvv;
+      context.read<ProposalsBloc>().add(ProposalsSetSavedCardCvv(cvv));
+    }
 
     var loadingShown = false;
     try {
@@ -952,6 +982,9 @@ class _RecontractPageState extends State<RecontractPage> {
 
       if (cardId != null) {
         proposalData['cardId'] = cardId;
+      }
+      if (savedCardCvvForRequest != null && savedCardCvvForRequest.isNotEmpty) {
+        proposalData['savedCardCvv'] = savedCardCvvForRequest;
       }
 
       // Só adicionar locationId se for um UUID válido

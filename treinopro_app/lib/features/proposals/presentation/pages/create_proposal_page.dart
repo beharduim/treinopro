@@ -13,6 +13,7 @@ import '../widgets/proposal_progress.dart';
 import '../widgets/proposal_status_modal.dart';
 import '../bloc/proposal_search_bloc.dart' as proposal_search;
 import '../../../../core/di/dependency_injection.dart';
+import '../../../payment_methods/domain/entities/payment_method.dart';
 import '../../../payment_methods/domain/repositories/payment_methods_repository.dart';
 import 'proposal_step1_page.dart';
 import 'proposal_step2_page.dart';
@@ -20,6 +21,7 @@ import 'proposal_step3_page.dart';
 import 'proposal_review_page.dart';
 import '../../../../core/services/realtime_data_service.dart';
 import '../../data/services/proposals_api_service.dart';
+import '../widgets/saved_card_cvv_dialog.dart';
 
 /// Página principal de criação de proposta
 class CreateProposalPage extends StatelessWidget {
@@ -311,7 +313,9 @@ class _CreateProposalView extends StatelessWidget {
     if (state.isSubmitting) return null;
 
     if (state.canSubmit) {
-      return () {
+      return () async {
+        final canSubmit = await _ensureSavedCardCvvIfNeeded(context, state);
+        if (!canSubmit || !context.mounted) return;
         context.read<ProposalsBloc>().add(const ProposalsSubmit());
       };
     }
@@ -335,6 +339,45 @@ class _CreateProposalView extends StatelessWidget {
     }
 
     return '';
+  }
+
+  bool _requiresSavedCardCvv(ProposalsLoaded state) {
+    final selectedMethod = state.proposal.selectedPaymentMethod;
+    return selectedMethod is PaymentMethod &&
+        selectedMethod.type == PaymentMethodType.creditCard;
+  }
+
+  Future<bool> _ensureSavedCardCvvIfNeeded(
+    BuildContext context,
+    ProposalsLoaded state,
+  ) async {
+    if (!_requiresSavedCardCvv(state)) {
+      return true;
+    }
+
+    final selectedMethod =
+        state.proposal.selectedPaymentMethod as PaymentMethod;
+    final cvv = await showSavedCardCvvDialog(
+      context,
+      paymentMethod: selectedMethod,
+    );
+
+    if (!context.mounted) return false;
+
+    if (cvv == null || cvv.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Por motivos de segurança, o código de segurança (CVV) do seu cartão é obrigatório para confirmar o pagamento.',
+          ),
+          backgroundColor: Color(0xFFB45309),
+        ),
+      );
+      return false;
+    }
+
+    context.read<ProposalsBloc>().add(ProposalsSetSavedCardCvv(cvv));
+    return true;
   }
 
   Widget _buildErrorContent(BuildContext context, ProposalsError state) {
@@ -661,8 +704,9 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       if (_paymentConfirmed || !mounted) return;
       try {
-        final proposal =
-            await _proposalsApiService.getProposalById(widget.proposalId);
+        final proposal = await _proposalsApiService.getProposalById(
+          widget.proposalId,
+        );
         final status = (proposal.paymentStatus ?? '').toLowerCase();
         if (_confirmedStatuses.contains(status)) {
           _paymentConfirmed = true;
@@ -681,9 +725,7 @@ class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
             Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text(
-                  'Proposta expirada. Nenhum treino foi cobrado.',
-                ),
+                content: Text('Proposta expirada. Nenhum treino foi cobrado.'),
                 backgroundColor: Colors.orange,
               ),
             );

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
-import '../../../payment_methods/domain/entities/payment_method.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
 import '../../../payment_methods/presentation/bloc/payment_methods_bloc.dart';
 import '../bloc/proposals_bloc.dart';
@@ -38,7 +36,9 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
         if (state is! ProposalsLoaded) {
           return const Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryOrange),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                AppColors.primaryOrange,
+              ),
             ),
           );
         }
@@ -55,31 +55,30 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
                   color: AppColors.secondary,
                 ),
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Text(
                 'Defina o valor que você está disposto a pagar por esta aula.',
                 style: AppTextStyles.paragraph.copyWith(
                   color: AppColors.secondaryDark,
                 ),
               ),
-              
+
               const SizedBox(height: 32),
 
               // Valor da aula
               _buildPriceSection(context, state),
-              
+
               const SizedBox(height: 32),
 
               // Observações adicionais
               _buildNotesSection(context, state),
-              
+
               const SizedBox(height: 32),
 
               // Método de pagamento
               _buildPaymentMethodSection(context, state),
-              
             ],
           ),
         );
@@ -89,7 +88,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
 
   Widget _buildPriceSection(BuildContext context, ProposalsLoaded state) {
     final suggestedPrice = _getSuggestedPrice(state);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -132,9 +131,9 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
             ),
           ],
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Campo de preço inteligente
         SmartPriceField(
           initialValue: state.proposal.price,
@@ -192,29 +191,25 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
             ),
           ],
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Campo de observações
         Container(
           decoration: BoxDecoration(
             color: AppColors.inputBackground,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: AppColors.secondaryDark,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.secondaryDark, width: 1),
           ),
           child: TextField(
             onChanged: (notes) {
               context.read<ProposalsBloc>().add(ProposalsUpdateNotes(notes));
             },
             maxLines: 4,
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.secondaryDark,
-            ),
+            style: AppTextStyles.small.copyWith(color: AppColors.secondaryDark),
             decoration: InputDecoration(
-              hintText: 'Ex: “Já treino há 2 anos, quero fazer um treino de peito hoje”',
+              hintText:
+                  'Ex: “Já treino há 2 anos, quero fazer um treino de peito hoje”',
               hintStyle: AppTextStyles.small.copyWith(
                 color: AppColors.secondaryDark.withOpacity(0.6),
               ),
@@ -227,34 +222,37 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
     );
   }
 
-
-
   double? _getSuggestedPrice(ProposalsLoaded state) {
     if (state.proposal.modalityId == null) return null;
-    
-    final modality = state.availableModalities
-        .where((m) => m.id == state.proposal.modalityId)
-        .isNotEmpty
-        ? state.availableModalities
-            .firstWhere((m) => m.id == state.proposal.modalityId)
+
+    final modality =
+        state.availableModalities
+            .where((m) => m.id == state.proposal.modalityId)
+            .isNotEmpty
+        ? state.availableModalities.firstWhere(
+            (m) => m.id == state.proposal.modalityId,
+          )
         : null;
-        
+
     return modality?.suggestedPrice;
   }
 
   List<double> _getPriceSuggestions(double? suggestedPrice) {
     final baseSuggestions = [40.0, 50.0, 60.0, 80.0, 100.0];
-    
+
     if (suggestedPrice != null && !baseSuggestions.contains(suggestedPrice)) {
       final suggestions = [...baseSuggestions, suggestedPrice];
       suggestions.sort();
       return suggestions;
     }
-    
+
     return baseSuggestions;
   }
 
-  Widget _buildPaymentMethodSection(BuildContext context, ProposalsLoaded state) {
+  Widget _buildPaymentMethodSection(
+    BuildContext context,
+    ProposalsLoaded state,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -267,19 +265,11 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
             context.read<ProposalsBloc>().add(
               ProposalsUpdatePaymentMethod(methodId, methodName),
             );
-            // Verificar se é AMEX para exigir CVV
-            final selectedMethod = state.availablePaymentMethods
-                .where((m) => m.id == methodId)
-                .firstOrNull;
-            final isAmex = selectedMethod?.cardBrand == CardBrand.americanExpress;
-            if (isAmex) {
-              _showAmexCvvDialog(context);
-            }
           },
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Botão para adicionar nova forma de pagamento
         SizedBox(
           width: double.infinity,
@@ -313,93 +303,9 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
     );
   }
 
-  Future<void> _showAmexCvvDialog(BuildContext context) async {
-    final cvvController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final cvv = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text(
-          'CVV do American Express',
-          style: TextStyle(fontFamily: 'Fira Sans', fontWeight: FontWeight.w600),
-        ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Cartões American Express exigem o CVV (4 dígitos na frente do cartão) para cada pagamento.',
-                style: TextStyle(fontFamily: 'Fira Sans', fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: cvvController,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'CVV (4 dígitos)',
-                  hintText: '1234',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.primaryOrange),
-                  ),
-                ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'CVV é obrigatório';
-                  if (v.length != 4) return 'AMEX usa CVV de 4 dígitos';
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(dialogContext).pop(cvvController.text);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryOrange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text(
-              'Confirmar',
-              style: TextStyle(fontFamily: 'Fira Sans'),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted) return;
-
-    if (cvv != null && cvv.isNotEmpty) {
-      context.read<ProposalsBloc>().add(ProposalsSetAmexCvv(cvv));
-    } else {
-      // Usuário cancelou — limpar seleção de método de pagamento (voltar para PIX)
-      context.read<ProposalsBloc>().add(
-        const ProposalsUpdatePaymentMethod('pix', 'PIX'),
-      );
-    }
-  }
-
   Future<void> _navigateToPaymentMethods(BuildContext context) async {
+    final proposalsBloc = context.read<ProposalsBloc>();
+
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -411,6 +317,6 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
     );
 
     if (!mounted) return;
-    context.read<ProposalsBloc>().add(const ProposalsLoadPaymentMethods());
+    proposalsBloc.add(const ProposalsLoadPaymentMethods());
   }
 }

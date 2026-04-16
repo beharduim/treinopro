@@ -105,7 +105,10 @@ class ProposalsUpdatePaymentMethod extends ProposalsEvent {
   final String paymentMethodId;
   final String paymentMethodName;
 
-  const ProposalsUpdatePaymentMethod(this.paymentMethodId, this.paymentMethodName);
+  const ProposalsUpdatePaymentMethod(
+    this.paymentMethodId,
+    this.paymentMethodName,
+  );
 
   @override
   List<Object> get props => [paymentMethodId, paymentMethodName];
@@ -116,11 +119,11 @@ class ProposalsLoadPaymentMethods extends ProposalsEvent {
   const ProposalsLoadPaymentMethods();
 }
 
-/// Definir CVV para cartão AMEX salvo
-class ProposalsSetAmexCvv extends ProposalsEvent {
+/// Definir CVV temporário para cartão salvo
+class ProposalsSetSavedCardCvv extends ProposalsEvent {
   final String cvv;
 
-  const ProposalsSetAmexCvv(this.cvv);
+  const ProposalsSetSavedCardCvv(this.cvv);
 
   @override
   List<Object> get props => [cvv];
