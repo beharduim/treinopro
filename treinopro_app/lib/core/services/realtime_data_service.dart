@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import '../../features/home/presentation/bloc/home_bloc.dart';
 import '../../features/home/presentation/bloc/home_event.dart' as home_events;
 import '../../features/classes/presentation/bloc/classes_bloc.dart';
@@ -15,10 +16,13 @@ import 'live_activity_service.dart';
 import 'notification_service.dart';
 import '../../features/proposals/presentation/bloc/proposal_search_bloc.dart' as proposal_search;
 import '../../features/users/data/services/users_api_service.dart';
+import '../../features/proposals/data/services/proposals_api_service.dart';
+import '../../features/classes/data/services/classes_api_service.dart';
+
 // import 'fcm_service.dart'; // COMENTADO: Não usando FCMService por enquanto
 
 /// Serviço para gerenciar dados em tempo real via WebSocket (substitui DataRefreshService)
-class RealtimeDataService {
+class RealtimeDataService with WidgetsBindingObserver {
   static final RealtimeDataService _instance = RealtimeDataService._internal();
   factory RealtimeDataService() => _instance;
   RealtimeDataService._internal();
@@ -65,24 +69,33 @@ class RealtimeDataService {
     // ✅ CORREÇÃO: Limpar referências antigas antes de atribuir novas
     if (_isInitialized) {
       debugPrint('⚠️ RealtimeDataService: Já inicializado, limpando referências antigas...');
+      
+      // ✅ CORREÇÃO CLAUDE: Remover observador antigo antes de registrar novo
+      WidgetsBinding.instance.removeObserver(this);
+      
       _messageSubscription?.cancel();
       _connectionSubscription?.cancel();
       _reconnectTimer?.cancel();
       _homeCardReloadDebounce?.cancel();
     }
     
-    // ✅ CORREÇÃO: Verificar se os BLoCs não estão fechados antes de atribuir
-    if (homeBloc.isClosed) {
-      debugPrint('❌ RealtimeDataService: HomeBloc está fechado, não inicializando');
+    // ✅ CORREÇÃO CLAUDE: Verificar se algum BLoC essencial está fechado antes de prosseguir
+    if (homeBloc.isClosed || classesBloc.isClosed || proposalsBloc.isClosed || 
+        gamificationBloc.isClosed || proposalSearchBloc.isClosed) {
+      debugPrint('❌ RealtimeDataService: Um ou mais BLoCs estão fechados, não inicializando');
+      _isInitialized = false;
       return;
     }
-    
+
     _homeBloc = homeBloc;
     _classesBloc = classesBloc;
     _proposalsBloc = proposalsBloc;
     _gamificationBloc = gamificationBloc;
     _proposalSearchBloc = proposalSearchBloc;
     _onClassCreatedCallback = onClassCreated;
+    
+    // ✅ Registrar observador de ciclo de vida do Flutter
+    WidgetsBinding.instance.addObserver(this);
     
     _isInitialized = true;
     debugPrint('🔄 RealtimeDataService: Inicializado com novos BLoCs');
@@ -186,7 +199,7 @@ class RealtimeDataService {
         _handleClassUpdate(data);
         break;
       case 'class_created':
-        _handleClassCreated(data);
+        unawaited(_handleClassCreated(data));
         break;
       case 'class_timer_started':
         _handleClassTimerStarted(data);
@@ -256,12 +269,10 @@ class RealtimeDataService {
     debugPrint('📝 RealtimeDataService: Proposta atualizada');
     
     // Atualizar lista imediatamente via WebSocket
-    try {
-      _proposalsBloc?.add(ProposalsUpdateFromWebSocket(data: {
+    _safeAddToBloc(_proposalsBloc, ProposalsUpdateFromWebSocket(data: {
         'action': 'proposal_updated',
         ...data,
-      }));
-    } catch (_) {}
+      }), 'ProposalsBloc');
 
     // Verificar se é um cancelamento
     final action = data['action'] as String?;
@@ -271,27 +282,24 @@ class RealtimeDataService {
       // Para cancelamentos, primeiro disparar ProposalCancelled para limpar isSearchingActive
       final proposalId = data['proposal']?['id'] as String?;
       if (proposalId != null) {
-        _homeBloc?.add(home_events.ProposalCancelled(proposalId: proposalId));
+        _safeAddToBloc(_homeBloc, home_events.ProposalCancelled(proposalId: proposalId), 'HomeBloc');
         debugPrint('❌ RealtimeDataService: ProposalCancelled disparado com ID: $proposalId');
         LiveActivityService.instance.endActivity(proposalId: proposalId);
       } else {
-        _homeBloc?.add(const home_events.ProposalCancelled());
+        _safeAddToBloc(_homeBloc, const home_events.ProposalCancelled(), 'HomeBloc');
         debugPrint('❌ RealtimeDataService: ProposalCancelled disparado sem ID');
         LiveActivityService.instance.endActivity();
       }
       
-      // Aguardar um pouco para o ProposalCancelled ser processado antes de recarregar dados
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _proposalsBloc?.add(const ProposalsRefresh());
-        _homeBloc?.add(const home_events.LoadWorkoutCardData());
-        
-        // ✅ CORREÇÃO: Remover ClassesRefresh - cancelamento de proposta não deve impactar página de aulas
-        // Propostas canceladas não afetam a lista de aulas dos personais
-        // _classesBloc?.add(const ClassesRefresh()); // REMOVIDO
-      });
+      // ✅ CORREÇÃO CLAUDE: Remover Future.delayed anônimo
+      // 1. Atualizar ProposalsBloc imediatamente (seguro porque ?.add é assíncrono por natureza no BLoC)
+      _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
+      
+      // 2. Atualizar HomeBloc via timer rastreado
+      _scheduleHomeCardReload(const Duration(milliseconds: 100));
     } else {
       // Para outras atualizações, usar fluxo normal
-      _proposalsBloc?.add(const ProposalsRefresh());
+      _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
       _scheduleHomeCardReload(const Duration(milliseconds: 100));
     }
   }
@@ -301,23 +309,13 @@ class RealtimeDataService {
     debugPrint('🔔 RealtimeDataService: Proposta criada');
     
     // Atualizar lista imediatamente via WebSocket
-    try {
-      _proposalsBloc?.add(ProposalsUpdateFromWebSocket(data: {
+    _safeAddToBloc(_proposalsBloc, ProposalsUpdateFromWebSocket(data: {
         'action': 'proposal_created',
         ...data,
-      }));
-    } catch (_) {}
-    
-    // COMENTADO: Não usando FCMService por enquanto
-    // Verificar se há dados pendentes de notificação FCM (quando usuário toca na notificação)
-    // final pendingNotificationData = FCMService.instance.getPendingNotificationData();
-    // if (pendingNotificationData != null) {
-    //   debugPrint('🎯 [REALTIME] Dados de notificação pendente encontrados, abrindo modal');
-    //   _openProposalModalFromNotification(pendingNotificationData, data);
-    // }
+      }), 'ProposalsBloc');
     
     // Notificar ProposalsBloc para processar a nova proposta
-    _proposalsBloc?.add(const ProposalsRefresh());
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
   }
 
   // COMENTADO: Método não usado enquanto FCMService está desabilitado
@@ -380,13 +378,13 @@ class RealtimeDataService {
     }
     
     if (proposal != null && personal != null) {
-      _homeBloc?.add(home_events.ProposalMatched({
+      _safeAddToBloc(_homeBloc, home_events.ProposalMatched({
         'location': proposal['locationName'] ?? '',
         'date': proposal['trainingDate'] ?? '',
         'time': proposal['trainingTime'] ?? '',
         'personalName': personal['name'] ?? '',
         'personalImage': personal['photo'] ?? '',
-      }));
+      }), 'HomeBloc');
       
       // DEBUG: Log dos dados enviados para ProposalMatched
       debugPrint('🔍 [PROPOSAL_MATCH_FOUND] Dados enviados para ProposalMatched:');
@@ -412,33 +410,21 @@ class RealtimeDataService {
     }
     LiveActivityService.instance.endActivity(proposalId: proposalId);
     
-    // Aguardar um pouco para o ProposalSearchExpired ser processado antes de recarregar dados
-    Future.delayed(const Duration(milliseconds: 100), () {
-      debugPrint('🔄 [PROPOSAL_EXPIRED] Recarregando dados após 100ms');
-      
-      // Remover imediatamente da lista via WebSocket
-      try {
-        _proposalsBloc?.add(ProposalsUpdateFromWebSocket(data: {
-          'action': 'proposal_expired',
-          if (proposalId != null) 'proposalId': proposalId,
-          ...data,
-        }));
-      } catch (_) {}
+    // ✅ CORREÇÃO CLAUDE: Remover Future.delayed anônimo
+    debugPrint('🔄 [PROPOSAL_EXPIRED] Recarregando dados imediatamente');
+    
+    // Remover imediatamente da lista via WebSocket
+    _safeAddToBloc(_proposalsBloc, ProposalsUpdateFromWebSocket(data: {
+      'action': 'proposal_expired',
+      if (proposalId != null) 'proposalId': proposalId,
+      ...data,
+    }), 'ProposalsBloc');
 
-      // Notificar ProposalsBloc (com verificação)
-      if (_proposalsBloc != null && !_proposalsBloc!.isClosed) {
-        _proposalsBloc!.add(const ProposalsRefresh());
-        debugPrint('📤 [PROPOSAL_EXPIRED] ProposalsBloc notificado');
-      }
-      
-      // Notificar HomeBloc para recarregar dados (com verificação)
-      if (_homeBloc != null && !_homeBloc!.isClosed) {
-        _homeBloc!.add(const home_events.LoadWorkoutCardData());
-        debugPrint('📤 [PROPOSAL_EXPIRED] HomeBloc notificado - card mudará para pendingProposal');
-      }
-      
-      debugPrint('🏁 [PROPOSAL_EXPIRED] Handler finalizado');
-    });
+    // Notificar BLoCs via safeAddToBloc
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
+    _scheduleHomeCardReload(const Duration(milliseconds: 100));
+    
+    debugPrint('🏁 [PROPOSAL_EXPIRED] Handler finalizado');
   }
 
   void _handleNewProposal(Map<String, dynamic>? data) {
@@ -446,12 +432,10 @@ class RealtimeDataService {
     debugPrint('🆕 RealtimeDataService: Nova proposta');
     
     // Atualizar lista imediatamente via WebSocket
-    try {
-      _proposalsBloc?.add(ProposalsUpdateFromWebSocket(data: data));
-    } catch (_) {}
+    _safeAddToBloc(_proposalsBloc, ProposalsUpdateFromWebSocket(data: data), 'ProposalsBloc');
 
     // Notificar ProposalsBloc
-    _proposalsBloc?.add(const ProposalsRefresh());
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
   }
 
   void _handleMatchConfirmed(Map<String, dynamic>? data) {
@@ -465,13 +449,19 @@ class RealtimeDataService {
     LiveActivityService.instance.endActivity(proposalId: matchProposalId);
 
     // Notificar todos os BLoCs relevantes IMEDIATAMENTE
-    _proposalsBloc?.add(const ProposalsRefresh());
-    _classesBloc?.add(const ClassesRefresh());
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
+    _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
     debugPrint('📤 [MATCH_CONFIRMED] ProposalsBloc e ClassesBloc notificados');
     
     // Verificar autenticação ANTES de processar
-    final authService = sl<AuthService>();
-    final hasToken = authService.isAuthenticated;
+    bool hasToken = false;
+    try {
+      final authService = sl<AuthService>();
+      hasToken = authService.isAuthenticated;
+    } catch (e) {
+      debugPrint('❌ [MATCH_CONFIRMED] Erro ao acessar AuthService: $e');
+    }
+    
     debugPrint('🔐 [MATCH_CONFIRMED] Verificando autenticação: $hasToken');
     if (!hasToken) {
       debugPrint('❌ [MATCH_CONFIRMED] Usuário não autenticado - abortando processamento');
@@ -581,27 +571,33 @@ class RealtimeDataService {
         
         // 1. Notificar ProposalSearchBloc IMEDIATAMENTE para fechar o modal ou mostrar tela de match
         if (_proposalSearchBloc != null && !_proposalSearchBloc!.isClosed) {
-          final modality = proposal['modality']?.toString() ?? 'Personal Training';
-          _proposalSearchBloc!.add(proposal_search.WebSocketMatchFound(
-            personalName: personalName ?? 'Personal Trainer',
-            personalPhoto: personalImage ?? '',
-            personalRating: personalRating ?? 0.0,
-            personalResponseTime: personalResponseTime,
-            proposalId: proposal['id']?.toString() ?? '',
-            modality: modality,
-          ));
-          debugPrint('✅ [MATCH_CONFIRMED] WebSocketMatchFound enviado para fechar modal de busca');
+          // ✅ CORREÇÃO CLAUDE: Idempotência - verificar se já não está em estado Matched
+          final currentState = _proposalSearchBloc!.state;
+          if (currentState is! proposal_search.ProposalSearchMatched) {
+            final modality = proposal['modality']?.toString() ?? 'Personal Training';
+            _safeAddToBloc(_proposalSearchBloc, proposal_search.WebSocketMatchFound(
+              personalName: personalName ?? 'Personal Trainer',
+              personalPhoto: personalImage ?? '',
+              personalRating: personalRating ?? 0.0,
+              personalResponseTime: personalResponseTime,
+              proposalId: proposal['id']?.toString() ?? '',
+              modality: modality,
+            ), 'ProposalSearchBloc');
+            debugPrint('✅ [MATCH_CONFIRMED] WebSocketMatchFound enviado para fechar modal de busca');
+          } else {
+            debugPrint('ℹ️ [MATCH_CONFIRMED] Já em estado Matched, ignorando re-disparo de WebSocketMatchFound');
+          }
         } else {
           debugPrint('⚠️ [MATCH_CONFIRMED] ProposalSearchBloc não disponível para fechar modal');
         }
         
         // 2. Notificar HomeBloc IMEDIATAMENTE que a busca foi concluída (para sumir o card de busca)
         if (_homeBloc != null && !_homeBloc!.isClosed) {
-          _homeBloc!.add(home_events.ProposalMatched(_pendingMatchData!));
+          _safeAddToBloc(_homeBloc, home_events.ProposalMatched(_pendingMatchData!), 'HomeBloc');
           debugPrint('📤 [MATCH_CONFIRMED] ProposalMatched enviado para HomeBloc parar card de busca');
           
           // Agendar um refresh de dados para garantir que tudo esteja sincronizado
-          _homeBloc!.add(const home_events.LoadWorkoutCardData());
+          _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
         }
         
         // Tentar obter classId do evento (se disponível)
@@ -610,21 +606,15 @@ class RealtimeDataService {
       } else if (currentUserId != null && currentUserId == personalId) {
         debugPrint('👨‍🏫 [MATCH_CONFIRMED] Usuário é o PERSONAL que aceitou - apenas recarregando dados');
         // Apenas recarregar dados para o personal
-        if (_homeBloc != null && !_homeBloc!.isClosed) {
-          _homeBloc!.add(const home_events.LoadWorkoutCardData());
-        }
+        _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
       } else {
         debugPrint('⚠️ [MATCH_CONFIRMED] Usuário não identificado como aluno ou personal');
-        if (_homeBloc != null && !_homeBloc!.isClosed) {
-          _homeBloc!.add(const home_events.LoadWorkoutCardData());
-        }
+        _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
       }
     } else {
       debugPrint('⚠️ [MATCH_CONFIRMED] Dados incompletos - proposal: ${proposal != null}, personal: ${personal != null}, student: ${student != null}');
       // Fallback: apenas recarregar dados
-      if (_homeBloc != null && !_homeBloc!.isClosed) {
-        _homeBloc!.add(const home_events.LoadWorkoutCardData());
-      }
+      _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
     }
     
     debugPrint('🏁 [MATCH_CONFIRMED] Handler finalizado');
@@ -688,22 +678,22 @@ class RealtimeDataService {
       // ✅ CORREÇÃO: Usar ClassesUpdateFromWebSocket para atualizar apenas o card específico
       // ao invés de fazer refresh completo da lista (evita refresh contínuo)
       if (classData != null) {
-        _classesBloc?.add(ClassesUpdateFromWebSocket(data: {
+        _safeAddToBloc(_classesBloc, ClassesUpdateFromWebSocket(data: {
           'action': 'class_cancelled',
           'class': classData,
-        }));
+        }), 'ClassesBloc');
         debugPrint('✅ [CLASS_UPDATE] ClassesUpdateFromWebSocket disparado para remover card específico');
       }
       
       // Atualizar card da home (para remover aula cancelada)
-      _homeBloc?.add(const home_events.LoadWorkoutCardData());
+      _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
       
       debugPrint('✅ [CLASS_UPDATE] Card específico será removido sem refresh completo da lista');
       return; // ✅ IMPORTANTE: Retornar aqui para não executar o código abaixo (evita ClassesRefresh duplicado)
     } else if (action == 'class_created' && classData != null) {
       debugPrint('🚗 [CLASS_UPDATE] Aula criada via class_update - processando como class_created');
       // Delegar para o handler específico de class_created
-      _handleClassCreated(data);
+      unawaited(_handleClassCreated(data));
       return; // Não continuar com o processamento normal do class_update
     } else if (action == 'class_completed' && classData != null) {
       debugPrint('✅ [CLASS_UPDATE] Aula concluída - processando missões');
@@ -715,24 +705,20 @@ class RealtimeDataService {
     // ✅ CORREÇÃO: Só notificar ClassesBloc se não for cancelamento (já tratado acima com return)
     // Para outras ações, usar ClassesUpdateFromWebSocket para atualização incremental
     if (classData != null && action != null) {
-      _classesBloc?.add(ClassesUpdateFromWebSocket(data: {
-        'action': action,
-        'class': classData,
-      }));
+      _safeAddToBloc(_classesBloc, ClassesUpdateFromWebSocket(data: {
+          'action': action,
+          'class': classData,
+        }), 'ClassesBloc');
       debugPrint('📤 [CLASS_UPDATE] ClassesUpdateFromWebSocket disparado (action: $action)');
     } else {
       // Fallback: refresh completo apenas se não houver dados da aula
-    _classesBloc?.add(const ClassesRefresh());
+      _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
       debugPrint('📤 [CLASS_UPDATE] ClassesRefresh disparado (fallback - sem classData)');
     }
     
-    // Notificar HomeBloc
-    if (action == 'class_cancelled') {
-      // Já tratado acima com return
-    } else {
-      _scheduleHomeCardReload(const Duration(milliseconds: 50));
-      debugPrint('📤 [CLASS_UPDATE] HomeBloc notificado (debounced 50ms)');
-    }
+    // Notificar HomeBloc (cancelamento já retornou acima)
+    _scheduleHomeCardReload(const Duration(milliseconds: 50));
+    debugPrint('📤 [CLASS_UPDATE] HomeBloc notificado (debounced 50ms)');
     
     debugPrint('🏁 [CLASS_UPDATE] Handler finalizado');
   }
@@ -825,8 +811,8 @@ class RealtimeDataService {
         // ✅ ESTRATÉGIA UBER: Fazer transição para matched com dados completos
         try {
           final searchBloc = _proposalSearchBloc;
-          if (searchBloc == null) {
-            debugPrint('⚠️ [CLASS_CREATED] ProposalSearchBloc não inicializado');
+          if (searchBloc == null || searchBloc.isClosed) {
+            debugPrint('⚠️ [CLASS_CREATED] ProposalSearchBloc não disponível ou fechado');
             return;
           }
           final currentState = searchBloc.state;
@@ -929,6 +915,18 @@ class RealtimeDataService {
                   final usersApi = sl<UsersApiService>();
                   final personalInfo = await usersApi.getUserBasicInfo(personalId);
                   
+                  // ✅ CORREÇÃO CLAUDE: Re-check do bloc após o await da API
+                  if (searchBloc.isClosed) {
+                    debugPrint('⚠️ [CLASS_CREATED] ProposalSearchBloc fechado após await da API de usuários');
+                    return;
+                  }
+
+                  // ✅ CORREÇÃO CLAUDE: Re-verificar estado após gap assíncrono para evitar disparos duplicados
+                  if (searchBloc.state is! proposal_search.ProposalSearchActive) {
+                    debugPrint('ℹ️ [CLASS_CREATED] Estado mudou para ${searchBloc.state.runtimeType} durante await — ignorando WebSocketMatchFound duplicado');
+                    return;
+                  }
+
                   if (personalInfo.isNotEmpty) {
                     final apiPersonalName = (personalInfo['firstName'] ?? '').toString() + ' ' + (personalInfo['lastName'] ?? '').toString();
                     final apiPersonalPhoto = (personalInfo['profileImageUrl'] ?? '').toString();
@@ -949,74 +947,74 @@ class RealtimeDataService {
                     final modality = (classData['proposalModality'] ?? 'Treino')?.toString() ?? 'Treino';
                     
                     // Fazer transição para matched com dados completos da API
-                    searchBloc.add(proposal_search.WebSocketMatchFound(
+                    _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
                       personalName: finalPersonalName,
                       personalPhoto: finalPersonalPhoto,
                       personalRating: finalPersonalRating,
                       personalResponseTime: finalPersonalTimeOnPlatform,
                       proposalId: proposalId,
                       modality: modality,
-                    ));
+                    ), 'ProposalSearchBloc');
                   } else {
                     debugPrint('⚠️ [CLASS_CREATED] API retornou dados vazios, usando dados do WebSocket');
                     // Extrair modalidade da proposta
                     final modality = (classData['proposalModality'] ?? 'Treino')?.toString() ?? 'Treino';
                     // Usar dados do WebSocket mesmo que vazios
-                    searchBloc.add(proposal_search.WebSocketMatchFound(
+                    _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
                       personalName: personalName,
                       personalPhoto: personalPhoto,
                       personalRating: personalRating,
                       personalResponseTime: personalTimeOnPlatform,
                       proposalId: proposalId,
                       modality: modality,
-                    ));
+                    ), 'ProposalSearchBloc');
                   }
                 } else {
                   debugPrint('⚠️ [CLASS_CREATED] personalId não encontrado, usando dados do WebSocket');
                   // Extrair modalidade da proposta
                   final modality = (classData['proposalModality'] ?? 'Treino')?.toString() ?? 'Treino';
                   // Usar dados do WebSocket mesmo que vazios
-                  searchBloc.add(proposal_search.WebSocketMatchFound(
+                  _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
                     personalName: personalName,
                     personalPhoto: personalPhoto,
                     personalRating: personalRating,
                     personalResponseTime: personalTimeOnPlatform,
                     proposalId: proposalId,
                     modality: modality,
-                  ));
+                  ), 'ProposalSearchBloc');
                 }
               } catch (e) {
                 debugPrint('❌ [CLASS_CREATED] Erro ao buscar dados da API: $e');
                 // Extrair modalidade da proposta
                 final modality = (classData['proposalModality'] ?? 'Treino')?.toString() ?? 'Treino';
                 // Usar dados do WebSocket mesmo que vazios
-                searchBloc.add(proposal_search.WebSocketMatchFound(
+                _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
                   personalName: personalName,
                   personalPhoto: personalPhoto,
                   personalRating: personalRating,
                   personalResponseTime: personalTimeOnPlatform,
                   proposalId: proposalId,
                   modality: modality,
-                ));
+                ), 'ProposalSearchBloc');
               }
             } else {
               debugPrint('✅ [CLASS_CREATED] Dados do WebSocket estão completos, usando diretamente');
               // Extrair modalidade da proposta
               final modality = (classData['proposalModality'] ?? 'Treino')?.toString() ?? 'Treino';
               // Fazer transição para matched com dados completos
-              searchBloc.add(proposal_search.WebSocketMatchFound(
+              _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
                 personalName: personalName,
                 personalPhoto: personalPhoto,
                 personalRating: personalRating,
                 personalResponseTime: personalTimeOnPlatform,
                 proposalId: proposalId,
                 modality: modality,
-              ));
+              ), 'ProposalSearchBloc');
             }
             
             // Atualizar classId
             if (classId != null && classId.isNotEmpty) {
-              searchBloc.add(proposal_search.UpdateClassId(classId: classId));
+              _safeAddToBloc(searchBloc, proposal_search.UpdateClassId(classId: classId), 'ProposalSearchBloc');
               debugPrint('✅ [CLASS_CREATED] ClassId atualizado: $classId');
             }
             
@@ -1025,17 +1023,14 @@ class RealtimeDataService {
               _pendingMatchData!['personalName'] = personalName;
               _pendingMatchData!['personalImage'] = personalPhoto;
               _pendingMatchData!['personalRating'] = personalRating;
-              _homeBloc?.add(home_events.ProposalMatched(_pendingMatchData!));
+              _safeAddToBloc(_homeBloc, home_events.ProposalMatched(_pendingMatchData!), 'HomeBloc');
               debugPrint('✅ [CLASS_CREATED] ProposalMatched enviado para HomeBloc com dados completos');
               _pendingMatchData = null; // Limpar dados pendentes
             }
             
             // 🔧 CORREÇÃO: SEMPRE recarregar dados do HomeBloc quando uma aula é criada
             // Isso garante que o card de workout seja atualizado automaticamente
-            if (_homeBloc != null && !_homeBloc!.isClosed) {
-              _homeBloc!.add(const home_events.LoadWorkoutCardData());
-              debugPrint('✅ [CLASS_CREATED] HomeBloc notificado para recarregar dados do card');
-            }
+            _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
             
             debugPrint('🎉 [CLASS_CREATED] Transição para matched concluída com dados completos!');
             
@@ -1044,7 +1039,7 @@ class RealtimeDataService {
             
             // Atualizar classId se necessário
             if (classId != null && classId.isNotEmpty) {
-              searchBloc.add(proposal_search.UpdateClassId(classId: classId));
+              _safeAddToBloc(searchBloc, proposal_search.UpdateClassId(classId: classId), 'ProposalSearchBloc');
               debugPrint('✅ [CLASS_CREATED] ClassId atualizado: $classId');
             }
             
@@ -1062,33 +1057,17 @@ class RealtimeDataService {
     }
     
     // Notificar ClassesBloc
-    _classesBloc?.add(const ClassesRefresh());
+    _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
     debugPrint('📤 [CLASS_CREATED] ClassesBloc notificado');
     
-    // ✅ CORREÇÃO: Notificar HomeBloc IMEDIATAMENTE e também com delay
+    // ✅ CORREÇÃO: Notificar HomeBloc IMEDIATAMENTE
     // Notificação imediata para atualizar o card rapidamente
-    if (_homeBloc != null && !_homeBloc!.isClosed) {
-      _homeBloc!.add(const home_events.LoadWorkoutCardData());
-      debugPrint('📤 [CLASS_CREATED] HomeBloc notificado IMEDIATAMENTE');
-    }
+    _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
+    debugPrint('📤 [CLASS_CREATED] HomeBloc notificado IMEDIATAMENTE');
     
-    // ✅ CORREÇÃO: Aguardar um pequeno delay para garantir que a API tem os dados atualizados
-    // Isso resolve o problema de race condition onde a API ainda não commitou a transação
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (_homeBloc != null && !_homeBloc!.isClosed) {
-        _homeBloc!.add(const home_events.LoadWorkoutCardData());
-        debugPrint('📤 [CLASS_CREATED] HomeBloc notificado após 300ms - card será atualizado com dados frescos');
-      }
-    });
-    
-    // ✅ CORREÇÃO ADICIONAL: Notificar novamente após 1 segundo para garantir
-    // Isso garante que mesmo se houver problemas de timing, o card será atualizado
-    Future.delayed(const Duration(seconds: 1), () {
-      if (_homeBloc != null && !_homeBloc!.isClosed) {
-        _homeBloc!.add(const home_events.LoadWorkoutCardData());
-        debugPrint('📤 [CLASS_CREATED] HomeBloc notificado após 1s - garantindo atualização final');
-      }
-    });
+    // ✅ CORREÇÃO CLAUDE: Usar apenas um timer de 1s para garantir a atualização
+    // O timer de 300ms seria cancelado pelo de 1s de qualquer forma devido ao debounce
+    _scheduleHomeCardReload(const Duration(seconds: 1));
     
     debugPrint('🏁 [CLASS_CREATED] Handler finalizado');
   }
@@ -1098,10 +1077,10 @@ class RealtimeDataService {
     debugPrint('⏰ RealtimeDataService: Timer de aula iniciado');
     
     // Notificar ClassesBloc
-    _classesBloc?.add(const ClassesRefresh());
+    _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
     
     // ✅ CORREÇÃO: Atualizar card da home quando aula iniciar
-    _homeBloc?.add(const home_events.LoadWorkoutCardData());
+    _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
     
     // Notificação local informando que a aula começou
     // try {
@@ -1132,7 +1111,7 @@ class RealtimeDataService {
     // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _gamificationBloc?.add(RefreshGamificationData(userId: userId));
+      _safeAddToBloc(_gamificationBloc, RefreshGamificationData(userId: userId), 'GamificationBloc');
     }
   }
 
@@ -1143,7 +1122,7 @@ class RealtimeDataService {
     // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _gamificationBloc?.add(LoadUserMissions(userId: userId));
+      _safeAddToBloc(_gamificationBloc, LoadUserMissions(userId: userId), 'GamificationBloc');
     }
   }
 
@@ -1154,7 +1133,7 @@ class RealtimeDataService {
     // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _gamificationBloc?.add(RefreshGamificationData(userId: userId));
+      _safeAddToBloc(_gamificationBloc, RefreshGamificationData(userId: userId), 'GamificationBloc');
     }
   }
 
@@ -1165,8 +1144,8 @@ class RealtimeDataService {
     // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _gamificationBloc?.add(LoadUserProfile(userId: userId));
-      _gamificationBloc?.add(LoadGamificationStats(userId: userId));
+      _safeAddToBloc(_gamificationBloc, LoadUserProfile(userId: userId), 'GamificationBloc');
+      _safeAddToBloc(_gamificationBloc, LoadGamificationStats(userId: userId), 'GamificationBloc');
     }
   }
 
@@ -1177,7 +1156,7 @@ class RealtimeDataService {
     // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _gamificationBloc?.add(RefreshGamificationData(userId: userId));
+      _safeAddToBloc(_gamificationBloc, RefreshGamificationData(userId: userId), 'GamificationBloc');
     }
   }
 
@@ -1351,10 +1330,10 @@ class RealtimeDataService {
     debugPrint('⭐ RealtimeDataService: Avaliação criada');
     
     // Notificar ClassesBloc para atualizar lista de aulas
-    _classesBloc?.add(const ClassesRefresh());
+    _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
     
     // Notificar HomeBloc para atualizar cards de aulas na home
-    _homeBloc?.add(const home_events.LoadWorkoutCardData());
+    _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
     
     debugPrint('✅ RealtimeDataService: ClassesBloc e HomeBloc notificados sobre avaliação criada');
   }
@@ -1377,19 +1356,19 @@ class RealtimeDataService {
       // Processar para o aluno (se disponível)
       if (studentId != null) {
         debugPrint('👨‍🎓 RealtimeDataService: Processando missões para aluno $studentId');
-        _gamificationBloc?.add(ProcessClassCompletion(
+        _safeAddToBloc(_gamificationBloc, ProcessClassCompletion(
           userId: studentId,
           classId: classId,
-        ));
+        ), 'GamificationBloc');
       }
       
       // Processar para o personal (se disponível)
       if (personalId != null) {
         debugPrint('👨‍🏫 RealtimeDataService: Processando missões para personal $personalId');
-        _gamificationBloc?.add(ProcessClassCompletion(
+        _safeAddToBloc(_gamificationBloc, ProcessClassCompletion(
           userId: personalId,
           classId: classId,
-        ));
+        ), 'GamificationBloc');
       }
       
       debugPrint('✅ RealtimeDataService: Conclusão de aula processada com sucesso');
@@ -1441,9 +1420,9 @@ class RealtimeDataService {
     debugPrint('🔄 RealtimeDataService: Forçando refresh manual');
     
     // Atualizar todos os BLoCs
-    _homeBloc?.add(const home_events.LoadWorkoutCardData());
-    _classesBloc?.add(const ClassesRefresh());
-    _proposalsBloc?.add(const ProposalsRefresh());
+    _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
+    _safeAddToBloc(_classesBloc, const ClassesRefresh(), 'ClassesBloc');
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
   }
 
   void _handleFinancialUpdate(Map<String, dynamic>? data) {
@@ -1571,36 +1550,18 @@ class RealtimeDataService {
     debugPrint('📢 [REALTIME] TrainingDate: $trainingDate');
     debugPrint('📢 [REALTIME] TrainingTime: $trainingTime');
     
-    if (_homeBloc != null && !_homeBloc!.isClosed) {
-      debugPrint('📢 [REALTIME] HomeBloc disponível: ${_homeBloc!.hashCode}');
-      debugPrint('📢 [REALTIME] HomeBloc estado: ${_homeBloc!.state.runtimeType}');
-      
-      _homeBloc!.add(home_events.StartProposalSearch(
-        location: location,
-        trainingDate: trainingDate,
-        trainingTime: trainingTime,
-      ));
-      
-      debugPrint('✅ [REALTIME] StartProposalSearch disparado para HomeBloc correto');
-    } else {
-      debugPrint('❌ [REALTIME] HomeBloc não disponível ou fechado');
-    }
+    _safeAddToBloc(_homeBloc, home_events.StartProposalSearch(
+      location: location,
+      trainingDate: trainingDate,
+      trainingTime: trainingTime,
+    ), 'HomeBloc');
     
     // ✅ MELHORIA: Também notificar ProposalSearchBloc para sincronização completa
-    if (_proposalSearchBloc != null && !_proposalSearchBloc!.isClosed) {
-      debugPrint('📢 [REALTIME] ProposalSearchBloc disponível: ${_proposalSearchBloc!.hashCode}');
-      debugPrint('📢 [REALTIME] ProposalSearchBloc estado: ${_proposalSearchBloc!.state.runtimeType}');
-      
-      _proposalSearchBloc!.add(proposal_search.StartProposalSearch(
-        location: location,
-        trainingDate: trainingDate,
-        trainingTime: trainingTime,
-      ));
-      
-      debugPrint('✅ [REALTIME] StartProposalSearch disparado para ProposalSearchBloc correto');
-    } else {
-      debugPrint('❌ [REALTIME] ProposalSearchBloc não disponível ou fechado');
-    }
+    _safeAddToBloc(_proposalSearchBloc, proposal_search.StartProposalSearch(
+      location: location,
+      trainingDate: trainingDate,
+      trainingTime: trainingTime,
+    ), 'ProposalSearchBloc');
   }
 
   /// Obtém a instância atual do ProposalSearchBloc (para uso em outras páginas)
@@ -1650,6 +1611,9 @@ class RealtimeDataService {
   void dispose() {
     debugPrint('🗑️ RealtimeDataService: Iniciando limpeza...');
     
+    // ✅ Remover observador de ciclo de vida do Flutter
+    WidgetsBinding.instance.removeObserver(this);
+    
     // Cancelar subscriptions
     _messageSubscription?.cancel();
     _messageSubscription = null;
@@ -1678,13 +1642,139 @@ class RealtimeDataService {
     _reconnectAttempts = 0;
     
     debugPrint('✅ RealtimeDataService: Desconectado e limpo completamente');
-  }
+    }
 
-  // ===== HANDLERS ADICIONAIS =====
+    @override
+    void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('▶️ [REALTIME] App resumed - verificando sincronização de propostas');
+
+      // CRÍTICO: Sincronizar status da proposta atual via REST para evitar o "bug da lupa"
+      // Se o WebSocket caiu em background, o evento de match pode ter sido perdido.
+      _syncProposalStatus();
+    }
+    }
+
+    /// Sincroniza o status da proposta atual via REST para resolver o "bug da lupa"
+    Future<void> _syncProposalStatus() async {
+    final searchBloc = _proposalSearchBloc;
+    if (searchBloc == null || searchBloc.isClosed) {
+      debugPrint('ℹ️ [REALTIME] ProposalSearchBloc não disponível para sincronização');
+      return;
+    }
+
+    final currentState = searchBloc.state;
+    String? proposalId;
+
+    if (currentState is proposal_search.ProposalSearchActive) {
+      proposalId = currentState.proposalId;
+    } else if (currentState is proposal_search.ProposalSearchMatched) {
+      // ✅ CORREÇÃO CLAUDE: Idempotência - Se já está matched, não repetir sync
+      // exceto se classId estiver faltando
+      if (currentState.classId != null && currentState.classId!.isNotEmpty) {
+        debugPrint('ℹ️ [REALTIME] Proposta já sincronizada em estado matched com classId');
+        return;
+      }
+      proposalId = currentState.proposalId;
+    }
+
+    if (proposalId == null || proposalId.isEmpty) {
+      debugPrint('ℹ️ [REALTIME] Nenhuma proposta ativa para sincronizar');
+      return;
+    }
+
+    debugPrint('🔄 [REALTIME] Sincronizando status da proposta $proposalId via REST...');
+
+    try {
+      // 1. Verificar status da proposta na API REST
+      final proposalsApi = sl<ProposalsApiService>();
+      final proposal = await proposalsApi.getProposalById(proposalId);
+
+      debugPrint('🔄 [REALTIME] Status retornado pela API: ${proposal.status}');
+
+      // ✅ CORREÇÃO CLAUDE: Re-check do bloc após o await (segurança contra logout/dispose)
+      if (searchBloc.isClosed) {
+        debugPrint('⚠️ [REALTIME] ProposalSearchBloc fechado após await da API de propostas');
+        return;
+      }
+
+      if (proposal.status == 'ACCEPTED' || proposal.status == 'MATCHED') {
+        debugPrint('✅ [REALTIME] Proposta aceita no backend. Buscando aula vinculada...');
+
+        // 2. Buscar dados da aula para obter informações do personal (nome, foto, rating)
+        final classesApi = sl<ClassesApiService>();
+        final classData = await classesApi.getClassByProposalId(proposalId);
+
+        // ✅ CORREÇÃO CLAUDE: Re-check do bloc após o segundo await
+        if (searchBloc.isClosed) {
+          debugPrint('⚠️ [REALTIME] ProposalSearchBloc fechado após await da API de aulas');
+          return;
+        }
+
+        if (classData != null) {
+          debugPrint('✅ [REALTIME] Aula encontrada. Sincronizando UI via ProposalSearchBloc...');
+
+          // Reconstruir nome do personal
+          final personalName = '${classData.personalFirstName ?? ""} ${classData.personalLastName ?? ""}'.trim();
+
+          // ✅ CORREÇÃO CLAUDE: Usar _safeAddToBloc e evitar WebSocketMatchFound se já estiver em matched
+          final finalSearchState = searchBloc.state;
+          if (finalSearchState is proposal_search.ProposalSearchMatched) {
+             if (classData.id != finalSearchState.classId) {
+                _safeAddToBloc(searchBloc, proposal_search.UpdateClassId(classId: classData.id), 'ProposalSearchBloc');
+             }
+          } else {
+            _safeAddToBloc(searchBloc, proposal_search.WebSocketMatchFound(
+              personalName: personalName.isNotEmpty ? personalName : 'Personal Trainer',
+              personalPhoto: classData.personalProfileImageUrl ?? '',
+              personalRating: classData.personalRating ?? 0.0,
+              personalResponseTime: classData.personalTimeOnPlatform ?? 'Rápido',
+              proposalId: proposalId,
+              modality: classData.proposalModality ?? 'Treino',
+              classId: classData.id,
+            ), 'ProposalSearchBloc');
+          }
+
+          // Sincronizar HomeBloc também para garantir que o card de busca suma
+          if (_homeBloc != null && !_homeBloc!.isClosed) {
+            _homeBloc!.add(home_events.ProposalMatched({
+              'location': classData.location,
+              'date': classData.date.toIso8601String(),
+              'time': classData.time,
+              'personalName': personalName.isNotEmpty ? personalName : 'Personal Trainer',
+              'personalImage': classData.personalProfileImageUrl ?? '',
+              'classId': classData.id,
+              'proposalId': proposalId,
+            }));
+
+            // Forçar recarregamento do card de workout usando timer rastreado
+            _scheduleHomeCardReload(const Duration(milliseconds: 100));
+          }
+        } else {
+          debugPrint('⚠️ [REALTIME] Proposta aceita mas aula ainda não disponível na API REST');
+        }
+      } else if (proposal.status == 'CANCELLED' || proposal.status == 'EXPIRED') {
+        debugPrint('❌ [REALTIME] Proposta cancelada ou expirada. Limpando estado de busca.');
+
+        if (_homeBloc != null && !_homeBloc!.isClosed) {
+          _homeBloc!.add(home_events.ProposalCancelled(proposalId: proposalId));
+          _scheduleHomeCardReload(const Duration(milliseconds: 100));
+        }
+
+        _safeAddToBloc(searchBloc, const proposal_search.ResetProposalSearch(), 'ProposalSearchBloc');
+      } else {
+        debugPrint('ℹ️ [REALTIME] Proposta continua com status: ${proposal.status}');
+      }
+    } catch (e) {
+      debugPrint('❌ [REALTIME] Falha ao sincronizar status da proposta: $e');
+    }
+    }
+
+    // ===== HANDLERS DE EVENTOS =====
   void _handleProposalAccepted(Map<String, dynamic>? data) {
     if (data == null) return;
     debugPrint('🤝 RealtimeDataService: Proposta aceita');
-    _proposalsBloc?.add(const ProposalsRefresh());
+    _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
     // Encerrar Live Activity — outro personal aceitou
     final proposalId = data['proposal']?['id'] as String? ?? data['proposalId'] as String?;
     LiveActivityService.instance.endActivity(proposalId: proposalId);
@@ -1703,7 +1793,7 @@ class RealtimeDataService {
     try {
       final old = _proposalsBloc;
       _proposalsBloc = bloc;
-      debugPrint('🔗 RealtimeDataService: ProposalsBloc atualizado (old=${old?.hashCode}, new=${bloc.hashCode})');
+      debugPrint('🔗 RealtimeDataService: ProposalsBloc updated (old=${old?.hashCode}, new=${bloc.hashCode})');
     } catch (e) {
       debugPrint('⚠️ RealtimeDataService: Falha ao anexar ProposalsBloc: $e');
     }
