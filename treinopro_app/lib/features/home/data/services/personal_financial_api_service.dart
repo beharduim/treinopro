@@ -115,6 +115,44 @@ class PersonalFinancialApiService {
     }
   }
 
+  /// Solicita saque do saldo do personal trainer
+  Future<Map<String, dynamic>> requestWithdrawal({
+    required String amount,
+    required String method,
+    String? description,
+    String urgency = 'normal',
+  }) async {
+    try {
+      print('💸 [FINANCIAL API] Solicitando saque...');
+
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/payments/personal/wallet/withdraw'),
+        headers: _headers,
+        body: json.encode({
+          'amount': amount,
+          'method': method,
+          'description': description,
+          'urgency': urgency,
+        }),
+      );
+
+      print('💸 [FINANCIAL API] Status da resposta: ${response.statusCode}');
+      print('💸 [FINANCIAL API] Corpo da resposta: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data['data'];
+      } else {
+        throw Exception(
+          'Erro ao solicitar saque: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ [FINANCIAL API] Erro ao solicitar saque: $e');
+      throw Exception('Falha ao conectar com a API de saque: $e');
+    }
+  }
+
   /// Busca estatísticas de pagamentos do personal trainer
   Future<Map<String, dynamic>> getPaymentStats() async {
     try {

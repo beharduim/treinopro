@@ -20,6 +20,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
 
   bool _isLoading = true;
   bool _isLoadingTransactions = false;
+  bool _isRequestingWithdrawal = false;
   String? _error;
 
   // Dados da carteira
@@ -199,23 +200,109 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
     return 'R\$ ${value.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
-  bool _isWithdrawalDay() {
-    final now = DateTime.now();
-    return now.day == 15;
+  String _getWithdrawalStatusText() {
+    if (_isRequestingWithdrawal) {
+      return 'Solicitando saque...';
+    }
+    if (_availableBalance <= 0) {
+      return 'Sem saldo disponível';
+    }
+    if (_mercadoPago == null) {
+      return 'Conecte seu Mercado Pago';
+    }
+    return 'Solicitar saque';
   }
 
-  String _getWithdrawalStatusText() {
-    final now = DateTime.now();
-    if (now.day == 15) {
-      return 'Solicitar saque';
-    } else if (now.day < 15) {
-      final daysLeft = 15 - now.day;
-      return 'Saque disponível em $daysLeft ${daysLeft == 1 ? 'dia' : 'dias'}';
-    } else {
-      // Calcular dias até o próximo dia 15
-      final nextMonth = DateTime(now.year, now.month + 1, 15);
-      final daysLeft = nextMonth.difference(now).inDays;
-      return 'Saque disponível em $daysLeft ${daysLeft == 1 ? 'dia' : 'dias'}';
+  bool _canRequestWithdrawal() {
+    return !_isRequestingWithdrawal &&
+        _availableBalance > 0 &&
+        _mercadoPago != null;
+  }
+
+  Future<void> _handleWithdrawalRequest() async {
+    if (!_canRequestWithdrawal()) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2D3748),
+          title: const Text(
+            'Solicitar saque',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              color: Colors.white,
+            ),
+          ),
+          content: Text(
+            'Deseja solicitar o saque de ${_formatCurrency(_availableBalance)} para a conta Mercado Pago conectada?',
+            style: const TextStyle(
+              fontFamily: 'Fira Sans',
+              color: Color(0xFFE5E7EB),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryOrange,
+                foregroundColor: const Color(0xFF2D3748),
+              ),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      setState(() {
+        _isRequestingWithdrawal = true;
+      });
+
+      await _financialApi.requestWithdrawal(
+        amount: _availableBalance.toStringAsFixed(2),
+        method: 'mercado_pago',
+        description: 'Solicitação de saque pelo app',
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Saque solicitado com sucesso. O valor ficará em processamento.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      await _loadFinancialData();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao solicitar saque: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRequestingWithdrawal = false;
+        });
+      }
     }
   }
 
@@ -338,7 +425,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Os saques são processados apenas no dia 15 de cada mês. Aguarde a data para solicitar seu saque.',
+                        'Os saques podem ser solicitados a qualquer momento. Após a solicitação, o valor ficará em análise e processamento.',
                         style: TextStyle(fontFamily: 'Fira Sans', fontSize: 14),
                       ),
                       backgroundColor: Color(0xFF2D3748),
@@ -388,11 +475,8 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: _isWithdrawalDay()
-                      ? () {
-                          // TODO: Implementar saque
-                          print('Solicitar saque');
-                        }
+                  onTap: _canRequestWithdrawal()
+                      ? _handleWithdrawalRequest
                       : null,
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
