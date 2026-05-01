@@ -14,7 +14,6 @@ import '../widgets/modality_selector.dart';
 class ProposalStep2Page extends StatelessWidget {
   const ProposalStep2Page({super.key});
 
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ProposalsBloc, ProposalsState>(
@@ -50,7 +49,6 @@ class ProposalStep2Page extends StatelessWidget {
               //     color: AppColors.secondaryDark,
               //   ),
               // ),
-
               const SizedBox(height: 32),
 
               // Modalidade do treino

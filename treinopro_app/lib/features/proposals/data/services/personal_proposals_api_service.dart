@@ -37,7 +37,7 @@ class PersonalProposalsApiService {
         'page': page.toString(),
         'limit': limit.toString(),
       };
-      
+
       if (status != null) {
         queryParams['status'] = status;
       }
@@ -51,9 +51,9 @@ class PersonalProposalsApiService {
         queryParams['dateTo'] = dateTo;
       }
 
-      final url = Uri.parse('$_baseUrl/proposals').replace(
-        queryParameters: queryParams,
-      );
+      final url = Uri.parse(
+        '$_baseUrl/proposals',
+      ).replace(queryParameters: queryParams);
 
       final headers = {
         'Content-Type': 'application/json',
@@ -66,7 +66,9 @@ class PersonalProposalsApiService {
         return json.decode(response.body) as Map<String, dynamic>;
       } else {
         final errorData = json.decode(response.body) as Map<String, dynamic>;
-        throw Exception('Erro ao buscar propostas: ${errorData['message'] ?? 'Erro desconhecido'}');
+        throw Exception(
+          'Erro ao buscar propostas: ${errorData['message'] ?? 'Erro desconhecido'}',
+        );
       }
     } catch (e) {
       rethrow;
@@ -96,7 +98,8 @@ class PersonalProposalsApiService {
         String errorMessage = 'Erro desconhecido';
         try {
           final errorData = json.decode(response.body) as Map<String, dynamic>;
-          errorMessage = errorData['message'] ?? errorData['error'] ?? 'Erro desconhecido';
+          errorMessage =
+              errorData['message'] ?? errorData['error'] ?? 'Erro desconhecido';
         } catch (_) {
           // Se não conseguir decodificar o JSON, usar a mensagem de status
           if (response.statusCode == 400) {

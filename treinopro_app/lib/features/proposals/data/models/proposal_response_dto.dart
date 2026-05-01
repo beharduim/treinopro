@@ -85,6 +85,13 @@ class PaymentData {
   final String? sandboxCheckoutUrl;
   final String? qrCode;
   final String? qrCodeBase64;
+  final String? provider;
+  final String? stripePaymentIntentId;
+  final String? clientSecret;
+  final String? customerId;
+  final String? customerEphemeralKeySecret;
+  final String? publishableKey;
+  final String? processingModel;
   final double? platformFee;
   final double? personalAmount;
   final String? message;
@@ -100,6 +107,13 @@ class PaymentData {
     this.sandboxCheckoutUrl,
     this.qrCode,
     this.qrCodeBase64,
+    this.provider,
+    this.stripePaymentIntentId,
+    this.clientSecret,
+    this.customerId,
+    this.customerEphemeralKeySecret,
+    this.publishableKey,
+    this.processingModel,
     this.platformFee,
     this.personalAmount,
     this.message,

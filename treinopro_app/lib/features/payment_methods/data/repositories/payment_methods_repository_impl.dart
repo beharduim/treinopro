@@ -6,9 +6,7 @@ import '../datasources/payment_methods_api_datasource.dart';
 class PaymentMethodsRepositoryImpl implements PaymentMethodsRepository {
   final PaymentMethodsApiDataSource apiDataSource;
 
-  PaymentMethodsRepositoryImpl({
-    required this.apiDataSource,
-  });
+  PaymentMethodsRepositoryImpl({required this.apiDataSource});
 
   @override
   Future<StudentPaymentSettings> getStudentPaymentMethods() async {
@@ -24,15 +22,11 @@ class PaymentMethodsRepositoryImpl implements PaymentMethodsRepository {
   Future<StudentPaymentSettings> updatePaymentMethods({
     required PaymentMethodType preferredMethod,
     bool? enableAutoPayment,
-    String? mpEmail,
-    bool? mpAllowSaveCard,
   }) async {
     try {
       final settings = await apiDataSource.updatePaymentMethods(
         preferredMethod: preferredMethod,
         enableAutoPayment: enableAutoPayment,
-        mpEmail: mpEmail,
-        mpAllowSaveCard: mpAllowSaveCard,
       );
       return settings;
     } catch (e) {
@@ -100,15 +94,6 @@ class PaymentMethodsRepositoryImpl implements PaymentMethodsRepository {
       await apiDataSource.setDefaultCard(cardId);
     } catch (e) {
       throw ServerFailure('Erro ao definir cartão padrão: $e');
-    }
-  }
-
-  @override
-  Future<bool> validateMercadoPagoAccount(String email) async {
-    try {
-      return await apiDataSource.validateMercadoPagoAccount(email);
-    } catch (e) {
-      return false;
     }
   }
 }

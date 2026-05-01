@@ -246,7 +246,7 @@ class CancelSession extends ProposalSearchEvent {
 
 /// Evento para resetar o estado do bloc
 class ResetProposalSearch extends ProposalSearchEvent {
-const ResetProposalSearch();
+  const ResetProposalSearch();
 }
 
 /// Evento para atualizar classId quando aula for criada
@@ -434,13 +434,17 @@ class ProposalSearchBloc
       // Verificar se atingiu o limite de 3 minutos (180 segundos)
       if (event.elapsedTime.inSeconds >= 180) {
         _timer?.cancel();
-        print('⏰ [PROPOSAL_SEARCH] Timer de 3 minutos expirado - emitindo evento WebSocket');
-        print('⏰ [PROPOSAL_SEARCH] Tempo decorrido: ${event.elapsedTime.inSeconds} segundos');
+        print(
+          '⏰ [PROPOSAL_SEARCH] Timer de 3 minutos expirado - emitindo evento WebSocket',
+        );
+        print(
+          '⏰ [PROPOSAL_SEARCH] Tempo decorrido: ${event.elapsedTime.inSeconds} segundos',
+        );
         print('⏰ [PROPOSAL_SEARCH] ProposalId: ${currentState.proposalId}');
-        
+
         // Emitir evento WebSocket para notificar o backend
         _emitSearchTimeoutEvent(currentState.proposalId);
-        
+
         // Mudar para estado inicial (modal fechará)
         print('⏰ [PROPOSAL_SEARCH] Emitindo ProposalSearchInitial()');
         emit(ProposalSearchInitial());
@@ -454,7 +458,9 @@ class ProposalSearchBloc
   /// Emite evento WebSocket quando timer de busca expira
   void _emitSearchTimeoutEvent(String? proposalId) {
     if (proposalId == null) {
-      print('⚠️ [PROPOSAL_SEARCH] ProposalId é null, não é possível emitir evento de timeout');
+      print(
+        '⚠️ [PROPOSAL_SEARCH] ProposalId é null, não é possível emitir evento de timeout',
+      );
       return;
     }
 
@@ -466,9 +472,13 @@ class ProposalSearchBloc
           'reason': 'Timer de busca expirado (3 minutos)',
           'timestamp': DateTime.now().toIso8601String(),
         });
-        print('📡 [PROPOSAL_SEARCH] Evento proposal_search_timeout emitido para proposta $proposalId');
+        print(
+          '📡 [PROPOSAL_SEARCH] Evento proposal_search_timeout emitido para proposta $proposalId',
+        );
       } else {
-        print('❌ [PROPOSAL_SEARCH] WebSocket não conectado, não é possível emitir evento');
+        print(
+          '❌ [PROPOSAL_SEARCH] WebSocket não conectado, não é possível emitir evento',
+        );
       }
     } catch (error) {
       print('❌ [PROPOSAL_SEARCH] Erro ao emitir evento de timeout: $error');
@@ -499,13 +509,22 @@ class ProposalSearchBloc
     }
   }
 
-  void _onWebSocketMatchFound(WebSocketMatchFound event, Emitter<ProposalSearchState> emit) {
-    print('🎯 [PROPOSAL_SEARCH] WebSocketMatchFound recebido | estado atual: ${state.runtimeType}');
-    print('🎯 [PROPOSAL_SEARCH] Dados do evento: personalName=${event.personalName} | personalPhoto=${event.personalPhoto} | personalRating=${event.personalRating} | proposalId=${event.proposalId}');
-    
+  void _onWebSocketMatchFound(
+    WebSocketMatchFound event,
+    Emitter<ProposalSearchState> emit,
+  ) {
+    print(
+      '🎯 [PROPOSAL_SEARCH] WebSocketMatchFound recebido | estado atual: ${state.runtimeType}',
+    );
+    print(
+      '🎯 [PROPOSAL_SEARCH] Dados do evento: personalName=${event.personalName} | personalPhoto=${event.personalPhoto} | personalRating=${event.personalRating} | proposalId=${event.proposalId}',
+    );
+
     if (state is ProposalSearchActive) {
       final currentState = state as ProposalSearchActive;
-      print('✅ [PROPOSAL_SEARCH] Estado ativo encontrado, transicionando para matched');
+      print(
+        '✅ [PROPOSAL_SEARCH] Estado ativo encontrado, transicionando para matched',
+      );
       _timer?.cancel();
       _matchTimer?.cancel();
 
@@ -521,22 +540,29 @@ class ProposalSearchBloc
           trainingDate: currentState.trainingDate,
           trainingTime: currentState.trainingTime,
           proposalId: event.proposalId,
-          classId: event.classId, // ✅ CORREÇÃO: Usar classId do evento se disponível
+          classId:
+              event.classId, // ✅ CORREÇÃO: Usar classId do evento se disponível
         ),
       );
-      
-      print('✅ [PROPOSAL_SEARCH] Estado ProposalSearchMatched emitido com sucesso');
-      
+
+      print(
+        '✅ [PROPOSAL_SEARCH] Estado ProposalSearchMatched emitido com sucesso',
+      );
+
       // Notificar HomeBloc sobre o match para sincronizar o card
       try {
         final homeBloc = sl<home_bloc.HomeBloc>();
-        homeBloc.add(home_events.ProposalMatched({
-          'location': currentState.location,
-          'date': currentState.trainingDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
-          'time': currentState.trainingTime ?? '00:00',
-          'personalName': event.personalName,
-          'personalImage': event.personalPhoto,
-        }));
+        homeBloc.add(
+          home_events.ProposalMatched({
+            'location': currentState.location,
+            'date':
+                currentState.trainingDate?.toIso8601String() ??
+                DateTime.now().toIso8601String(),
+            'time': currentState.trainingTime ?? '00:00',
+            'personalName': event.personalName,
+            'personalImage': event.personalPhoto,
+          }),
+        );
         print('🔄 [PROPOSAL_SEARCH] Notificando HomeBloc sobre match');
       } catch (e) {
         print('❌ [PROPOSAL_SEARCH] Erro ao notificar HomeBloc: $e');
@@ -544,28 +570,44 @@ class ProposalSearchBloc
     } else if (state is ProposalSearchMatched) {
       // Se já estamos em matched, atualizar os dados com informações mais completas
       final currentState = state as ProposalSearchMatched;
-      print('🔄 [PROPOSAL_SEARCH] Estado já é matched, atualizando dados com informações do WebSocket');
-      
+      print(
+        '🔄 [PROPOSAL_SEARCH] Estado já é matched, atualizando dados com informações do WebSocket',
+      );
+
       // ✅ CORREÇÃO: Sempre usar dados novos se não forem fallbacks genéricos
-      final newPersonalName = event.personalName.isNotEmpty && 
-                             event.personalName != 'Personal Trainer' && 
-                             event.personalName != 'Personal' 
-                             ? event.personalName 
-                             : currentState.personalName;
-      
-      final newPersonalResponseTime = event.personalResponseTime.isNotEmpty && 
-                                     event.personalResponseTime != 'Rápido' 
-                                     ? event.personalResponseTime 
-                                     : currentState.personalResponseTime;
-      
-      final newPersonalPhoto = event.personalPhoto.isNotEmpty ? event.personalPhoto : currentState.personalPhoto;
-      final newPersonalRating = event.personalRating > 0.0 ? event.personalRating : currentState.personalRating;
-      
-      print('🔄 [PROPOSAL_SEARCH] Dados atualizados: name="$newPersonalName" (era "${currentState.personalName}")');
-      print('🔄 [PROPOSAL_SEARCH] Dados atualizados: responseTime="$newPersonalResponseTime" (era "${currentState.personalResponseTime}")');
-      print('🔄 [PROPOSAL_SEARCH] Dados atualizados: photo="$newPersonalPhoto" (era "${currentState.personalPhoto}")');
-      print('🔄 [PROPOSAL_SEARCH] Dados atualizados: rating=$newPersonalRating (era ${currentState.personalRating})');
-      
+      final newPersonalName =
+          event.personalName.isNotEmpty &&
+              event.personalName != 'Personal Trainer' &&
+              event.personalName != 'Personal'
+          ? event.personalName
+          : currentState.personalName;
+
+      final newPersonalResponseTime =
+          event.personalResponseTime.isNotEmpty &&
+              event.personalResponseTime != 'Rápido'
+          ? event.personalResponseTime
+          : currentState.personalResponseTime;
+
+      final newPersonalPhoto = event.personalPhoto.isNotEmpty
+          ? event.personalPhoto
+          : currentState.personalPhoto;
+      final newPersonalRating = event.personalRating > 0.0
+          ? event.personalRating
+          : currentState.personalRating;
+
+      print(
+        '🔄 [PROPOSAL_SEARCH] Dados atualizados: name="$newPersonalName" (era "${currentState.personalName}")',
+      );
+      print(
+        '🔄 [PROPOSAL_SEARCH] Dados atualizados: responseTime="$newPersonalResponseTime" (era "${currentState.personalResponseTime}")',
+      );
+      print(
+        '🔄 [PROPOSAL_SEARCH] Dados atualizados: photo="$newPersonalPhoto" (era "${currentState.personalPhoto}")',
+      );
+      print(
+        '🔄 [PROPOSAL_SEARCH] Dados atualizados: rating=$newPersonalRating (era ${currentState.personalRating})',
+      );
+
       emit(
         ProposalSearchMatched(
           location: currentState.location,
@@ -574,18 +616,26 @@ class ProposalSearchBloc
           personalPhoto: newPersonalPhoto,
           personalRating: newPersonalRating,
           personalResponseTime: newPersonalResponseTime,
-          modality: event.modality.isNotEmpty ? event.modality : currentState.modality,
+          modality: event.modality.isNotEmpty
+              ? event.modality
+              : currentState.modality,
           trainingDate: currentState.trainingDate,
           trainingTime: currentState.trainingTime,
-          proposalId: event.proposalId.isNotEmpty ? event.proposalId : currentState.proposalId,
+          proposalId: event.proposalId.isNotEmpty
+              ? event.proposalId
+              : currentState.proposalId,
           classId: currentState.classId,
         ),
       );
-      
-      print('✅ [PROPOSAL_SEARCH] Estado ProposalSearchMatched atualizado com dados do WebSocket');
+
+      print(
+        '✅ [PROPOSAL_SEARCH] Estado ProposalSearchMatched atualizado com dados do WebSocket',
+      );
     } else if (state is ProposalSearchInitial) {
       // ✅ CORREÇÃO: Aceitar match mesmo em estado Initial (modal pode ter sido fechado/resetado)
-      print('🔧 [PROPOSAL_SEARCH] Estado é Initial, mas match chegou - criando estado matched do zero');
+      print(
+        '🔧 [PROPOSAL_SEARCH] Estado é Initial, mas match chegou - criando estado matched do zero',
+      );
       _timer?.cancel();
       _matchTimer?.cancel();
 
@@ -601,28 +651,35 @@ class ProposalSearchBloc
           trainingDate: null,
           trainingTime: null,
           proposalId: event.proposalId,
-          classId: event.classId, // ✅ CORREÇÃO: Usar classId do evento se disponível
+          classId:
+              event.classId, // ✅ CORREÇÃO: Usar classId do evento se disponível
         ),
       );
-      
+
       print('✅ [PROPOSAL_SEARCH] Estado ProposalSearchMatched criado do zero');
-      
+
       // Notificar HomeBloc sobre o match
       try {
         final homeBloc = sl<home_bloc.HomeBloc>();
-        homeBloc.add(home_events.ProposalMatched({
-          'location': 'Localização',
-          'date': DateTime.now().toIso8601String(),
-          'time': '00:00',
-          'personalName': event.personalName,
-          'personalImage': event.personalPhoto,
-        }));
-        print('🔄 [PROPOSAL_SEARCH] Notificando HomeBloc sobre match (estado Initial)');
+        homeBloc.add(
+          home_events.ProposalMatched({
+            'location': 'Localização',
+            'date': DateTime.now().toIso8601String(),
+            'time': '00:00',
+            'personalName': event.personalName,
+            'personalImage': event.personalPhoto,
+          }),
+        );
+        print(
+          '🔄 [PROPOSAL_SEARCH] Notificando HomeBloc sobre match (estado Initial)',
+        );
       } catch (e) {
         print('❌ [PROPOSAL_SEARCH] Erro ao notificar HomeBloc: $e');
       }
     } else {
-      print('⚠️ [PROPOSAL_SEARCH] Estado não esperado (${state.runtimeType}), ignorando WebSocketMatchFound');
+      print(
+        '⚠️ [PROPOSAL_SEARCH] Estado não esperado (${state.runtimeType}), ignorando WebSocketMatchFound',
+      );
     }
   }
 
@@ -632,7 +689,6 @@ class ProposalSearchBloc
     // O ProposalSearchBloc não precisa mais de sua própria conexão WebSocket
     debugPrint('🔍 [PROPOSAL_SEARCH] Usando RealtimeDataService centralizado');
   }
-
 
   void _onCompleteSearch(
     CompleteProposalSearch event,
@@ -657,13 +713,13 @@ class ProposalSearchBloc
   ) async {
     print('🛑 [PROPOSAL_SEARCH] Cancelando busca...');
     print('🛑 [PROPOSAL_SEARCH] Estado atual: ${state.runtimeType}');
-    
+
     if (state is ProposalSearchActive) {
       final currentState = state as ProposalSearchActive;
       _timer?.cancel();
       _matchTimer?.cancel();
       print('🛑 [PROPOSAL_SEARCH] Cancelando busca ativa');
-      
+
       // Atualizar Home imediatamente para remover card de busca ativa
       try {
         sl<home_bloc.HomeBloc>().add(const home_events.ProposalCancelled());
@@ -677,17 +733,24 @@ class ProposalSearchBloc
         } catch (e) {
           print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
           // Se a proposta já expirou (404), continuar mesmo assim
-          if (e.toString().contains('404') || e.toString().contains('Not Found')) {
-            print('⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento');
+          if (e.toString().contains('404') ||
+              e.toString().contains('Not Found')) {
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento',
+            );
           } else {
             // Para outros erros, continuar mesmo com erro na API
-            print('⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro');
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro',
+            );
           }
         }
       } else {
-        print('⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento');
+        print(
+          '⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento',
+        );
       }
-      
+
       emit(
         ProposalSearchCancelled(
           location: currentState.location,
@@ -699,10 +762,12 @@ class ProposalSearchBloc
       _timer?.cancel();
       _matchTimer?.cancel();
       print('🛑 [PROPOSAL_SEARCH] Cancelando busca em confirmação');
-      
+
       // Atualizar Home imediatamente para remover card de busca ativa
       try {
-        sl<home_bloc.HomeBloc>().add(home_events.ProposalCancelled(proposalId: currentState.proposalId));
+        sl<home_bloc.HomeBloc>().add(
+          home_events.ProposalCancelled(proposalId: currentState.proposalId),
+        );
       } catch (_) {}
 
       // Cancelar proposta via API se tivermos o ID
@@ -713,17 +778,24 @@ class ProposalSearchBloc
         } catch (e) {
           print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
           // Se a proposta já expirou (404), continuar mesmo assim
-          if (e.toString().contains('404') || e.toString().contains('Not Found')) {
-            print('⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento');
+          if (e.toString().contains('404') ||
+              e.toString().contains('Not Found')) {
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento',
+            );
           } else {
             // Para outros erros, continuar mesmo com erro na API
-            print('⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro');
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro',
+            );
           }
         }
       } else {
-        print('⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento');
+        print(
+          '⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento',
+        );
       }
-      
+
       emit(
         ProposalSearchCancelled(
           location: currentState.location,
@@ -731,7 +803,9 @@ class ProposalSearchBloc
         ),
       );
     } else {
-      print('⚠️ [PROPOSAL_SEARCH] Estado não esperado para cancelamento: ${state.runtimeType}');
+      print(
+        '⚠️ [PROPOSAL_SEARCH] Estado não esperado para cancelamento: ${state.runtimeType}',
+      );
     }
   }
 
@@ -849,13 +923,15 @@ class ProposalSearchBloc
       final currentState = state as ProposalSearchConfirmingSessionCancel;
       _timer?.cancel();
       _matchTimer?.cancel();
-      
+
       print('🛑 [PROPOSAL_SEARCH] Cancelando sessão...');
       print('🛑 [PROPOSAL_SEARCH] ProposalId: ${currentState.proposalId}');
-      
+
       // Atualizar Home imediatamente para remover card de busca ativa
       try {
-        sl<home_bloc.HomeBloc>().add(home_events.ProposalCancelled(proposalId: currentState.proposalId));
+        sl<home_bloc.HomeBloc>().add(
+          home_events.ProposalCancelled(proposalId: currentState.proposalId),
+        );
       } catch (_) {}
 
       // Cancelar proposta via API se tivermos o ID
@@ -866,17 +942,24 @@ class ProposalSearchBloc
         } catch (e) {
           print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
           // Se a proposta já expirou (404), continuar mesmo assim
-          if (e.toString().contains('404') || e.toString().contains('Not Found')) {
-            print('⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento');
+          if (e.toString().contains('404') ||
+              e.toString().contains('Not Found')) {
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento',
+            );
           } else {
             // Para outros erros, continuar mesmo com erro na API
-            print('⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro');
+            print(
+              '⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro',
+            );
           }
         }
       } else {
-        print('⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento');
+        print(
+          '⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento',
+        );
       }
-      
+
       emit(
         ProposalSearchCancelled(
           location: currentState.location,

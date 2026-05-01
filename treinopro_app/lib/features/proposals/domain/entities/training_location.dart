@@ -50,23 +50,23 @@ class TrainingLocation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        address,
-        description,
-        latitude,
-        longitude,
-        imageUrl,
-        availableModalities,
-        isActive,
-      ];
+    id,
+    name,
+    address,
+    description,
+    latitude,
+    longitude,
+    imageUrl,
+    availableModalities,
+    isActive,
+  ];
 
   /// Criar TrainingLocation a partir de JSON da API
   factory TrainingLocation.fromJson(Map<String, dynamic> json) {
     // ✅ Extrair coordenadas de coordinates.lat/lng ou latitude/longitude diretamente
     double? lat;
     double? lng;
-    
+
     if (json['coordinates'] != null) {
       final coords = json['coordinates'] as Map<String, dynamic>;
       lat = (coords['lat'] as num?)?.toDouble();
@@ -75,7 +75,7 @@ class TrainingLocation extends Equatable {
       lat = (json['latitude'] as num?)?.toDouble();
       lng = (json['longitude'] as num?)?.toDouble();
     }
-    
+
     return TrainingLocation(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -84,9 +84,11 @@ class TrainingLocation extends Equatable {
       latitude: lat,
       longitude: lng,
       imageUrl: json['imageUrl'] as String?,
-      availableModalities: (json['availableModalities'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ?? [],
+      availableModalities:
+          (json['availableModalities'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       isActive: json['isActive'] as bool? ?? true,
     );
   }
@@ -143,13 +145,17 @@ class TrainingLocationOptions {
   /// Buscar locais por nome ou endereço
   static List<TrainingLocation> searchLocations(String query) {
     if (query.isEmpty) return predefinedLocations;
-    
+
     final lowerQuery = query.toLowerCase();
-    return predefinedLocations.where((location) =>
-      location.name.toLowerCase().contains(lowerQuery) ||
-      location.address.toLowerCase().contains(lowerQuery) ||
-      (location.description?.toLowerCase().contains(lowerQuery) ?? false)
-    ).toList();
+    return predefinedLocations
+        .where(
+          (location) =>
+              location.name.toLowerCase().contains(lowerQuery) ||
+              location.address.toLowerCase().contains(lowerQuery) ||
+              (location.description?.toLowerCase().contains(lowerQuery) ??
+                  false),
+        )
+        .toList();
   }
 
   /// Obter local por ID

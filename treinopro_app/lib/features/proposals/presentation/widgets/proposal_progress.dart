@@ -25,8 +25,10 @@ class ProposalProgress extends StatelessWidget {
             final stepNumber = index + 1;
             final isCompleted = stepNumber < currentStep;
             final isCurrent = stepNumber == currentStep;
-            final title = index < stepTitles.length ? stepTitles[index] : 'Etapa $stepNumber';
-            
+            final title = index < stepTitles.length
+                ? stepTitles[index]
+                : 'Etapa $stepNumber';
+
             return Expanded(
               child: Column(
                 children: [
@@ -36,7 +38,7 @@ class ProposalProgress extends StatelessWidget {
                     children: [
                       // Ícone da etapa
                       Icon(
-                        isCompleted 
+                        isCompleted
                             ? Icons.check_circle
                             : _getStepIcon(stepNumber),
                         color: isCompleted || isCurrent
@@ -54,7 +56,9 @@ class ProposalProgress extends StatelessWidget {
                             color: isCompleted || isCurrent
                                 ? AppColors.secondary
                                 : AppColors.secondaryDark.withOpacity(0.6),
-                            fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isCurrent
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -62,9 +66,9 @@ class ProposalProgress extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Indicador de etapa ativa (borda laranja)
                   if (isCurrent)
                     Container(
@@ -81,7 +85,7 @@ class ProposalProgress extends StatelessWidget {
             );
           }),
         ),
-        
+
         const SizedBox(height: 16),
       ],
     );

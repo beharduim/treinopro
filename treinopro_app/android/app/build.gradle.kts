@@ -41,10 +41,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.treinopro.app"
@@ -84,10 +80,21 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
 flutter {
     source = "../.."
 }
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("com.stripe:connect:23.1.0")
+
+    // Stripe Android 23.x expects the Kotlin WorkManager API at runtime.
+    // The Flutter workmanager plugin still pins 2.9.0 transitively.
+    implementation("androidx.work:work-runtime:2.11.2")
 }

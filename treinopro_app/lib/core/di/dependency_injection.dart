@@ -38,6 +38,7 @@ import '../../features/support/data/services/support_api_service.dart';
 import '../../features/evaluation/data/services/evaluation_api_service.dart';
 import '../../features/proposals/presentation/bloc/proposal_search_bloc.dart';
 import '../../features/payment_methods/data/datasources/payment_methods_api_datasource.dart';
+import '../../features/payment_methods/data/services/stripe_payment_sheet_service.dart';
 import '../../features/payment_methods/data/repositories/payment_methods_repository_impl.dart';
 import '../../features/payment_methods/domain/repositories/payment_methods_repository.dart';
 import '../../features/payment_methods/presentation/bloc/payment_methods_bloc.dart';
@@ -72,6 +73,7 @@ import '../../features/auth/data/services/upload_service.dart';
 import '../../features/auth/domain/usecases/upload_usecase.dart';
 import '../../features/chat/data/services/chat_api_service.dart';
 import '../../features/payouts/data/services/payout_methods_api_service.dart';
+import '../../features/payouts/presentation/services/stripe_connect_onboarding_service.dart';
 import '../../features/users/data/services/users_api_service.dart';
 
 /// Instância global do GetIt para injeção de dependência
@@ -94,10 +96,12 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   // Core Services
   sl.registerLazySingleton<ApiService>(() => ApiService());
   sl.registerLazySingleton<LocationService>(() => LocationService.instance);
-  sl.registerLazySingleton<ProfileImageNotificationService>(() => ProfileImageNotificationService());
+  sl.registerLazySingleton<ProfileImageNotificationService>(
+    () => ProfileImageNotificationService(),
+  );
   sl.registerLazySingleton<ShaderWarmupService>(() => ShaderWarmupService());
   sl.registerLazySingleton<AnimationPreloader>(() => AnimationPreloader());
-  
+
   // Support Feature (registrado logo após ApiService)
   sl.registerLazySingleton<SupportApiService>(
     () => SupportApiService(apiService: sl<ApiService>()),
@@ -110,7 +114,10 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
 
   // Users Feature
   sl.registerLazySingleton<UsersApiService>(
-    () => UsersApiService(client: sl<http.Client>(), apiService: sl<ApiService>()),
+    () => UsersApiService(
+      client: sl<http.Client>(),
+      apiService: sl<ApiService>(),
+    ),
   );
 
   // Auth Data Sources
@@ -147,15 +154,15 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   sl.registerLazySingleton<ValidateCrefUseCase>(
     () => ValidateCrefUseCase(sl<AuthApiDataSource>()),
   );
-  
+
   sl.registerLazySingleton<SendVerificationCodeUseCase>(
     () => SendVerificationCodeUseCase(sl<AuthApiDataSource>()),
   );
-  
+
   sl.registerLazySingleton<VerifyCodeUseCase>(
     () => VerifyCodeUseCase(sl<AuthApiDataSource>()),
   );
-  
+
   sl.registerLazySingleton<ValidateEmailUseCase>(
     () => ValidateEmailUseCase(sl<AuthApiDataSource>()),
   );
@@ -168,12 +175,10 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   sl.registerLazySingleton<UploadService>(
     () => UploadService(sl<ApiService>()),
   );
-  
+
   sl.registerLazySingleton<UploadUseCase>(
     () => UploadUseCase(sl<UploadService>()),
   );
-  
-  
 
   // Repositories (deve ser registrado antes dos use cases)
   sl.registerLazySingleton<OnboardingRepository>(
@@ -199,7 +204,8 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   );
 
   sl.registerLazySingleton<HealthQuestionnaireRepository>(
-    () => HealthQuestionnaireRepositoryImpl(sl<HealthQuestionnaireApiService>()),
+    () =>
+        HealthQuestionnaireRepositoryImpl(sl<HealthQuestionnaireApiService>()),
   );
 
   // Health Questionnaire Use Cases
@@ -226,7 +232,6 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
     () => NotificationsApiService(client: sl<http.Client>()),
   );
 
-
   // Profile Notifications Service (específico para preferências de perfil)
   sl.registerLazySingleton<ProfileNotificationsApiService>(
     () => ProfileNotificationsApiService(
@@ -244,15 +249,13 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
       ),
     );
   }
-  
+
   if (!sl.isRegistered<ClassesService>()) {
     sl.registerLazySingleton<ClassesService>(
       () => ClassesService(client: sl<http.Client>()),
     );
   }
-  
-  
-  
+
   if (!sl.isRegistered<LocationsService>()) {
     sl.registerLazySingleton<LocationsService>(
       () => LocationsService(client: sl<http.Client>()),
@@ -263,24 +266,24 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl());
 
   // Auth Service
-  sl.registerLazySingleton<AuthService>(() => AuthService(
-    prefs: sl<SharedPreferences>(),
-  ));
+  sl.registerLazySingleton<AuthService>(
+    () => AuthService(prefs: sl<SharedPreferences>()),
+  );
 
   // Forgot Password Auth Service
-  sl.registerLazySingleton<ForgotPasswordAuthService>(() => ForgotPasswordAuthService(
-    sl<AuthApiDataSource>(),
-  ));
+  sl.registerLazySingleton<ForgotPasswordAuthService>(
+    () => ForgotPasswordAuthService(sl<AuthApiDataSource>()),
+  );
 
   // Guardian Authorization Service
-  sl.registerLazySingleton<GuardianAuthorizationService>(() => GuardianAuthorizationService(
-    sl<ApiService>().dio,
-  ));
+  sl.registerLazySingleton<GuardianAuthorizationService>(
+    () => GuardianAuthorizationService(sl<ApiService>().dio),
+  );
 
   // Cache Service
-  sl.registerLazySingleton<CacheService>(() => CacheService(
-    prefs: sl<SharedPreferences>(),
-  ));
+  sl.registerLazySingleton<CacheService>(
+    () => CacheService(prefs: sl<SharedPreferences>()),
+  );
 
   // WebSocket Service
   sl.registerLazySingleton<WebSocketService>(() {
@@ -305,9 +308,8 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
 
   // ✅ MUDANÇA: GamificationBloc agora é factory (nova instância por contexto)
   sl.registerFactory<GamificationBloc>(
-    () => GamificationBloc(
-      gamificationRepository: sl<GamificationRepository>(),
-    ),
+    () =>
+        GamificationBloc(gamificationRepository: sl<GamificationRepository>()),
   );
 
   sl.registerLazySingleton<GamificationWebSocketService>(
@@ -322,39 +324,41 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
     () => GamificationDevNoticeCoordinator(),
   );
 
-        // Home Feature Services
-        sl.registerLazySingleton<ClassesScheduledService>(
-          () => ClassesScheduledService(
-            client: sl<http.Client>(),
-            networkInfo: sl<NetworkInfo>(),
-            authService: sl<AuthService>(),
-          ),
-        );
+  // Home Feature Services
+  sl.registerLazySingleton<ClassesScheduledService>(
+    () => ClassesScheduledService(
+      client: sl<http.Client>(),
+      networkInfo: sl<NetworkInfo>(),
+      authService: sl<AuthService>(),
+    ),
+  );
 
-        // Atualizar ProposalsService para incluir AuthService
-        if (sl.isRegistered<ProposalsService>()) {
-          sl.unregister<ProposalsService>();
-        }
-        sl.registerLazySingleton<ProposalsService>(
-          () => ProposalsService(
-            client: sl<http.Client>(),
-            networkInfo: sl<NetworkInfo>(),
-            authService: sl<AuthService>(),
-          ),
-        );
+  // Atualizar ProposalsService para incluir AuthService
+  if (sl.isRegistered<ProposalsService>()) {
+    sl.unregister<ProposalsService>();
+  }
+  sl.registerLazySingleton<ProposalsService>(
+    () => ProposalsService(
+      client: sl<http.Client>(),
+      networkInfo: sl<NetworkInfo>(),
+      authService: sl<AuthService>(),
+    ),
+  );
 
   // Home Feature
   if (!sl.isRegistered<HomeRepository>()) {
-    sl.registerLazySingleton<HomeRepository>(() => HomeRepositoryImpl(
-      gamificationService: sl<GamificationService>(),
-      classesService: sl<ClassesService>(),
-      proposalsService: sl<ProposalsService>(),
-      classesScheduledService: sl<ClassesScheduledService>(),
-      authService: sl<AuthService>(),
-      prefs: sl<SharedPreferences>(),
-      cacheService: sl<CacheService>(),
-      usersApiService: sl<UsersApiService>(),
-    ));
+    sl.registerLazySingleton<HomeRepository>(
+      () => HomeRepositoryImpl(
+        gamificationService: sl<GamificationService>(),
+        classesService: sl<ClassesService>(),
+        proposalsService: sl<ProposalsService>(),
+        classesScheduledService: sl<ClassesScheduledService>(),
+        authService: sl<AuthService>(),
+        prefs: sl<SharedPreferences>(),
+        cacheService: sl<CacheService>(),
+        usersApiService: sl<UsersApiService>(),
+      ),
+    );
   }
 
   sl.registerLazySingleton<GetHomeStateUseCase>(
@@ -379,15 +383,18 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   );
 
   // RealtimeDataService (substitui DataRefreshService)
-  sl.registerLazySingleton<RealtimeDataService>(
-    () => RealtimeDataService(),
-  );
+  sl.registerLazySingleton<RealtimeDataService>(() => RealtimeDataService());
 
   // Proposals Feature - Registrar após todos os serviços
+  sl.registerLazySingleton<StripePaymentSheetService>(
+    () => StripePaymentSheetService(),
+  );
+
   sl.registerLazySingleton<ProposalsApiService>(
     () => ProposalsApiService(
       client: sl<http.Client>(),
       apiService: sl<ApiService>(),
+      stripePaymentSheetService: sl<StripePaymentSheetService>(),
     ),
   );
 
@@ -429,7 +436,6 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
     ),
   );
 
-
   // Payout Methods Feature
   sl.registerLazySingleton<PayoutMethodsApiService>(
     () => PayoutMethodsApiService(
@@ -437,7 +443,9 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
       apiService: sl<ApiService>(),
     ),
   );
-
+  sl.registerLazySingleton<StripeConnectOnboardingService>(
+    () => StripeConnectOnboardingService(apiService: sl<ApiService>()),
+  );
 
   sl.registerLazySingleton<ProposalsRepository>(
     () => ProposalsRepositoryImpl(
@@ -487,14 +495,10 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
 
   // Classes Feature
   // ✅ MUDANÇA: ClassesBloc agora é factory (nova instância por contexto)
-  sl.registerFactory<ClassesBloc>(
-    () => ClassesBloc(),
-  );
+  sl.registerFactory<ClassesBloc>(() => ClassesBloc());
 
   sl.registerLazySingleton<ClassesHistoryBloc>(
-    () => ClassesHistoryBloc(
-      classesApiService: sl<ClassesApiService>(),
-    ),
+    () => ClassesHistoryBloc(classesApiService: sl<ClassesApiService>()),
   );
 
   // ✅ MUDANÇA: HomeBloc agora é factory (nova instância por contexto)
@@ -542,14 +546,13 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
 
   // Proposal Search BLoC
   // ✅ MUDANÇA: ProposalSearchBloc agora é factory (nova instância por contexto)
-  sl.registerFactory<ProposalSearchBloc>(
-    () => ProposalSearchBloc(),
-  );
+  sl.registerFactory<ProposalSearchBloc>(() => ProposalSearchBloc());
 
   // Payment Methods Feature
   sl.registerLazySingleton<PaymentMethodsApiDataSource>(
     () => PaymentMethodsApiDataSourceImpl(
       apiService: sl<ApiService>(),
+      stripePaymentSheetService: sl<StripePaymentSheetService>(),
     ),
   );
 
@@ -560,9 +563,7 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   );
 
   sl.registerFactory<PaymentMethodsBloc>(
-    () => PaymentMethodsBloc(
-      repository: sl<PaymentMethodsRepository>(),
-    ),
+    () => PaymentMethodsBloc(repository: sl<PaymentMethodsRepository>()),
   );
 
   // Services
@@ -572,8 +573,6 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   sl.registerLazySingleton<ClassCountdownService>(
     () => ClassCountdownService(),
   );
-  
-  sl.registerLazySingleton<ClassStateService>(
-    () => ClassStateService(),
-  );
+
+  sl.registerLazySingleton<ClassStateService>(() => ClassStateService());
 }

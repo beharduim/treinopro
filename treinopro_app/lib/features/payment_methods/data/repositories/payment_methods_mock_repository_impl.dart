@@ -7,9 +7,7 @@ import '../models/payment_method_model.dart';
 class PaymentMethodsMockRepositoryImpl implements PaymentMethodsRepository {
   final PaymentMethodsMockDataSource mockDataSource;
 
-  PaymentMethodsMockRepositoryImpl({
-    required this.mockDataSource,
-  });
+  PaymentMethodsMockRepositoryImpl({required this.mockDataSource});
 
   @override
   Future<StudentPaymentSettings> getStudentPaymentMethods() async {
@@ -25,15 +23,11 @@ class PaymentMethodsMockRepositoryImpl implements PaymentMethodsRepository {
   Future<StudentPaymentSettings> updatePaymentMethods({
     required PaymentMethodType preferredMethod,
     bool? enableAutoPayment,
-    String? mpEmail,
-    bool? mpAllowSaveCard,
   }) async {
     try {
       final settings = await mockDataSource.updatePaymentMethods(
         preferredMethod: preferredMethod,
         enableAutoPayment: enableAutoPayment,
-        mpEmail: mpEmail,
-        mpAllowSaveCard: mpAllowSaveCard,
       );
       return settings;
     } catch (e) {
@@ -101,15 +95,6 @@ class PaymentMethodsMockRepositoryImpl implements PaymentMethodsRepository {
       await mockDataSource.setDefaultCard(cardId);
     } catch (e) {
       throw ServerFailure('Erro ao definir cartão padrão: $e');
-    }
-  }
-
-  @override
-  Future<bool> validateMercadoPagoAccount(String email) async {
-    try {
-      return await mockDataSource.validateMercadoPagoAccount(email);
-    } catch (e) {
-      return false;
     }
   }
 }

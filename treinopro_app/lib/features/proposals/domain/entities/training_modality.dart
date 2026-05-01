@@ -54,17 +54,17 @@ class TrainingModality extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        name,
-        description,
-        icon,
-        color,
-        suggestedPrice,
-        durationMinutes,
-        difficulty,
-        benefits,
-        isActive,
-      ];
+    id,
+    name,
+    description,
+    icon,
+    color,
+    suggestedPrice,
+    durationMinutes,
+    difficulty,
+    benefits,
+    isActive,
+  ];
 }
 
 /// Modalidades pré-definidas
@@ -141,12 +141,15 @@ class TrainingModalityOptions {
   /// Buscar modalidades por nome
   static List<TrainingModality> searchModalities(String query) {
     if (query.isEmpty) return predefinedModalities;
-    
+
     final lowerQuery = query.toLowerCase();
-    return predefinedModalities.where((modality) =>
-      modality.name.toLowerCase().contains(lowerQuery) ||
-      modality.description.toLowerCase().contains(lowerQuery)
-    ).toList();
+    return predefinedModalities
+        .where(
+          (modality) =>
+              modality.name.toLowerCase().contains(lowerQuery) ||
+              modality.description.toLowerCase().contains(lowerQuery),
+        )
+        .toList();
   }
 
   /// Obter modalidade por ID
@@ -160,15 +163,22 @@ class TrainingModalityOptions {
 
   /// Modalidades por nível de dificuldade
   static List<TrainingModality> getModalitiesByDifficulty(String difficulty) {
-    return predefinedModalities.where((modality) => 
-      modality.difficulty == difficulty
-    ).toList();
+    return predefinedModalities
+        .where((modality) => modality.difficulty == difficulty)
+        .toList();
   }
 
   /// Modalidades dentro de uma faixa de preço
-  static List<TrainingModality> getModalitiesByPriceRange(double minPrice, double maxPrice) {
-    return predefinedModalities.where((modality) => 
-      modality.suggestedPrice >= minPrice && modality.suggestedPrice <= maxPrice
-    ).toList();
+  static List<TrainingModality> getModalitiesByPriceRange(
+    double minPrice,
+    double maxPrice,
+  ) {
+    return predefinedModalities
+        .where(
+          (modality) =>
+              modality.suggestedPrice >= minPrice &&
+              modality.suggestedPrice <= maxPrice,
+        )
+        .toList();
   }
 }

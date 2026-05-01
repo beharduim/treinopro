@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/config/app_config.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../payment_methods/data/services/stripe_payment_sheet_service.dart';
 import '../models/create_proposal_dto.dart';
 import '../models/proposal_response_dto.dart';
 
@@ -9,14 +10,17 @@ import '../models/proposal_response_dto.dart';
 class ProposalsApiService {
   final http.Client _client;
   final ApiService _apiService;
+  final StripePaymentSheetService _stripePaymentSheetService;
   final String _baseUrl;
 
   ProposalsApiService({
     required http.Client client,
     required ApiService apiService,
+    required StripePaymentSheetService stripePaymentSheetService,
     String? baseUrl,
   }) : _client = client,
        _apiService = apiService,
+       _stripePaymentSheetService = stripePaymentSheetService,
        _baseUrl = baseUrl ?? AppConfig.apiBaseUrl;
 
   /// Criar uma nova proposta
@@ -47,7 +51,9 @@ class ProposalsApiService {
 
       if (response.statusCode == 201) {
         final responseData = json.decode(response.body) as Map<String, dynamic>;
-        return ProposalResponseDto.fromJson(responseData);
+        return _completeStripePaymentIfNeeded(
+          ProposalResponseDto.fromJson(responseData),
+        );
       } else {
         throw Exception(
           'Erro ao criar proposta: ${_extractErrorMessage(response)}',
@@ -89,7 +95,9 @@ class ProposalsApiService {
 
       if (response.statusCode == 201) {
         final responseData = json.decode(response.body) as Map<String, dynamic>;
-        return ProposalResponseDto.fromJson(responseData);
+        return _completeStripePaymentIfNeeded(
+          ProposalResponseDto.fromJson(responseData),
+        );
       } else {
         throw Exception(
           'Erro ao criar recontratação: ${_extractErrorMessage(response)}',
@@ -288,6 +296,54 @@ class ProposalsApiService {
       return response.body;
     }
     return 'Erro desconhecido (${response.statusCode})';
+  }
+
+  Future<ProposalResponseDto> confirmStripeProposalPayment(
+    String proposalId,
+  ) async {
+    final token = _apiService.getAccessToken();
+    if (token == null) {
+      throw Exception('Token de acesso não encontrado');
+    }
+
+    final url = Uri.parse('$_baseUrl/proposals/$proposalId/stripe/confirm');
+    final response = await _client.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Erro ao confirmar pagamento Stripe: ${_extractErrorMessage(response)}',
+      );
+    }
+
+    final responseData = json.decode(response.body) as Map<String, dynamic>;
+    return ProposalResponseDto.fromJson(responseData);
+  }
+
+  Future<ProposalResponseDto> _completeStripePaymentIfNeeded(
+    ProposalResponseDto response,
+  ) async {
+    final payment = response.payment;
+    if (payment == null ||
+        payment.provider != 'stripe' ||
+        payment.clientSecret == null ||
+        payment.clientSecret!.isEmpty) {
+      return response;
+    }
+
+    await _stripePaymentSheetService.presentPaymentSheet(
+      clientSecret: payment.clientSecret!,
+      customerId: payment.customerId ?? '',
+      ephemeralKeySecret: payment.customerEphemeralKeySecret ?? '',
+      publishableKey: payment.publishableKey ?? '',
+    );
+
+    return confirmStripeProposalPayment(response.id);
   }
 }
 

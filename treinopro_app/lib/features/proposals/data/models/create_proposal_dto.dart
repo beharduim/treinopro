@@ -23,7 +23,7 @@ class CreateProposalDto {
   final String? installments;
   final bool? saveCard;
   final String? cardNickname;
-  // Dados do pagador (Mercado Pago)
+  // Dados do pagador
   final String? payerEmail;
   final String? payerCpf;
 

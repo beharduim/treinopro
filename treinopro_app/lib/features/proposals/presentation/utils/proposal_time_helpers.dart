@@ -6,7 +6,6 @@ import '../bloc/proposals_state.dart';
 import '../bloc/proposals_bloc.dart';
 import '../bloc/proposals_event.dart';
 
-
 Widget buildEndTimeDisplay(BuildContext context, ProposalsLoaded state) {
   String endTime = '--:--';
 

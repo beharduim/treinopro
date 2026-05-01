@@ -4,8 +4,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/payment_method.dart';
 import '../bloc/payment_methods_bloc.dart';
 import 'card_form_widget.dart';
-import 'pix_form_widget.dart';
-import 'mercado_pago_form_widget.dart';
 
 class AddPaymentMethodBottomSheet extends StatefulWidget {
   final CardType? cardType;
@@ -24,17 +22,20 @@ class AddPaymentMethodBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<AddPaymentMethodBottomSheet> createState() => _AddPaymentMethodBottomSheetState();
+  State<AddPaymentMethodBottomSheet> createState() =>
+      _AddPaymentMethodBottomSheetState();
 }
 
-class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomSheet> {
+class _AddPaymentMethodBottomSheetState
+    extends State<AddPaymentMethodBottomSheet> {
   late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
     // Se um método específico foi selecionado, inicia na página de preenchimento
-    final hasSpecificMethod = widget.cardType != null || widget.paymentMethodType != null;
+    final hasSpecificMethod =
+        widget.cardType != null || widget.paymentMethodType != null;
     _pageController = PageController(initialPage: hasSpecificMethod ? 1 : 0);
   }
 
@@ -46,14 +47,15 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
 
   @override
   Widget build(BuildContext context) {
-    final paymentMethodType = widget.paymentMethodType ?? 
-        (widget.cardType == CardType.credit ? PaymentMethodType.creditCard : PaymentMethodType.debitCard);
+    final paymentMethodType =
+        widget.paymentMethodType ??
+        (widget.cardType == CardType.credit
+            ? PaymentMethodType.creditCard
+            : PaymentMethodType.debitCard);
 
     // Se um método específico foi selecionado, mostra apenas o formulário
-    final hasSpecificMethod = widget.cardType != null || widget.paymentMethodType != null;
-
-    // Ajustar altura baseada no tipo de pagamento
-    final double heightMultiplier = paymentMethodType == PaymentMethodType.mercadoPago ? 0.8 : 0.7;
+    final hasSpecificMethod =
+        widget.cardType != null || widget.paymentMethodType != null;
 
     return BlocProvider.value(
       value: widget.bloc,
@@ -62,7 +64,7 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
-          height: MediaQuery.of(context).size.height * heightMultiplier,
+          height: MediaQuery.of(context).size.height * 0.7,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -79,7 +81,7 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               // Header
               Padding(
                 padding: const EdgeInsets.all(20),
@@ -105,18 +107,18 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
                   ],
                 ),
               ),
-              
+
               // Conteúdo
               Expanded(
-                child: hasSpecificMethod 
-                  ? _buildFormPage(paymentMethodType)
-                  : PageView(
-                      controller: _pageController,
-                      children: [
-                        _buildMethodSelectionPage(paymentMethodType),
-                        _buildFormPage(paymentMethodType),
-                      ],
-                    ),
+                child: hasSpecificMethod
+                    ? _buildFormPage(paymentMethodType)
+                    : PageView(
+                        controller: _pageController,
+                        children: [
+                          _buildMethodSelectionPage(paymentMethodType),
+                          _buildFormPage(paymentMethodType),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -140,9 +142,9 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
               color: Color(0xFF1A202C),
             ),
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           Text(
             'Selecione como você deseja pagar suas aulas',
             style: const TextStyle(
@@ -151,9 +153,9 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
               color: Color(0xFF718096),
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Opções de método
           _buildMethodOption(
             title: 'Cartão de Crédito',
@@ -163,9 +165,9 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
             isSelected: type == PaymentMethodType.creditCard,
             onTap: () => _selectMethod(PaymentMethodType.creditCard),
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           _buildMethodOption(
             title: 'Cartão de Débito',
             subtitle: 'Visa, Mastercard, Elo, etc.',
@@ -174,31 +176,11 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
             isSelected: type == PaymentMethodType.debitCard,
             onTap: () => _selectMethod(PaymentMethodType.debitCard),
           ),
-          
+
           const SizedBox(height: 12),
-          
-          _buildMethodOption(
-            title: 'PIX',
-            subtitle: 'Pagamento instantâneo',
-            icon: Icons.qr_code,
-            color: const Color(0xFF7C3AED),
-            isSelected: type == PaymentMethodType.pix,
-            onTap: () => _selectMethod(PaymentMethodType.pix),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _buildMethodOption(
-            title: 'Mercado Pago',
-            subtitle: 'Conta verificada',
-            icon: Icons.payment,
-            color: const Color(0xFF00AEEF),
-            isSelected: type == PaymentMethodType.mercadoPago,
-            onTap: () => _selectMethod(PaymentMethodType.mercadoPago),
-          ),
-          
+
           const Spacer(),
-          
+
           // Botão continuar
           SizedBox(
             width: double.infinity,
@@ -274,9 +256,9 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
                 size: 20,
               ),
             ),
-            
+
             const SizedBox(width: 16),
-            
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,7 +284,7 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
                 ],
               ),
             ),
-            
+
             if (isSelected)
               const Icon(
                 Icons.check_circle,
@@ -327,14 +309,6 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
           cardType: CardType.debit,
           onCardSaved: widget.onCardSaved,
         );
-      case PaymentMethodType.pix:
-        return PixFormWidget(
-          onPixConfigured: widget.onCardSaved,
-        );
-      case PaymentMethodType.mercadoPago:
-        return MercadoPagoFormWidget(
-          onMercadoPagoConfigured: widget.onCardSaved,
-        );
     }
   }
 
@@ -344,10 +318,6 @@ class _AddPaymentMethodBottomSheetState extends State<AddPaymentMethodBottomShee
         return 'Adicionar Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Adicionar Cartão de Débito';
-      case PaymentMethodType.pix:
-        return 'Configurar PIX';
-      case PaymentMethodType.mercadoPago:
-        return 'Configurar Mercado Pago';
     }
   }
 

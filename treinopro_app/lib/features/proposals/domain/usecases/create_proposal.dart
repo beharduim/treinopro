@@ -11,7 +11,9 @@ class CreateProposal {
   Future<ProposalResponseDto> call(Proposal proposal) async {
     // Validar se a proposta está completa
     if (!proposal.isFullyValid) {
-      throw Exception('Proposta incompleta. Verifique todos os campos obrigatórios.');
+      throw Exception(
+        'Proposta incompleta. Verifique todos os campos obrigatórios.',
+      );
     }
 
     // Marcar como completa e definir timestamps
@@ -23,10 +25,10 @@ class CreateProposal {
 
     // Criar proposta via API
     final response = await repository.createProposal(completedProposal);
-    
+
     // Limpar proposta salva localmente após sucesso
     await repository.clearProposal();
-    
+
     return response;
   }
 }

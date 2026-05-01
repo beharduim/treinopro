@@ -367,7 +367,7 @@ class _CrefStepState extends State<CrefStep> {
 
                   const SizedBox(height: 16),
 
-                  // Aviso Importante sobre Mercado Pago
+                  // Aviso Importante sobre recebimento
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -386,7 +386,7 @@ class _CrefStepState extends State<CrefStep> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Atenção: Para receber pagamentos na plataforma, é obrigatório possuir uma conta no Mercado Pago. O repasse será feito para a conta associada ao seu CPF/E-mail.',
+                            'Atenção: você pode criar sua conta normalmente. O cadastro do método de recebimento será solicitado depois, antes do primeiro repasse.',
                             style: AppTextStyles.small.copyWith(
                               color: Colors.blue[900],
                             ),

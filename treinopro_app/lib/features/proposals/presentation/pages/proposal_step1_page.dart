@@ -8,8 +8,7 @@ import '../bloc/proposals_state.dart';
 import '../widgets/location_search_field.dart';
 import '../widgets/visual_date_picker.dart';
 import '../widgets/time_slot_selector.dart';
-import '../utils/proposal_time_helpers.dart'
-    show buildEndTimeDisplay;
+import '../utils/proposal_time_helpers.dart' show buildEndTimeDisplay;
 import '../../../../core/di/dependency_injection.dart';
 import '../../data/services/proposals_api_service.dart';
 

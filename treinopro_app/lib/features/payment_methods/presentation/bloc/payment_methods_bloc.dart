@@ -4,12 +4,12 @@ import '../../domain/entities/payment_method.dart';
 import 'payment_methods_event.dart';
 import 'payment_methods_state.dart';
 
-class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> {
+class PaymentMethodsBloc
+    extends Bloc<PaymentMethodsEvent, PaymentMethodsState> {
   final PaymentMethodsRepository repository;
 
-  PaymentMethodsBloc({
-    required this.repository,
-  }) : super(const PaymentMethodsInitial()) {
+  PaymentMethodsBloc({required this.repository})
+    : super(const PaymentMethodsInitial()) {
     on<LoadPaymentMethods>(_onLoadPaymentMethods);
     on<UpdatePreferredMethod>(_onUpdatePreferredMethod);
     on<UpdatePaymentSettings>(_onUpdatePaymentSettings);
@@ -17,7 +17,6 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     on<ValidateCard>(_onValidateCard);
     on<RemoveCard>(_onRemoveCard);
     on<SetDefaultCard>(_onSetDefaultCard);
-    on<ValidateMercadoPagoAccount>(_onValidateMercadoPagoAccount);
     on<ClearErrors>(_onClearErrors);
   }
 
@@ -26,7 +25,7 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     emit(const PaymentMethodsLoading());
-    
+
     try {
       final settings = await repository.getStudentPaymentMethods();
       emit(PaymentMethodsLoaded(settings: settings));
@@ -40,20 +39,17 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     if (state is! PaymentMethodsLoaded) return;
-    
+
     final currentState = state as PaymentMethodsLoaded;
     emit(currentState.copyWith(isUpdating: true));
-    
+
     try {
       final settings = await repository.updatePaymentMethods(
         preferredMethod: event.method,
       );
       emit(PaymentMethodsLoaded(settings: settings));
     } catch (e) {
-      emit(currentState.copyWith(
-        isUpdating: false,
-        error: e.toString(),
-      ));
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
 
@@ -62,23 +58,18 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     if (state is! PaymentMethodsLoaded) return;
-    
+
     final currentState = state as PaymentMethodsLoaded;
     emit(currentState.copyWith(isUpdating: true));
-    
+
     try {
       final settings = await repository.updatePaymentMethods(
         preferredMethod: event.preferredMethod,
         enableAutoPayment: event.enableAutoPayment,
-        mpEmail: event.mpEmail,
-        mpAllowSaveCard: event.mpAllowSaveCard,
       );
       emit(PaymentMethodsLoaded(settings: settings));
     } catch (e) {
-      emit(currentState.copyWith(
-        isUpdating: false,
-        error: e.toString(),
-      ));
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
 
@@ -87,10 +78,10 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     if (state is! PaymentMethodsLoaded) return;
-    
+
     final currentState = state as PaymentMethodsLoaded;
     emit(currentState.copyWith(isUpdating: true));
-    
+
     try {
       await repository.saveCard(
         cardNumber: event.cardNumber,
@@ -100,15 +91,12 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
         cvv: event.cvv,
         cardType: event.cardType,
       );
-      
+
       // Recarregar métodos de pagamento para incluir o novo cartão
       final settings = await repository.getStudentPaymentMethods();
       emit(PaymentMethodsLoaded(settings: settings));
     } catch (e) {
-      emit(currentState.copyWith(
-        isUpdating: false,
-        error: e.toString(),
-      ));
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
 
@@ -124,17 +112,11 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
         expiryYear: event.expiryYear,
         cvv: event.cvv,
       );
-      
+
       final brand = _detectCardBrand(event.cardNumber);
-      emit(CardValidationState(
-        isValid: isValid,
-        detectedBrand: brand,
-      ));
+      emit(CardValidationState(isValid: isValid, detectedBrand: brand));
     } catch (e) {
-      emit(CardValidationState(
-        isValid: false,
-        error: e.toString(),
-      ));
+      emit(CardValidationState(isValid: false, error: e.toString()));
     }
   }
 
@@ -143,21 +125,18 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     if (state is! PaymentMethodsLoaded) return;
-    
+
     final currentState = state as PaymentMethodsLoaded;
     emit(currentState.copyWith(isUpdating: true));
-    
+
     try {
       await repository.removeCard(event.cardId);
-      
+
       // Recarregar métodos de pagamento
       final settings = await repository.getStudentPaymentMethods();
       emit(PaymentMethodsLoaded(settings: settings));
     } catch (e) {
-      emit(currentState.copyWith(
-        isUpdating: false,
-        error: e.toString(),
-      ));
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
 
@@ -166,43 +145,22 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     Emitter<PaymentMethodsState> emit,
   ) async {
     if (state is! PaymentMethodsLoaded) return;
-    
+
     final currentState = state as PaymentMethodsLoaded;
     emit(currentState.copyWith(isUpdating: true));
-    
+
     try {
       await repository.setDefaultCard(event.cardId);
-      
+
       // Recarregar métodos de pagamento
       final settings = await repository.getStudentPaymentMethods();
       emit(PaymentMethodsLoaded(settings: settings));
     } catch (e) {
-      emit(currentState.copyWith(
-        isUpdating: false,
-        error: e.toString(),
-      ));
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
 
-  Future<void> _onValidateMercadoPagoAccount(
-    ValidateMercadoPagoAccount event,
-    Emitter<PaymentMethodsState> emit,
-  ) async {
-    try {
-      final isValid = await repository.validateMercadoPagoAccount(event.email);
-      emit(MercadoPagoValidationState(isValid: isValid));
-    } catch (e) {
-      emit(MercadoPagoValidationState(
-        isValid: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  void _onClearErrors(
-    ClearErrors event,
-    Emitter<PaymentMethodsState> emit,
-  ) {
+  void _onClearErrors(ClearErrors event, Emitter<PaymentMethodsState> emit) {
     if (state is PaymentMethodsLoaded) {
       final currentState = state as PaymentMethodsLoaded;
       emit(currentState.copyWith(error: null));
@@ -211,9 +169,10 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
 
   CardBrand _detectCardBrand(String cardNumber) {
     final cleanNumber = cardNumber.replaceAll(RegExp(r'\D'), '');
-    
+
     if (cleanNumber.startsWith('4')) return CardBrand.visa;
-    if (cleanNumber.startsWith('5') || cleanNumber.startsWith('2')) return CardBrand.mastercard;
+    if (cleanNumber.startsWith('5') || cleanNumber.startsWith('2'))
+      return CardBrand.mastercard;
     if (cleanNumber.startsWith('3')) {
       if (cleanNumber.startsWith('34') || cleanNumber.startsWith('37')) {
         return CardBrand.americanExpress;
@@ -222,7 +181,7 @@ class PaymentMethodsBloc extends Bloc<PaymentMethodsEvent, PaymentMethodsState> 
     }
     if (cleanNumber.startsWith('6')) return CardBrand.elo;
     if (cleanNumber.startsWith('38')) return CardBrand.hipercard;
-    
+
     return CardBrand.unknown;
   }
 }

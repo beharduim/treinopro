@@ -63,7 +63,10 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
     }
 
     if (value < widget.minValue) {
-      setState(() => _errorMessage = 'Valor mínimo de ${widget.currency} ${widget.minValue.toStringAsFixed(0)}');
+      setState(
+        () => _errorMessage =
+            'Valor mínimo de ${widget.currency} ${widget.minValue.toStringAsFixed(0)}',
+      );
       return;
     }
 
@@ -80,7 +83,7 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
   @override
   Widget build(BuildContext context) {
     final hasError = _errorMessage != null;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -90,9 +93,7 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
             color: AppColors.inputBackground,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: hasError 
-                  ? Colors.red
-                  : AppColors.secondaryDark,
+              color: hasError ? Colors.red : AppColors.secondaryDark,
               width: 1,
             ),
           ),
@@ -100,12 +101,8 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
             controller: _controller,
             focusNode: _focusNode,
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.secondaryDark,
-            ),
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: AppTextStyles.small.copyWith(color: AppColors.secondaryDark),
             decoration: InputDecoration(
               hintText: widget.placeholder,
               hintStyle: AppTextStyles.small.copyWith(
@@ -131,9 +128,7 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _errorMessage!,
-              style: AppTextStyles.small.copyWith(
-                color: Colors.red,
-              ),
+              style: AppTextStyles.small.copyWith(color: Colors.red),
             ),
           ),
 
@@ -154,7 +149,7 @@ class _SmartPriceFieldState extends State<SmartPriceField> {
             children: widget.suggestions.map((value) {
               final isSelected = _controller.text == value.toStringAsFixed(0);
               final isSuggested = widget.suggestedValue == value;
-              
+
               return _PriceSuggestionChip(
                 value: value,
                 currency: widget.currency,
@@ -225,11 +220,11 @@ class _PriceSuggestionChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? AppColors.primaryOrange
               : isSuggested
-                  ? AppColors.primaryOrange.withOpacity(0.1)
-                  : AppColors.inputBackground,
+              ? AppColors.primaryOrange.withOpacity(0.1)
+              : AppColors.inputBackground,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected || isSuggested
@@ -253,12 +248,14 @@ class _PriceSuggestionChip extends StatelessWidget {
             Text(
               '$currency ${value.toStringAsFixed(0)}',
               style: AppTextStyles.small.copyWith(
-                color: isSelected 
+                color: isSelected
                     ? Colors.white
                     : isSuggested
-                        ? AppColors.primaryOrange
-                        : AppColors.secondaryDark,
-                fontWeight: isSuggested || isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ? AppColors.primaryOrange
+                    : AppColors.secondaryDark,
+                fontWeight: isSuggested || isSelected
+                    ? FontWeight.w600
+                    : FontWeight.w400,
               ),
             ),
           ],

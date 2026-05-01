@@ -32,7 +32,7 @@ class SavedCardsList extends StatelessWidget {
     print('  - expiryMonth: ${card.expiryMonth}');
     print('  - expiryYear: ${card.expiryYear}');
     print('  - isDefault: ${card.isDefault}');
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
@@ -40,7 +40,9 @@ class SavedCardsList extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: card.isDefault ? AppColors.primaryOrange : const Color(0xFFE2E8F0),
+          color: card.isDefault
+              ? AppColors.primaryOrange
+              : const Color(0xFFE2E8F0),
           width: card.isDefault ? 2 : 1,
         ),
         boxShadow: [
@@ -87,13 +89,16 @@ class SavedCardsList extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               // Ações
               Row(
                 children: [
                   if (card.isDefault)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryOrange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -108,9 +113,9 @@ class SavedCardsList extends StatelessWidget {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(width: 8),
-                  
+
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'remove') {
@@ -138,9 +143,9 @@ class SavedCardsList extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Número do cartão mascarado
           Text(
             _maskCardNumber(card.cardNumber ?? ''),
@@ -152,9 +157,9 @@ class SavedCardsList extends StatelessWidget {
               letterSpacing: 2,
             ),
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // Nome do portador e validade
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -178,7 +183,7 @@ class SavedCardsList extends StatelessWidget {
                 ),
             ],
           ),
-          
+
           // Botão "Definir como padrão" alinhado à direita
           if (!card.isDefault) ...[
             const SizedBox(height: 12),
@@ -207,7 +212,7 @@ class SavedCardsList extends StatelessWidget {
   Widget _buildCardBrandIcon(CardBrand? brand) {
     Color color;
     IconData icon;
-    
+
     switch (brand) {
       case CardBrand.visa:
         color = const Color(0xFF1A1F71);
@@ -229,7 +234,7 @@ class SavedCardsList extends StatelessWidget {
         color = const Color(0xFF718096);
         icon = Icons.credit_card;
     }
-    
+
     return Container(
       width: 32,
       height: 32,
@@ -237,11 +242,7 @@ class SavedCardsList extends StatelessWidget {
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 18,
-      ),
+      child: Icon(icon, color: color, size: 18),
     );
   }
 
@@ -283,16 +284,15 @@ class SavedCardsList extends StatelessWidget {
 
   String _maskCardNumber(String cardNumber) {
     if (cardNumber.length < 4) return cardNumber;
-    
+
     final lastFour = cardNumber.substring(cardNumber.length - 4);
     final masked = '*' * (cardNumber.length - 4);
-    
+
     // Adicionar espaços a cada 4 dígitos
-    final spaced = masked.replaceAllMapped(
-      RegExp(r'.{4}'),
-      (match) => '${match.group(0)} ',
-    ).trim();
-    
+    final spaced = masked
+        .replaceAllMapped(RegExp(r'.{4}'), (match) => '${match.group(0)} ')
+        .trim();
+
     return '$spaced $lastFour';
   }
 
@@ -310,10 +310,7 @@ class SavedCardsList extends StatelessWidget {
         ),
         content: Text(
           'Tem certeza que deseja remover este cartão?',
-          style: const TextStyle(
-            fontFamily: 'Fira Sans',
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontFamily: 'Fira Sans', fontSize: 14),
         ),
         actions: [
           TextButton(

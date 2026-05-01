@@ -4,6 +4,8 @@ import Firebase
 import FirebaseMessaging
 import UserNotifications
 import ActivityKit
+import StripeConnect
+import StripePayments
 
 // Fallback local para o target Runner.
 // Em CI, o target/widget ProposalLiveActivity pode não estar presente no Runner.xcodeproj,
@@ -27,7 +29,11 @@ private struct ProposalAttributes: ActivityAttributes {
 @objc class AppDelegate: FlutterAppDelegate {
   private var liveActivityChannel: FlutterMethodChannel?
   private var deepLinkChannel: FlutterMethodChannel?
+  private var stripeConnectChannel: FlutterMethodChannel?
   private var pendingDeepLinkUrl: String?
+  private var stripeEmbeddedComponentManager: EmbeddedComponentManager?
+  private var stripeOnboardingResult: FlutterResult?
+  private var stripeConnectConfig: StripeConnectConfiguration?
 
   override func application(
     _ application: UIApplication,
@@ -93,6 +99,11 @@ private struct ProposalAttributes: ActivityAttributes {
       binaryMessenger: controller.binaryMessenger
     )
 
+    stripeConnectChannel = FlutterMethodChannel(
+      name: "com.treinopro.oficial/stripe_connect",
+      binaryMessenger: controller.binaryMessenger
+    )
+
     liveActivityChannel?.setMethodCallHandler { [weak self] (call, result) in
       switch call.method {
       case "startLiveActivity":
@@ -101,6 +112,15 @@ private struct ProposalAttributes: ActivityAttributes {
         self?.handleUpdateLiveActivity(call: call, result: result)
       case "endLiveActivity":
         self?.handleEndLiveActivity(call: call, result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    stripeConnectChannel?.setMethodCallHandler { [weak self] (call, result) in
+      switch call.method {
+      case "presentEmbeddedOnboarding":
+        self?.handlePresentStripeOnboarding(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -116,6 +136,141 @@ private struct ProposalAttributes: ActivityAttributes {
     }
 
     print("[LiveActivity] Method channel configurado com sucesso")
+  }
+
+  private func handlePresentStripeOnboarding(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    guard stripeOnboardingResult == nil else {
+      result(
+        FlutterError(
+          code: "stripe_onboarding_in_progress",
+          message: "Já existe um onboarding de recebimento em andamento.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    guard
+      let args = call.arguments as? [String: Any],
+      let publishableKey = args["publishableKey"] as? String,
+      let baseUrl = args["baseUrl"] as? String,
+      let accessToken = args["accessToken"] as? String,
+      !publishableKey.isEmpty,
+      !baseUrl.isEmpty,
+      !accessToken.isEmpty
+    else {
+      result(
+        FlutterError(
+          code: "stripe_onboarding_invalid_arguments",
+          message: "Parâmetros inválidos para iniciar o onboarding do Stripe.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    let newConfig = StripeConnectConfiguration(
+      publishableKey: publishableKey,
+      baseUrl: baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
+      accessToken: accessToken
+    )
+
+    if stripeEmbeddedComponentManager == nil || stripeConnectConfig != newConfig {
+      stripeConnectConfig = newConfig
+      STPAPIClient.shared.publishableKey = publishableKey
+      stripeEmbeddedComponentManager = EmbeddedComponentManager(
+        fetchClientSecret: { [weak self] in
+          guard let self else { return nil }
+          return await self.fetchStripeClientSecret(
+            baseUrl: newConfig.baseUrl,
+            accessToken: newConfig.accessToken
+          )
+        }
+      )
+    }
+
+    guard let presenter = topViewController() else {
+      result(
+        FlutterError(
+          code: "stripe_onboarding_presenter_unavailable",
+          message: "Não foi possível localizar uma tela para apresentar o onboarding.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    guard let onboardingController = stripeEmbeddedComponentManager?.createAccountOnboardingController() else {
+      result(
+        FlutterError(
+          code: "stripe_onboarding_unavailable",
+          message: "Não foi possível criar o controller de onboarding do Stripe.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    stripeOnboardingResult = result
+    onboardingController.delegate = self
+    onboardingController.title = "Configurar recebimento"
+    onboardingController.present(from: presenter)
+  }
+
+  private func topViewController(
+    from controller: UIViewController? = nil
+  ) -> UIViewController? {
+    let rootController = controller ?? window?.rootViewController
+
+    if let navigationController = rootController as? UINavigationController {
+      return topViewController(from: navigationController.visibleViewController)
+    }
+
+    if let tabBarController = rootController as? UITabBarController {
+      return topViewController(from: tabBarController.selectedViewController)
+    }
+
+    if let presentedController = rootController?.presentedViewController {
+      return topViewController(from: presentedController)
+    }
+
+    return rootController
+  }
+
+  private func fetchStripeClientSecret(
+    baseUrl: String,
+    accessToken: String
+  ) async -> String? {
+    guard let url = URL(string: "\(baseUrl)/payments/profile/financial/stripe/account-session") else {
+      return nil
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = Data()
+
+    do {
+      let (data, response) = try await URLSession.shared.data(for: request)
+      guard
+        let httpResponse = response as? HTTPURLResponse,
+        (200...299).contains(httpResponse.statusCode),
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let payload = json["data"] as? [String: Any],
+        let clientSecret = payload["clientSecret"] as? String,
+        !clientSecret.isEmpty
+      else {
+        return nil
+      }
+
+      return clientSecret
+    } catch {
+      return nil
+    }
   }
 
   // MARK: - Live Activity Handlers
@@ -345,6 +500,19 @@ private struct ProposalAttributes: ActivityAttributes {
     print("[iOS] Failed to register for remote notifications: \(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
+}
+
+extension AppDelegate: AccountOnboardingControllerDelegate {
+  func accountOnboardingDidExit(_ accountOnboarding: AccountOnboardingController) {
+    stripeOnboardingResult?(nil)
+    stripeOnboardingResult = nil
+  }
+}
+
+private struct StripeConnectConfiguration: Equatable {
+  let publishableKey: String
+  let baseUrl: String
+  let accessToken: String
 }
 
 // MARK: - MessagingDelegate

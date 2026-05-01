@@ -31,13 +31,15 @@ class PaymentMethodCard extends StatelessWidget {
           border: Border.all(
             color: isEnabled ? const Color(0xFFE2E8F0) : Colors.grey[300]!,
           ),
-          boxShadow: isEnabled ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isEnabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
@@ -55,9 +57,9 @@ class PaymentMethodCard extends StatelessWidget {
                 size: 24,
               ),
             ),
-            
+
             const SizedBox(width: 16),
-            
+
             // Textos
             Expanded(
               child: Column(
@@ -69,7 +71,9 @@ class PaymentMethodCard extends StatelessWidget {
                       fontFamily: 'Outfit',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isEnabled ? const Color(0xFF1A202C) : Colors.grey[500],
+                      color: isEnabled
+                          ? const Color(0xFF1A202C)
+                          : Colors.grey[500],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -78,13 +82,15 @@ class PaymentMethodCard extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'Fira Sans',
                       fontSize: 14,
-                      color: isEnabled ? const Color(0xFF718096) : Colors.grey[400],
+                      color: isEnabled
+                          ? const Color(0xFF718096)
+                          : Colors.grey[400],
                     ),
                   ),
                 ],
               ),
             ),
-            
+
             // Seta
             Icon(
               Icons.arrow_forward_ios,

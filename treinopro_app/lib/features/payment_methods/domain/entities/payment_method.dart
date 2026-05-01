@@ -1,12 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Enum para tipos de métodos de pagamento
-enum PaymentMethodType {
-  creditCard,
-  debitCard,
-  mercadoPago,
-  pix,
-}
+enum PaymentMethodType { creditCard, debitCard }
 
 /// Enum para bandeiras de cartão
 enum CardBrand {
@@ -23,10 +18,7 @@ enum CardBrand {
 }
 
 /// Enum para tipo de cartão
-enum CardType {
-  credit,
-  debit,
-}
+enum CardType { credit, debit }
 
 /// Entidade para método de pagamento
 class PaymentMethod extends Equatable {
@@ -39,7 +31,6 @@ class PaymentMethod extends Equatable {
   final String? cvv;
   final CardBrand? cardBrand;
   final CardType? cardType;
-  final String? mpEmail;
   final bool isVerified;
   final bool isDefault;
   final DateTime createdAt;
@@ -55,7 +46,6 @@ class PaymentMethod extends Equatable {
     this.cvv,
     this.cardBrand,
     this.cardType,
-    this.mpEmail,
     this.isVerified = false,
     this.isDefault = false,
     required this.createdAt,
@@ -64,21 +54,20 @@ class PaymentMethod extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        type,
-        cardNumber,
-        cardHolderName,
-        expiryMonth,
-        expiryYear,
-        cvv,
-        cardBrand,
-        cardType,
-        mpEmail,
-        isVerified,
-        isDefault,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    type,
+    cardNumber,
+    cardHolderName,
+    expiryMonth,
+    expiryYear,
+    cvv,
+    cardBrand,
+    cardType,
+    isVerified,
+    isDefault,
+    createdAt,
+    updatedAt,
+  ];
 
   PaymentMethod copyWith({
     String? id,
@@ -90,7 +79,6 @@ class PaymentMethod extends Equatable {
     String? cvv,
     CardBrand? cardBrand,
     CardType? cardType,
-    String? mpEmail,
     bool? isVerified,
     bool? isDefault,
     DateTime? createdAt,
@@ -106,7 +94,6 @@ class PaymentMethod extends Equatable {
       cvv: cvv ?? this.cvv,
       cardBrand: cardBrand ?? this.cardBrand,
       cardType: cardType ?? this.cardType,
-      mpEmail: mpEmail ?? this.mpEmail,
       isVerified: isVerified ?? this.isVerified,
       isDefault: isDefault ?? this.isDefault,
       createdAt: createdAt ?? this.createdAt,
@@ -121,9 +108,6 @@ class StudentPaymentSettings extends Equatable {
   final PaymentMethodType preferredMethod;
   final bool enableAutoPayment;
   final String? defaultCardId;
-  final String? mpEmail;
-  final bool mpIsVerified;
-  final bool mpAllowSaveCard;
   final bool canMakePayments;
   final bool hasValidPaymentMethod;
   final List<PaymentMethod> savedCards;
@@ -135,9 +119,6 @@ class StudentPaymentSettings extends Equatable {
     required this.preferredMethod,
     required this.enableAutoPayment,
     this.defaultCardId,
-    this.mpEmail,
-    required this.mpIsVerified,
-    required this.mpAllowSaveCard,
     required this.canMakePayments,
     required this.hasValidPaymentMethod,
     required this.savedCards,
@@ -147,17 +128,14 @@ class StudentPaymentSettings extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        preferredMethod,
-        enableAutoPayment,
-        defaultCardId,
-        mpEmail,
-        mpIsVerified,
-        mpAllowSaveCard,
-        canMakePayments,
-        hasValidPaymentMethod,
-        savedCards,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    preferredMethod,
+    enableAutoPayment,
+    defaultCardId,
+    canMakePayments,
+    hasValidPaymentMethod,
+    savedCards,
+    createdAt,
+    updatedAt,
+  ];
 }

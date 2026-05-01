@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,7 +16,6 @@ import '../bloc/proposals_state.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
 import '../../../payment_methods/presentation/bloc/payment_methods_bloc.dart';
 import '../../../payment_methods/domain/entities/payment_method.dart';
-import '../widgets/saved_card_cvv_dialog.dart';
 
 /// Tela de recontratação para o cliente
 class RecontractPage extends StatefulWidget {
@@ -847,10 +845,6 @@ class _RecontractPageState extends State<RecontractPage> {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
-      case PaymentMethodType.mercadoPago:
-        return 'mercado_pago';
-      case PaymentMethodType.pix:
-        return 'pix';
     }
   }
 
@@ -858,20 +852,21 @@ class _RecontractPageState extends State<RecontractPage> {
     final selectedMethod = _findSelectedPaymentMethod(state);
     final selectedMethodId = state.proposal.paymentMethodId;
 
-    String paymentMethod = 'pix';
+    String paymentMethod = 'credit_card';
     String? cardId;
 
     if (selectedMethod != null) {
       paymentMethod = _mapPaymentMethodForApi(selectedMethod.type);
-      if (paymentMethod != 'pix' && _isValidUUID(selectedMethod.id)) {
+      if (_isValidUUID(selectedMethod.id)) {
         cardId = selectedMethod.id;
       }
     } else if (selectedMethodId != null) {
       switch (selectedMethodId) {
-        case 'pix':
+        case 'stripe_payment_sheet':
+          paymentMethod = 'credit_card';
+          break;
         case 'credit_card':
         case 'debit_card':
-        case 'mercado_pago':
           paymentMethod = selectedMethodId;
           break;
         default:
@@ -908,38 +903,11 @@ class _RecontractPageState extends State<RecontractPage> {
     }
 
     final paymentData = _resolvePaymentDataForApi(currentState);
-    final paymentMethod = paymentData['paymentMethod'] ?? 'pix';
+    final paymentMethod = paymentData['paymentMethod'] ?? 'credit_card';
     final cardId = paymentData['cardId'];
-    final selectedMethod = _findSelectedPaymentMethod(currentState);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final appNavigator = Navigator.of(context);
-    String? savedCardCvvForRequest = currentState.proposal.savedCardCvv?.trim();
-
-    if (selectedMethod != null &&
-        selectedMethod.type == PaymentMethodType.creditCard) {
-      final cvv = await showSavedCardCvvDialog(
-        context,
-        paymentMethod: selectedMethod,
-      );
-
-      if (!mounted) return;
-
-      if (cvv == null || cvv.isEmpty) {
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Por motivos de segurança, o código de segurança (CVV) do seu cartão é obrigatório para confirmar o pagamento.',
-            ),
-            backgroundColor: Color(0xFFB45309),
-          ),
-        );
-        return;
-      }
-
-      savedCardCvvForRequest = cvv;
-      context.read<ProposalsBloc>().add(ProposalsSetSavedCardCvv(cvv));
-    }
 
     var loadingShown = false;
     try {
@@ -982,9 +950,6 @@ class _RecontractPageState extends State<RecontractPage> {
 
       if (cardId != null) {
         proposalData['cardId'] = cardId;
-      }
-      if (savedCardCvvForRequest != null && savedCardCvvForRequest.isNotEmpty) {
-        proposalData['savedCardCvv'] = savedCardCvvForRequest;
       }
 
       // Só adicionar locationId se for um UUID válido
@@ -1040,37 +1005,6 @@ class _RecontractPageState extends State<RecontractPage> {
         return;
       }
 
-      if (isPaymentPending &&
-          responsePaymentMethod == 'pix' &&
-          response.payment?.qrCode != null &&
-          response.payment!.qrCode!.isNotEmpty) {
-        await showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          isDismissible: false,
-          enableDrag: false,
-          builder: (_) => _RecontractPixQrCodeSheet(
-            qrCode: response.payment!.qrCode!,
-            qrCodeBase64: response.payment?.qrCodeBase64,
-            expiresAt: response.payment?.expiresAt,
-          ),
-        );
-
-        if (!mounted) return;
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Recontratação criada. Pague o PIX para o personal receber a notificação.',
-            ),
-            backgroundColor: Color(0xFFB45309),
-            duration: Duration(seconds: 4),
-          ),
-        );
-        appNavigator.pushNamedAndRemoveUntil('/student-home', (route) => false);
-        return;
-      }
-
       if (isPaymentPending) {
         throw Exception(
           'Pagamento pendente. Finalize o pagamento para enviar a recontratação ao personal.',
@@ -1094,222 +1028,5 @@ class _RecontractPageState extends State<RecontractPage> {
         ),
       );
     }
-  }
-}
-
-class _RecontractPixQrCodeSheet extends StatelessWidget {
-  final String qrCode;
-  final String? qrCodeBase64;
-  final DateTime? expiresAt;
-
-  const _RecontractPixQrCodeSheet({
-    required this.qrCode,
-    this.qrCodeBase64,
-    this.expiresAt,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Pague com PIX para liberar a notificação',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A202C),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'O personal só recebe a recontratação após confirmação do pagamento.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 13,
-              color: Color(0xFF4A5568),
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (qrCodeBase64 != null && qrCodeBase64!.isNotEmpty)
-            Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF32BCAD), width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: _decodeQrImage(qrCodeBase64!),
-              ),
-            )
-          else
-            _buildQrPlaceholder(),
-          const SizedBox(height: 20),
-          if (expiresAt != null)
-            Text(
-              'Expira em ${_formatExpiry(expiresAt!)}',
-              style: const TextStyle(
-                fontFamily: 'Fira Sans',
-                fontSize: 12,
-                color: Color(0xFF856404),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7FAFC),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    qrCode,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Fira Sans',
-                      fontSize: 12,
-                      color: Color(0xFF4A5568),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _copyToClipboard(context),
-                  child: const Icon(
-                    Icons.copy,
-                    size: 20,
-                    color: Color(0xFF32BCAD),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _copyToClipboard(context),
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copiar código PIX'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF32BCAD),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Color(0xFFCBD5E0)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Fechar',
-                style: TextStyle(
-                  fontFamily: 'Fira Sans',
-                  fontSize: 15,
-                  color: Color(0xFF4A5568),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _decodeQrImage(String base64Str) {
-    try {
-      final bytes = base64Decode(base64Str);
-      return Image.memory(
-        bytes,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildQrPlaceholder(),
-      );
-    } catch (_) {
-      return _buildQrPlaceholder();
-    }
-  }
-
-  Widget _buildQrPlaceholder() {
-    return Container(
-      width: 220,
-      height: 220,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF32BCAD), width: 2),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.qr_code_2, size: 80, color: Color(0xFF32BCAD)),
-          SizedBox(height: 8),
-          Text(
-            'QR Code PIX',
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 14,
-              color: Color(0xFF4A5568),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _copyToClipboard(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: qrCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Código PIX copiado!'),
-        backgroundColor: Color(0xFF32BCAD),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  String _formatExpiry(DateTime expiresAt) {
-    final now = DateTime.now();
-    final diff = expiresAt.difference(now);
-    if (diff.isNegative) return 'Expirado';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
-    if (diff.inHours < 24) return '${diff.inHours}h ${diff.inMinutes % 60}min';
-    return '${diff.inDays} dias';
   }
 }

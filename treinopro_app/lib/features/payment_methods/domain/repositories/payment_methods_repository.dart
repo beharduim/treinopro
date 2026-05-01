@@ -9,8 +9,6 @@ abstract class PaymentMethodsRepository {
   Future<StudentPaymentSettings> updatePaymentMethods({
     required PaymentMethodType preferredMethod,
     bool? enableAutoPayment,
-    String? mpEmail,
-    bool? mpAllowSaveCard,
   });
 
   /// Salvar cartão de crédito/débito
@@ -37,7 +35,4 @@ abstract class PaymentMethodsRepository {
 
   /// Definir cartão como padrão
   Future<void> setDefaultCard(String cardId);
-
-  /// Validar conta do Mercado Pago
-  Future<bool> validateMercadoPagoAccount(String email);
 }

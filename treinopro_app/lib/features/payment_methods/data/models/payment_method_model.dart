@@ -12,7 +12,6 @@ class PaymentMethodModel extends PaymentMethod {
     super.cvv,
     super.cardBrand,
     super.cardType,
-    super.mpEmail,
     super.isVerified = false,
     super.isDefault = false,
     required super.createdAt,
@@ -30,26 +29,31 @@ class PaymentMethodModel extends PaymentMethod {
     print('  - expirationMonth: ${json['expirationMonth']}');
     print('  - expirationYear: ${json['expirationYear']}');
     print('  - isDefault: ${json['isDefault']}');
-    
+
     return PaymentMethodModel(
       id: json['id'] as String? ?? '',
       type: _parsePaymentMethodType(json['type'] as String? ?? 'credit_card'),
-      cardNumber: json['lastFourDigits'] != null ? '**** **** **** ${json['lastFourDigits']}' : null,
+      cardNumber: json['lastFourDigits'] != null
+          ? '**** **** **** ${json['lastFourDigits']}'
+          : null,
       cardHolderName: json['cardHolderName'] as String?,
       expiryMonth: json['expirationMonth'] as String?,
       expiryYear: json['expirationYear'] as String?,
       cvv: json['cvv'] as String?,
-      cardBrand: json['cardBrand'] != null 
+      cardBrand: json['cardBrand'] != null
           ? _parseCardBrand(json['cardBrand'] as String)
           : null,
       cardType: json['cardType'] != null
           ? _parseCardType(json['cardType'] as String)
           : null,
-      mpEmail: json['mpEmail'] as String?,
       isVerified: json['isVerified'] as bool? ?? false,
       isDefault: json['isDefault'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+        json['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        json['updatedAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 
@@ -64,7 +68,6 @@ class PaymentMethodModel extends PaymentMethod {
       if (cvv != null) 'cvv': cvv,
       if (cardBrand != null) 'cardBrand': _cardBrandToString(cardBrand!),
       if (cardType != null) 'cardType': _cardTypeToString(cardType!),
-      if (mpEmail != null) 'mpEmail': mpEmail,
       'isVerified': isVerified,
       'isDefault': isDefault,
       'createdAt': createdAt.toIso8601String(),
@@ -78,10 +81,6 @@ class PaymentMethodModel extends PaymentMethod {
         return PaymentMethodType.creditCard;
       case 'debit_card':
         return PaymentMethodType.debitCard;
-      case 'mercado_pago':
-        return PaymentMethodType.mercadoPago;
-      case 'pix':
-        return PaymentMethodType.pix;
       default:
         throw ArgumentError('Tipo de método de pagamento inválido: $type');
     }
@@ -93,10 +92,6 @@ class PaymentMethodModel extends PaymentMethod {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
-      case PaymentMethodType.mercadoPago:
-        return 'mercado_pago';
-      case PaymentMethodType.pix:
-        return 'pix';
     }
   }
 
@@ -179,9 +174,6 @@ class StudentPaymentSettingsModel extends StudentPaymentSettings {
     required super.preferredMethod,
     required super.enableAutoPayment,
     super.defaultCardId,
-    super.mpEmail,
-    required super.mpIsVerified,
-    required super.mpAllowSaveCard,
     required super.canMakePayments,
     required super.hasValidPaymentMethod,
     required super.savedCards,
@@ -197,31 +189,38 @@ class StudentPaymentSettingsModel extends StudentPaymentSettings {
       ),
       enableAutoPayment: (json['enableAutoPayment'] as bool?) ?? false,
       defaultCardId: json['defaultCardId'] as String?,
-      mpEmail: json['mercadoPagoAccount']?['email'] as String?,
-      mpIsVerified: (json['mercadoPagoAccount']?['isVerified'] as bool?) ?? false,
-      mpAllowSaveCard: (json['mercadoPagoAccount']?['allowSaveCard'] as bool?) ?? false,
       canMakePayments: (json['canMakePayments'] as bool?) ?? false,
       hasValidPaymentMethod: (json['hasValidPaymentMethod'] as bool?) ?? false,
-      savedCards: (json['savedCards'] as List<dynamic>?)
-          ?.map((card) => PaymentMethodModel.fromJson(card as Map<String, dynamic>))
-          .toList() ?? [],
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? DateTime.now().toIso8601String()),
+      savedCards:
+          (json['savedCards'] as List<dynamic>?)
+              ?.map(
+                (card) =>
+                    PaymentMethodModel.fromJson(card as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      createdAt: DateTime.parse(
+        json['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        json['updatedAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'preferredMethod': PaymentMethodModel._paymentMethodTypeToString(preferredMethod),
+      'preferredMethod': PaymentMethodModel._paymentMethodTypeToString(
+        preferredMethod,
+      ),
       'enableAutoPayment': enableAutoPayment,
       if (defaultCardId != null) 'defaultCardId': defaultCardId,
-      if (mpEmail != null) 'mpEmail': mpEmail,
-      'mpIsVerified': mpIsVerified,
-      'mpAllowSaveCard': mpAllowSaveCard,
       'canMakePayments': canMakePayments,
       'hasValidPaymentMethod': hasValidPaymentMethod,
-      'savedCards': savedCards.map((card) => (card as PaymentMethodModel).toJson()).toList(),
+      'savedCards': savedCards
+          .map((card) => (card as PaymentMethodModel).toJson())
+          .toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

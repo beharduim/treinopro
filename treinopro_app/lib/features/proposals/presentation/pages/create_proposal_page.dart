@@ -1,8 +1,5 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
@@ -13,16 +10,13 @@ import '../widgets/proposal_progress.dart';
 import '../widgets/proposal_status_modal.dart';
 import '../bloc/proposal_search_bloc.dart' as proposal_search;
 import '../../../../core/di/dependency_injection.dart';
-import '../../../payment_methods/domain/entities/payment_method.dart';
 import '../../../payment_methods/domain/repositories/payment_methods_repository.dart';
 import 'proposal_step1_page.dart';
 import 'proposal_step2_page.dart';
 import 'proposal_step3_page.dart';
 import 'proposal_review_page.dart';
 import '../../../../core/services/realtime_data_service.dart';
-import '../../data/services/proposals_api_service.dart';
 import '../../domain/entities/proposal.dart';
-import '../widgets/saved_card_cvv_dialog.dart';
 
 /// Página principal de criação de proposta
 class CreateProposalPage extends StatelessWidget {
@@ -104,8 +98,6 @@ class _CreateProposalView extends StatelessWidget {
         } else if (state is ProposalsPaymentPending) {
           // Redirecionar para checkout ou mostrar modal de pagamento pendente
           _showSuccessAndNavigate(context);
-        } else if (state is ProposalsPixPending) {
-          _showPixModal(context, state);
         }
       },
       builder: (context, state) {
@@ -130,9 +122,7 @@ class _CreateProposalView extends StatelessWidget {
           return _buildErrorContent(context, state);
         }
 
-        if (state is ProposalsSubmitted ||
-            state is ProposalsPaymentPending ||
-            state is ProposalsPixPending) {
+        if (state is ProposalsSubmitted || state is ProposalsPaymentPending) {
           // Não mostrar nada aqui - o listener vai tratar cada estado
           return const SizedBox.shrink();
         }
@@ -343,9 +333,7 @@ class _CreateProposalView extends StatelessWidget {
   }
 
   bool _requiresSavedCardCvv(ProposalsLoaded state) {
-    final selectedMethod = state.proposal.selectedPaymentMethod;
-    return selectedMethod is PaymentMethod &&
-        selectedMethod.type == PaymentMethodType.creditCard;
+    return false;
   }
 
   Future<bool> _ensureSavedCardCvvIfNeeded(
@@ -356,28 +344,6 @@ class _CreateProposalView extends StatelessWidget {
       return true;
     }
 
-    final selectedMethod =
-        state.proposal.selectedPaymentMethod as PaymentMethod;
-    final cvv = await showSavedCardCvvDialog(
-      context,
-      paymentMethod: selectedMethod,
-    );
-
-    if (!context.mounted) return false;
-
-    if (cvv == null || cvv.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Por motivos de segurança, o código de segurança (CVV) do seu cartão é obrigatório para confirmar o pagamento.',
-          ),
-          backgroundColor: Color(0xFFB45309),
-        ),
-      );
-      return false;
-    }
-
-    context.read<ProposalsBloc>().add(ProposalsSetSavedCardCvv(cvv));
     return true;
   }
 
@@ -448,44 +414,6 @@ class _CreateProposalView extends StatelessWidget {
     );
   }
 
-  void _showPixModal(BuildContext context, ProposalsPixPending state) {
-    showModalBottomSheet<_PixCheckoutResult>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (_) => _PixQrCodeSheet(
-        qrCode: state.qrCode,
-        qrCodeBase64: state.qrCodeBase64,
-        expiresAt: state.expiresAt,
-        proposalId: state.proposalId,
-      ),
-    ).then((result) {
-      if (!context.mounted) return;
-
-      if (result == _PixCheckoutResult.approved) {
-        _showSuccessAndNavigate(
-          context,
-          submittedProposal: state.submittedProposal,
-          proposalId: state.proposalId,
-        );
-        return;
-      }
-
-      if (result == _PixCheckoutResult.expired) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Proposta expirada. Nenhum treino foi cobrado.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-
-      Navigator.of(context).pop();
-    });
-  }
-
   void _showSuccessAndNavigate(
     BuildContext context, {
     Proposal? submittedProposal,
@@ -508,9 +436,6 @@ class _CreateProposalView extends StatelessWidget {
     String? resolvedProposalId = proposalId;
 
     if (proposalsState is ProposalsSubmitted) {
-      proposal = proposalsState.submittedProposal;
-      resolvedProposalId ??= proposalsState.proposalId;
-    } else if (proposalsState is ProposalsPixPending) {
       proposal = proposalsState.submittedProposal;
       resolvedProposalId ??= proposalsState.proposalId;
     }
@@ -682,348 +607,3 @@ class _CreateProposalView extends StatelessWidget {
     });
   }
 }
-
-/// Bottom sheet com QR Code PIX para pagamento
-class _PixQrCodeSheet extends StatefulWidget {
-  final String qrCode;
-  final String? qrCodeBase64;
-  final DateTime? expiresAt;
-  final String proposalId;
-
-  const _PixQrCodeSheet({
-    required this.qrCode,
-    this.qrCodeBase64,
-    this.expiresAt,
-    required this.proposalId,
-  });
-
-  @override
-  State<_PixQrCodeSheet> createState() => _PixQrCodeSheetState();
-}
-
-class _PixQrCodeSheetState extends State<_PixQrCodeSheet> {
-  Timer? _pollingTimer;
-  Timer? _expiryTimer;
-  bool _paymentConfirmed = false;
-  final _proposalsApiService = sl<ProposalsApiService>();
-
-  static const _confirmedStatuses = {'captured', 'approved', 'authorized'};
-
-  @override
-  void initState() {
-    super.initState();
-    _startPolling();
-    // Atualiza o contador de expiração a cada 30 segundos
-    _expiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    _expiryTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startPolling() {
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (_paymentConfirmed || !mounted) return;
-      try {
-        final proposal = await _proposalsApiService.getProposalById(
-          widget.proposalId,
-        );
-        final status = (proposal.paymentStatus ?? '').toLowerCase();
-        if (_confirmedStatuses.contains(status)) {
-          _paymentConfirmed = true;
-          _pollingTimer?.cancel();
-          if (mounted) {
-            Navigator.of(context).pop(_PixCheckoutResult.approved);
-          }
-        }
-      } on Exception catch (e) {
-        final msg = e.toString().toLowerCase();
-        // Proposta deletada/expirada no servidor (404) — fechar o modal
-        if (msg.contains('404') ||
-            msg.contains('não encontrada') ||
-            msg.contains('not found')) {
-          _pollingTimer?.cancel();
-          _expiryTimer?.cancel();
-          if (mounted) {
-            Navigator.of(context).pop(_PixCheckoutResult.expired);
-          }
-        }
-        // Outros erros de rede — continua tentando
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Ícone PIX + título
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: const Color(0xFF32BCAD),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.qr_code, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Pague com PIX',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A202C),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Escaneie o QR Code ou copie o código abaixo',
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 14,
-              color: Color(0xFF4A5568),
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 24),
-
-          // QR Code image (base64) ou placeholder
-          if (widget.qrCodeBase64 != null && widget.qrCodeBase64!.isNotEmpty)
-            Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF32BCAD), width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: _decodeQrImage(widget.qrCodeBase64!),
-              ),
-            )
-          else
-            _buildQrPlaceholder(),
-
-          const SizedBox(height: 20),
-
-          // Expiração
-          if (widget.expiresAt != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3CD),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFFD700)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.schedule,
-                    size: 14,
-                    color: Color(0xFF856404),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Expira em ${_formatExpiry(widget.expiresAt!)}',
-                    style: const TextStyle(
-                      fontFamily: 'Fira Sans',
-                      fontSize: 13,
-                      color: Color(0xFF856404),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 20),
-
-          // Campo de código copia-e-cola
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7FAFC),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.qrCode,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Fira Sans',
-                      fontSize: 12,
-                      color: Color(0xFF4A5568),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _copyToClipboard(context),
-                  child: const Icon(
-                    Icons.copy,
-                    size: 20,
-                    color: Color(0xFF32BCAD),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Botão copiar
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _copyToClipboard(context),
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copiar código PIX'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF32BCAD),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: 'Fira Sans',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Botão fechar
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Color(0xFFCBD5E0)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Fechar',
-                style: TextStyle(
-                  fontFamily: 'Fira Sans',
-                  fontSize: 15,
-                  color: Color(0xFF4A5568),
-                ),
-              ),
-            ),
-          ),
-
-          const Text(
-            'Sua proposta foi criada. Após o pagamento, você será conectado a um personal trainer.',
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 12,
-              color: Color(0xFF718096),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Decodifica base64 em imagem; em caso de string inválida exibe placeholder.
-  Widget _decodeQrImage(String base64Str) {
-    try {
-      final bytes = base64Decode(base64Str);
-      return Image.memory(
-        bytes,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildQrPlaceholder(),
-      );
-    } catch (_) {
-      return _buildQrPlaceholder();
-    }
-  }
-
-  Widget _buildQrPlaceholder() {
-    return Container(
-      width: 220,
-      height: 220,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF32BCAD), width: 2),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.qr_code_2, size: 80, color: Color(0xFF32BCAD)),
-          SizedBox(height: 8),
-          Text(
-            'QR Code PIX',
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 14,
-              color: Color(0xFF4A5568),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _copyToClipboard(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: widget.qrCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Código PIX copiado!'),
-        backgroundColor: Color(0xFF32BCAD),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  String _formatExpiry(DateTime expiresAt) {
-    final now = DateTime.now();
-    final diff = expiresAt.difference(now);
-    if (diff.isNegative) return 'Expirado';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
-    if (diff.inHours < 24) return '${diff.inHours}h ${diff.inMinutes % 60}min';
-    return '${diff.inDays} dias';
-  }
-}
-
-enum _PixCheckoutResult { approved, expired }

@@ -9,9 +9,7 @@ class SaveProposal {
 
   Future<void> call(Proposal proposal) async {
     // Atualizar timestamp de modificação
-    final updatedProposal = proposal.copyWith(
-      updatedAt: DateTime.now(),
-    );
+    final updatedProposal = proposal.copyWith(updatedAt: DateTime.now());
 
     await repository.saveProposal(updatedProposal);
   }

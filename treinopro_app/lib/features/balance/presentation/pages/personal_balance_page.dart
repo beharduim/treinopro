@@ -5,7 +5,7 @@ import '../../../home/data/models/payment_models.dart';
 import '../../../../core/di/dependency_injection.dart' show sl;
 import '../../../payouts/presentation/widgets/add_payout_method_bottom_sheet.dart';
 import '../../../payouts/data/services/payout_methods_api_service.dart';
-import '../../../payouts/data/models/payout_methods_model.dart';
+import '../../../payouts/data/models/financial_profile_model.dart';
 
 /// Página de saldo do personal trainer
 class PersonalBalancePage extends StatefulWidget {
@@ -38,8 +38,9 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
       sl<PersonalFinancialApiService>();
   final PayoutMethodsApiService _payoutApi = sl<PayoutMethodsApiService>();
 
-  // Métodos de recebimento
-  MercadoPagoModel? _mercadoPago;
+  FinancialProfileModel? _financialProfile;
+  StripeConnectAccountModel? get _stripeAccount =>
+      _financialProfile?.stripeAccount;
 
   @override
   void initState() {
@@ -184,13 +185,10 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
 
   Future<void> _loadPayoutMethods() async {
     try {
-      final data = await _payoutApi.getPayoutMethods();
-      final payoutMethods = PayoutMethodsModel.fromJson(data);
-
+      final profile = await _payoutApi.getFinancialProfile();
       setState(() {
-        _mercadoPago = payoutMethods.mercadoPago;
+        _financialProfile = profile;
       });
-
     } catch (e) {
       // Não definir erro aqui para não quebrar a página principal
     }
@@ -207,8 +205,11 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
     if (_availableBalance <= 0) {
       return 'Sem saldo disponível';
     }
-    if (_mercadoPago == null) {
-      return 'Conecte seu Mercado Pago';
+    if (_stripeAccount == null) {
+      return 'Configure seu recebimento';
+    }
+    if (!(_stripeAccount?.isReadyForPayout ?? false)) {
+      return 'Finalize o onboarding';
     }
     return 'Solicitar saque';
   }
@@ -216,7 +217,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
   bool _canRequestWithdrawal() {
     return !_isRequestingWithdrawal &&
         _availableBalance > 0 &&
-        _mercadoPago != null;
+        (_stripeAccount?.isReadyForPayout ?? false);
   }
 
   Future<void> _handleWithdrawalRequest() async {
@@ -231,13 +232,10 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
           backgroundColor: const Color(0xFF2D3748),
           title: const Text(
             'Solicitar saque',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              color: Colors.white,
-            ),
+            style: TextStyle(fontFamily: 'Outfit', color: Colors.white),
           ),
           content: Text(
-            'Deseja solicitar o saque de ${_formatCurrency(_availableBalance)} para a conta Mercado Pago conectada?',
+            'Deseja solicitar o saque de ${_formatCurrency(_availableBalance)} para a conta de recebimento conectada?',
             style: const TextStyle(
               fontFamily: 'Fira Sans',
               color: Color(0xFFE5E7EB),
@@ -272,7 +270,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
 
       await _financialApi.requestWithdrawal(
         amount: _availableBalance.toStringAsFixed(2),
-        method: 'mercado_pago',
+        method: 'bank_transfer',
         description: 'Solicitação de saque pelo app',
       );
 
@@ -1026,7 +1024,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
             ],
           ),
           const SizedBox(height: 24),
-          // Aviso Mercado Pago
+          // Aviso de recebimento
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1037,15 +1035,11 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.info_outline,
-                  color: Colors.blue[300],
-                  size: 20,
-                ),
+                Icon(Icons.info_outline, color: Colors.blue[300], size: 20),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Atenção: Para receber pagamentos na plataforma, é obrigatório conectar uma conta do Mercado Pago associada ao seu CPF/E-mail de cadastro.',
+                    'O TreinoPro cria sua conta conectada automaticamente. Para liberar saques, conclua o onboarding embutido e cadastre sua conta bancária.',
                     style: TextStyle(
                       fontFamily: 'Fira Sans',
                       fontSize: 14,
@@ -1068,17 +1062,31 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
     return Column(
       children: [
         _buildMethodOption(
-          title: 'Mercado Pago',
-          subtitle: _mercadoPago != null
-              ? _mercadoPago!.maskedEmail
-              : 'Conectar conta via OAuth',
+          title: 'Conta bancária via TreinoPro',
+          subtitle: _buildReceivingSubtitle(),
           icon: Icons.account_balance_wallet,
           color: AppColors.primaryOrange,
-          isSelected: _mercadoPago != null,
-          onTap: _onEditMercadoPago,
+          isSelected: _stripeAccount?.isReadyForPayout ?? false,
+          onTap: _onConfigureReceiving,
         ),
       ],
     );
+  }
+
+  String _buildReceivingSubtitle() {
+    if (_stripeAccount == null) {
+      return 'Complete seu onboarding embutido para liberar saques';
+    }
+    if (_stripeAccount!.isReadyForPayout) {
+      return 'Conta apta para saque';
+    }
+
+    final count = _stripeAccount!.outstandingRequirements.length;
+    if (count > 0) {
+      return 'Faltam $count requisito${count == 1 ? '' : 's'} para liberar saques';
+    }
+
+    return 'Continue o onboarding para concluir sua configuração';
   }
 
   Widget _buildMethodOption({
@@ -1160,14 +1168,14 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
     );
   }
 
-  void _onEditMercadoPago() {
+  void _onConfigureReceiving() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return AddPayoutMethodBottomSheet(
-          initialType: PayoutMethodType.mercadoPago,
+          initialType: PayoutMethodType.stripeConnect,
           onSaved: () {
             _loadPayoutMethods();
           },

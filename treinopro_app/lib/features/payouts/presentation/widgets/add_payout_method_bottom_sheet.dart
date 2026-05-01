@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/api_service.dart';
 import '../../../../service_locator.dart';
-import '../../data/models/payout_methods_model.dart';
+import '../../data/models/financial_profile_model.dart';
 import '../../data/services/payout_methods_api_service.dart';
+import '../services/stripe_connect_onboarding_service.dart';
 
-enum PayoutMethodType { mercadoPago }
+enum PayoutMethodType { stripeConnect }
 
 class AddPayoutMethodBottomSheet extends StatefulWidget {
   final VoidCallback onSaved;
@@ -27,92 +26,67 @@ class AddPayoutMethodBottomSheet extends StatefulWidget {
 class _AddPayoutMethodBottomSheetState
     extends State<AddPayoutMethodBottomSheet> {
   late final PayoutMethodsApiService _payoutApi;
+  late final StripeConnectOnboardingService _stripeConnectOnboardingService;
   late final PayoutMethodType _selected;
 
-  MercadoPagoModel? _existingMercadoPago;
+  StripeConnectAccountModel? _stripeAccount;
+  bool _isLoadingStatus = true;
   bool _submitting = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _selected = widget.initialType ?? PayoutMethodType.mercadoPago;
+    _selected = widget.initialType ?? PayoutMethodType.stripeConnect;
     _payoutApi = sl<PayoutMethodsApiService>();
+    _stripeConnectOnboardingService = sl<StripeConnectOnboardingService>();
     _loadExistingData();
   }
 
   Future<void> _loadExistingData() async {
     try {
-      final data = await _payoutApi.getPayoutMethods();
-      final payoutMethods = PayoutMethodsModel.fromJson(data);
+      final profile = await _payoutApi.getFinancialProfile();
       if (!mounted) return;
       setState(() {
-        _existingMercadoPago = payoutMethods.mercadoPago;
+        _stripeAccount = profile.stripeAccount;
+        _isLoadingStatus = false;
+        _error = null;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'Não foi possível carregar o status atual.';
+        _isLoadingStatus = false;
       });
     }
   }
 
   Future<void> _refreshStatus() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingStatus = true;
+      _error = null;
+    });
     await _loadExistingData();
     widget.onSaved();
   }
 
-  Future<void> _startMercadoPagoOAuth() async {
+  Future<void> _startStripeOnboarding() async {
     setState(() {
       _submitting = true;
       _error = null;
     });
 
     try {
-      final apiService = sl<ApiService>();
-      final response = await apiService.dio.get(
-        '/payments/mercadopago/oauth/start',
-      );
-
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
-        throw Exception(
-          'Não foi possível iniciar conexão com o Mercado Pago. Tente novamente.',
-        );
-      }
-
-      final success = data['success'] == true;
-      final authUrl = data['data']?['authUrl']?.toString();
-
-      if (!success || authUrl == null || authUrl.isEmpty) {
-        final backendMessage = data['message']?.toString().trim();
-        throw Exception(
-          backendMessage != null && backendMessage.isNotEmpty
-              ? backendMessage
-              : 'Não foi possível iniciar a conexão OAuth.',
-        );
-      }
-
-      final uri = Uri.tryParse(authUrl);
-      if (uri == null || !uri.hasScheme) {
-        throw Exception('URL de autorização inválida. Tente novamente.');
-      }
-
-      var launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched) {
-        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      }
-      if (!launched) {
-        throw Exception(
-          'Não foi possível abrir o navegador. Verifique se há um navegador instalado.',
-        );
-      }
+      await _payoutApi.ensureStripeConnectedAccount();
+      await _stripeConnectOnboardingService.presentEmbeddedOnboarding();
+      await _refreshStatus();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Navegador aberto. Após autorizar, volte ao app e toque em "Atualizar status".',
+            'Configuração financeira encerrada. Atualizamos seu status no app.',
           ),
           duration: Duration(seconds: 4),
         ),
@@ -123,7 +97,7 @@ class _AddPayoutMethodBottomSheetState
         _error = _extractDioMessage(
           e,
           fallback:
-              'Não foi possível iniciar conexão com o Mercado Pago. Tente novamente.',
+              'Não foi possível iniciar o onboarding de recebimento. Tente novamente.',
         );
       });
     } catch (e) {
@@ -202,14 +176,17 @@ class _AddPayoutMethodBottomSheetState
 
   Widget _buildFormPage(PayoutMethodType type) {
     switch (type) {
-      case PayoutMethodType.mercadoPago:
-        return _buildMercadoPagoOAuthForm();
+      case PayoutMethodType.stripeConnect:
+        return _buildStripeConnectForm();
     }
   }
 
-  Widget _buildMercadoPagoOAuthForm() {
-    final isConnected =
-        _existingMercadoPago != null && _existingMercadoPago!.email.isNotEmpty;
+  Widget _buildStripeConnectForm() {
+    final stripeAccount = _stripeAccount;
+    final outstandingRequirements =
+        stripeAccount?.outstandingRequirements ?? [];
+    final isReady = stripeAccount?.isReadyForPayout ?? false;
+    final hasAccount = stripeAccount?.accountId.isNotEmpty == true;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -221,7 +198,7 @@ class _AddPayoutMethodBottomSheetState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildText('Mercado Pago'),
+                  _buildText('Recebimento pelo TreinoPro'),
                   const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
@@ -232,7 +209,7 @@ class _AddPayoutMethodBottomSheetState
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: const Text(
-                      'Conecte sua conta pelo OAuth do Mercado Pago. Não é necessário informar CPF/CNPJ manualmente nesta etapa.',
+                      'A plataforma cria sua conta conectada automaticamente. Depois disso, você só completa o onboarding embutido para cadastrar sua conta bancária e enviar os dados pendentes.',
                       style: TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 13,
@@ -242,33 +219,112 @@ class _AddPayoutMethodBottomSheetState
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (isConnected)
+                  if (_isLoadingStatus)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryOrange,
+                        ),
+                      ),
+                    )
+                  else
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF3),
+                        color: isReady
+                            ? const Color(0xFFECFDF3)
+                            : const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                        border: Border.all(
+                          color: isReady
+                              ? const Color(0xFFA7F3D0)
+                              : const Color(0xFFFCD34D),
+                        ),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.check_circle_outline,
-                            size: 18,
-                            color: Color(0xFF047857),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Conta conectada: ${_existingMercadoPago!.maskedEmail}',
-                              style: const TextStyle(
-                                fontFamily: 'Fira Sans',
-                                fontSize: 13,
-                                color: Color(0xFF065F46),
+                          Row(
+                            children: [
+                              Icon(
+                                isReady
+                                    ? Icons.check_circle_outline
+                                    : Icons.pending_outlined,
+                                size: 18,
+                                color: isReady
+                                    ? const Color(0xFF047857)
+                                    : const Color(0xFFB45309),
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  stripeAccount?.statusTitle ??
+                                      'Recebimento não iniciado',
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isReady
+                                        ? const Color(0xFF065F46)
+                                        : const Color(0xFF92400E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            stripeAccount?.statusDescription ??
+                                'Inicie o onboarding quando quiser liberar saques.',
+                            style: TextStyle(
+                              fontFamily: 'Fira Sans',
+                              fontSize: 13,
+                              color: isReady
+                                  ? const Color(0xFF065F46)
+                                  : const Color(0xFF92400E),
                             ),
                           ),
+                          if (hasAccount) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              'Conta conectada: ${stripeAccount!.accountId}',
+                              style: const TextStyle(
+                                fontFamily: 'Fira Sans',
+                                fontSize: 12,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                          if (outstandingRequirements.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Itens pendentes',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...outstandingRequirements
+                                .take(4)
+                                .map(
+                                  (requirement) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '• $requirement',
+                                      style: const TextStyle(
+                                        fontFamily: 'Fira Sans',
+                                        fontSize: 12,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                          ],
                         ],
                       ),
                     ),
@@ -290,10 +346,10 @@ class _AddPayoutMethodBottomSheetState
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _submitting ? null : _startMercadoPagoOAuth,
+              onPressed: _submitting ? null : _startStripeOnboarding,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryOrange,
-                foregroundColor: const Color(0xFF2D3748),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -309,9 +365,7 @@ class _AddPayoutMethodBottomSheetState
                       ),
                     )
                   : Text(
-                      isConnected
-                          ? 'Reconectar com Mercado Pago'
-                          : 'Conectar com Mercado Pago',
+                      stripeAccount?.actionLabel ?? 'Começar configuração',
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -357,8 +411,8 @@ class _AddPayoutMethodBottomSheetState
 
   String _getTitle(PayoutMethodType type) {
     switch (type) {
-      case PayoutMethodType.mercadoPago:
-        return 'Conectar Mercado Pago';
+      case PayoutMethodType.stripeConnect:
+        return 'Configurar recebimento';
     }
   }
 

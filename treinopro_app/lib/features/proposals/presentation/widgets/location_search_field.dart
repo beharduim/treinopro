@@ -77,18 +77,13 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
           decoration: BoxDecoration(
             color: AppColors.inputBackground,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: AppColors.secondaryDark,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.secondaryDark, width: 1),
           ),
           child: TextField(
             controller: _controller,
             focusNode: _focusNode,
             onChanged: _onSearchChanged,
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.secondaryDark,
-            ),
+            style: AppTextStyles.small.copyWith(color: AppColors.secondaryDark),
             decoration: InputDecoration(
               hintText: widget.placeholder,
               hintStyle: AppTextStyles.small.copyWith(
@@ -149,7 +144,9 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
-                    _controller.text.isEmpty ? 'Locais mais escolhidos' : 'Locais disponíveis',
+                    _controller.text.isEmpty
+                        ? 'Locais mais escolhidos'
+                        : 'Locais disponíveis',
                     style: AppTextStyles.small.copyWith(
                       color: AppColors.secondaryDark.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w600,
@@ -183,10 +180,7 @@ class _SuggestionItem extends StatelessWidget {
   final TrainingLocation location;
   final VoidCallback onTap;
 
-  const _SuggestionItem({
-    required this.location,
-    required this.onTap,
-  });
+  const _SuggestionItem({required this.location, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -211,9 +205,9 @@ class _SuggestionItem extends StatelessWidget {
                 size: 20,
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             // Informações do local
             Expanded(
               child: Column(
@@ -240,7 +234,7 @@ class _SuggestionItem extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Ícone de seleção
             const Icon(
               Icons.chevron_right,

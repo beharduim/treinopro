@@ -23,6 +23,8 @@ class AppConfig {
   static String get jwtExpiresIn => dotenv.env['JWT_EXPIRES_IN'] ?? '24h';
   static String get jwtRefreshExpiresIn =>
       dotenv.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d';
+  static String get stripePublishableKey =>
+      dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
 
   static String _normalizeApiBaseUrl(String url) {
     try {

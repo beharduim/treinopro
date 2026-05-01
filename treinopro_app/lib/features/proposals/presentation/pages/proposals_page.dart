@@ -39,7 +39,8 @@ class _ProposalsPageView extends StatefulWidget {
   State<_ProposalsPageView> createState() => _ProposalsPageViewState();
 }
 
-class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBindingObserver {
+class _ProposalsPageViewState extends State<_ProposalsPageView>
+    with WidgetsBindingObserver {
   // filtros
   String? _selectedDate;
   String? _selectedTime;
@@ -70,7 +71,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
     super.initState();
     // ✅ CORREÇÃO: Adicionar observer para detectar ciclo de vida do app
     WidgetsBinding.instance.addObserver(this);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         try {
@@ -101,34 +102,42 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🔄 [PROPOSALS_PAGE] App voltou ao foreground - reconectando...');
-      
+      debugPrint(
+        '🔄 [PROPOSALS_PAGE] App voltou ao foreground - reconectando...',
+      );
+
       if (mounted) {
         try {
           final bloc = context.read<ProposalsBloc>();
-          
+
           // Reanexar o bloc ao RealtimeDataService (pode ter sido perdido)
           try {
             sl<RealtimeDataService>().attachProposalsBloc(bloc);
-            debugPrint('✅ [PROPOSALS_PAGE] ProposalsBloc reanexado ao RealtimeDataService');
+            debugPrint(
+              '✅ [PROPOSALS_PAGE] ProposalsBloc reanexado ao RealtimeDataService',
+            );
           } catch (e) {
             debugPrint('⚠️ [PROPOSALS_PAGE] Erro ao reanexar bloc: $e');
           }
-          
+
           if (!bloc.isClosed) {
             // Verificar se WebSocket está conectado
             final currentState = bloc.state;
             if (currentState is ProposalsAvailableLoaded) {
               if (!currentState.isWebSocketConnected) {
-                debugPrint('🔄 [PROPOSALS_PAGE] WebSocket desconectado - reconectando...');
+                debugPrint(
+                  '🔄 [PROPOSALS_PAGE] WebSocket desconectado - reconectando...',
+                );
                 bloc.add(const ProposalsConnectWebSocket());
               }
             }
-            
+
             // Recarregar propostas para sincronizar após sleep
-            debugPrint('🔄 [PROPOSALS_PAGE] Recarregando propostas após resume...');
+            debugPrint(
+              '🔄 [PROPOSALS_PAGE] Recarregando propostas após resume...',
+            );
             bloc.add(const ProposalsLoadAvailable());
           }
         } catch (e) {
@@ -154,7 +163,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
 
   void _showMatchModal(ProposalResponseDto proposal) {
     final proposalsBloc = context.read<ProposalsBloc>();
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -208,7 +217,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
               'Aceitar',
               style: TextStyle(
                 fontFamily: 'Fira Sans',
-            color: Colors.white,
+                color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -534,7 +543,10 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
                               ),
                             ),
                             if (isSelected)
-                              const Icon(Icons.check, color: AppColors.primaryOrange),
+                              const Icon(
+                                Icons.check,
+                                color: AppColors.primaryOrange,
+                              ),
                           ],
                         ),
                       ),
@@ -575,7 +587,10 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
                   height: 47,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(23.5),
-                    border: Border.all(color: AppColors.primaryOrange, width: 2),
+                    border: Border.all(
+                      color: AppColors.primaryOrange,
+                      width: 2,
+                    ),
                     color: const Color(0xFFF3F3F3),
                   ),
                   child: _buildStudentInitialsAvatar(
@@ -645,13 +660,21 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildInfoItem(Icons.calendar_today, 'Data', _formatDate(proposal.trainingDate)),
+              _buildInfoItem(
+                Icons.calendar_today,
+                'Data',
+                _formatDate(proposal.trainingDate),
+              ),
               _buildInfoItem(
                 Icons.access_time,
                 'Horário',
                 proposal.trainingTime,
               ),
-              _buildInfoItem(Icons.timer, 'Duração', '${proposal.durationMinutes}min'),
+              _buildInfoItem(
+                Icons.timer,
+                'Duração',
+                '${proposal.durationMinutes}min',
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -686,7 +709,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final classDate = DateTime(date.year, date.month, date.day);
-    
+
     if (classDate == today) {
       return 'Hoje';
     } else if (classDate == today.add(const Duration(days: 1))) {
@@ -699,7 +722,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
   /// Cria avatar com iniciais do nome do aluno ou foto se disponível
   Widget _buildStudentInitialsAvatar(String studentName, {String? photoUrl}) {
     final initials = _getStudentInitials(studentName);
-    
+
     return Container(
       width: 47,
       height: 47,
@@ -713,7 +736,8 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
               child: Image.network(
                 photoUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildInitialsText(initials),
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildInitialsText(initials),
               ),
             )
           : _buildInitialsText(initials),
@@ -738,10 +762,14 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
   /// Extrai iniciais do nome do aluno
   String _getStudentInitials(String name) {
     if (name.isEmpty) return '?';
-    
-    final words = name.trim().split(' ').where((word) => word.isNotEmpty).toList();
+
+    final words = name
+        .trim()
+        .split(' ')
+        .where((word) => word.isNotEmpty)
+        .toList();
     if (words.isEmpty) return '?';
-    
+
     if (words.length == 1) {
       return words[0][0].toUpperCase();
     } else {
@@ -762,10 +790,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
           );
         } else if (state is ProposalsOperationFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.error),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(state.error), backgroundColor: Colors.red),
           );
         }
       },
@@ -829,11 +854,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
             children: [
               Row(
                 children: const [
-                  Icon(
-                    Icons.tune_rounded,
-                    size: 20,
-                    color: Color(0xFF64748B),
-                  ),
+                  Icon(Icons.tune_rounded, size: 20, color: Color(0xFF64748B)),
                   SizedBox(width: 8),
                   Text(
                     'Filtros',
@@ -857,9 +878,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFFE2E8F0),
-                      ),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -938,13 +957,9 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
                     },
                   ),
                 if (_selectedCategory != null)
-                  _buildActiveFilterTag(
-                    'Categoria',
-                    _selectedCategory!,
-                    () {
-                      setState(() => _selectedCategory = null);
-                    },
-                  ),
+                  _buildActiveFilterTag('Categoria', _selectedCategory!, () {
+                    setState(() => _selectedCategory = null);
+                  }),
               ],
             ),
           ],
@@ -955,9 +970,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
 
   Widget _buildContent(ProposalsState state) {
     if (state is ProposalsAvailableLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (state is ProposalsAvailableError) {
@@ -965,11 +978,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade300,
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
               'Erro ao carregar propostas',
@@ -983,14 +992,12 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red.shade600,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.red.shade600),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => context.read<ProposalsBloc>().add(const ProposalsRefresh()),
+              onPressed: () =>
+                  context.read<ProposalsBloc>().add(const ProposalsRefresh()),
               child: const Text('Tentar novamente'),
             ),
           ],
@@ -1000,22 +1007,19 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
 
     // Mostrar loading apenas para estados de carregamento inicial
     // ProposalsOperationInProgress e ProposalsOperationFailure mantêm a lista visível
-    if (state is ProposalsOperationInProgress || state is ProposalsOperationFailure) {
+    if (state is ProposalsOperationInProgress ||
+        state is ProposalsOperationFailure) {
       // Manter a lista visível durante operações
-      final proposals = state is ProposalsOperationInProgress 
+      final proposals = state is ProposalsOperationInProgress
           ? state.proposals
           : (state as ProposalsOperationFailure).proposals;
-      
+
       if (proposals.isEmpty) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.event_note,
-                size: 64,
-                color: Colors.grey.shade400,
-              ),
+              Icon(Icons.event_note, size: 64, color: Colors.grey.shade400),
               const SizedBox(height: 16),
               Text(
                 'Nenhuma proposta encontrada',
@@ -1029,7 +1033,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
           ),
         );
       }
-      
+
       return Column(
         children: proposals
             .map(
@@ -1041,11 +1045,9 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
             .toList(),
       );
     }
-    
+
     if (state is! ProposalsAvailableLoaded) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (state.proposals.isEmpty) {
@@ -1053,11 +1055,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.event_note,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.event_note, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               'Nenhuma proposta encontrada',
@@ -1070,10 +1068,7 @@ class _ProposalsPageViewState extends State<_ProposalsPageView> with WidgetsBind
             const SizedBox(height: 8),
             Text(
               'Ajuste os filtros ou aguarde novas propostas',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
           ],
         ),

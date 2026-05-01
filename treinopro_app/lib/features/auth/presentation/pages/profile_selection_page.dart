@@ -247,10 +247,8 @@ class _ProfileSelectionPageState extends State<ProfileSelectionPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Atenção Personal: Para receber pagamentos na plataforma, é obrigatório possuir uma conta no Mercado Pago. O repasse será feito para a conta associada ao seu CPF/E-mail de cadastro.',
-                  style: AppTextStyles.small.copyWith(
-                    color: Colors.blue[900],
-                  ),
+                  'Atenção Personal: você não precisa criar conta manualmente no Stripe. Quando quiser liberar saques, o TreinoPro abre um onboarding embutido para cadastrar sua conta bancária e concluir os requisitos pendentes.',
+                  style: AppTextStyles.small.copyWith(color: Colors.blue[900]),
                 ),
               ),
             ],

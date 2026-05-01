@@ -72,17 +72,3 @@ class CardValidationState extends PaymentMethodsState {
   @override
   List<Object?> get props => [isValid, error, detectedBrand];
 }
-
-/// Estado de validação do Mercado Pago
-class MercadoPagoValidationState extends PaymentMethodsState {
-  final bool isValid;
-  final String? error;
-
-  const MercadoPagoValidationState({
-    required this.isValid,
-    this.error,
-  });
-
-  @override
-  List<Object?> get props => [isValid, error];
-}

@@ -12,19 +12,19 @@ class PopularLocationsService {
   static Future<void> addLocationUsage(TrainingLocation location) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Obter uso atual dos locais
       final usageJson = prefs.getString(_locationUsageKey) ?? '{}';
       final Map<String, dynamic> usage = json.decode(usageJson);
-      
+
       // Incrementar contador de uso
       final locationId = location.id;
       final currentCount = usage[locationId] ?? 0;
       usage[locationId] = currentCount + 1;
-      
+
       // Salvar uso atualizado
       await prefs.setString(_locationUsageKey, json.encode(usage));
-      
+
       // Atualizar lista de populares
       await _updatePopularLocations(usage);
     } catch (e) {
@@ -37,23 +37,27 @@ class PopularLocationsService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final popularJson = prefs.getString(_popularLocationsKey);
-      
+
       if (popularJson == null) {
         return _getDefaultPopularLocations();
       }
-      
+
       final List<dynamic> popularData = json.decode(popularJson);
-      final locations = popularData.map((data) => TrainingLocation.fromJson(data)).toList();
-      
+      final locations = popularData
+          .map((data) => TrainingLocation.fromJson(data))
+          .toList();
+
       // Filtrar "casa_cliente" caso ainda esteja no cache
-      final filteredLocations = locations.where((location) => location.id != 'casa_cliente').toList();
-      
+      final filteredLocations = locations
+          .where((location) => location.id != 'casa_cliente')
+          .toList();
+
       // Se removemos algum local, atualizar o cache
       if (filteredLocations.length != locations.length) {
         final filteredData = filteredLocations.map((l) => l.toJson()).toList();
         await prefs.setString(_popularLocationsKey, json.encode(filteredData));
       }
-      
+
       return filteredLocations;
     } catch (e) {
       print('Erro ao obter locais populares: $e');
@@ -62,17 +66,19 @@ class PopularLocationsService {
   }
 
   /// Atualizar lista de locais populares baseado no uso
-  static Future<void> _updatePopularLocations(Map<String, dynamic> usage) async {
+  static Future<void> _updatePopularLocations(
+    Map<String, dynamic> usage,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Converter uso em lista ordenada
       final sortedUsage = usage.entries.toList()
         ..sort((a, b) => (b.value as int).compareTo(a.value as int));
-      
+
       // Obter locais correspondentes
       final List<TrainingLocation> popularLocations = [];
-      
+
       for (final entry in sortedUsage.take(_maxPopularLocations)) {
         final locationId = entry.key;
         final location = _getLocationById(locationId);
@@ -80,7 +86,7 @@ class PopularLocationsService {
           popularLocations.add(location);
         }
       }
-      
+
       // Se não há locais populares suficientes, adicionar padrões
       if (popularLocations.length < 5) {
         final defaultLocations = _getDefaultPopularLocations();
@@ -90,7 +96,7 @@ class PopularLocationsService {
           }
         }
       }
-      
+
       // Salvar locais populares atualizados
       final popularData = popularLocations.map((l) => l.toJson()).toList();
       await prefs.setString(_popularLocationsKey, json.encode(popularData));
@@ -132,7 +138,7 @@ class PopularLocationsService {
         availableModalities: ['musculacao', 'hiit', 'funcional'],
       ),
     ];
-    
+
     try {
       return knownLocations.firstWhere((location) => location.id == id);
     } catch (e) {
@@ -173,7 +179,7 @@ class PopularLocationsService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_popularLocationsKey);
       await prefs.remove(_locationUsageKey);
-      
+
       // Forçar atualização imediata com locais padrão limpos
       await _updatePopularLocations({});
     } catch (e) {
@@ -185,13 +191,13 @@ class PopularLocationsService {
   static Future<void> removeLocationFromHistory(String locationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Remover do uso
       final usageJson = prefs.getString(_locationUsageKey) ?? '{}';
       final Map<String, dynamic> usage = json.decode(usageJson);
       usage.remove(locationId);
       await prefs.setString(_locationUsageKey, json.encode(usage));
-      
+
       // Remover dos populares
       final popularJson = prefs.getString(_popularLocationsKey);
       if (popularJson != null) {
@@ -199,7 +205,7 @@ class PopularLocationsService {
         popularData.removeWhere((data) => data['id'] == locationId);
         await prefs.setString(_popularLocationsKey, json.encode(popularData));
       }
-      
+
       // Atualizar lista
       await _updatePopularLocations(usage);
     } catch (e) {
@@ -213,7 +219,7 @@ class PopularLocationsService {
       final prefs = await SharedPreferences.getInstance();
       final usageJson = prefs.getString(_locationUsageKey) ?? '{}';
       final Map<String, dynamic> usage = json.decode(usageJson);
-      
+
       return usage.map((key, value) => MapEntry(key, value as int));
     } catch (e) {
       print('Erro ao obter estatísticas de uso: $e');

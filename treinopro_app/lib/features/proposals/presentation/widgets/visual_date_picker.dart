@@ -28,18 +28,13 @@ class VisualDatePicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.inputBackground,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: AppColors.secondaryDark,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.secondaryDark, width: 1),
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
-                selectedDate != null
-                    ? _formatDate(selectedDate!)
-                    : placeholder,
+                selectedDate != null ? _formatDate(selectedDate!) : placeholder,
                 style: AppTextStyles.small.copyWith(
                   color: selectedDate != null
                       ? AppColors.secondaryDark
@@ -137,7 +132,10 @@ class VisualDatePicker extends StatelessWidget {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.primaryOrange, width: 2),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryOrange,
+                    width: 2,
+                  ),
                 ),
                 hintStyle: AppTextStyles.small.copyWith(
                   color: AppColors.secondaryDark.withValues(alpha: 0.6),
@@ -161,7 +159,10 @@ class VisualDatePicker extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.primaryOrange, width: 2),
+                borderSide: BorderSide(
+                  color: AppColors.primaryOrange,
+                  width: 2,
+                ),
               ),
               hintStyle: AppTextStyles.small.copyWith(
                 color: AppColors.secondaryDark.withValues(alpha: 0.6),
@@ -172,12 +173,24 @@ class VisualDatePicker extends StatelessWidget {
             ),
             // Configurações para o tema de texto
             textTheme: Theme.of(context).textTheme.copyWith(
-              bodyLarge: AppTextStyles.paragraph.copyWith(color: AppColors.secondary),
-              bodyMedium: AppTextStyles.small.copyWith(color: AppColors.secondary),
-              bodySmall: AppTextStyles.small.copyWith(color: AppColors.secondary),
-              labelLarge: AppTextStyles.small.copyWith(color: AppColors.secondary),
-              labelMedium: AppTextStyles.small.copyWith(color: AppColors.secondary),
-              labelSmall: AppTextStyles.small.copyWith(color: AppColors.secondary),
+              bodyLarge: AppTextStyles.paragraph.copyWith(
+                color: AppColors.secondary,
+              ),
+              bodyMedium: AppTextStyles.small.copyWith(
+                color: AppColors.secondary,
+              ),
+              bodySmall: AppTextStyles.small.copyWith(
+                color: AppColors.secondary,
+              ),
+              labelLarge: AppTextStyles.small.copyWith(
+                color: AppColors.secondary,
+              ),
+              labelMedium: AppTextStyles.small.copyWith(
+                color: AppColors.secondary,
+              ),
+              labelSmall: AppTextStyles.small.copyWith(
+                color: AppColors.secondary,
+              ),
             ),
           ),
           child: child!,
@@ -200,7 +213,7 @@ class VisualDatePicker extends StatelessWidget {
       'Sábado',
       'Domingo',
     ];
-    
+
     final months = [
       'Janeiro',
       'Fevereiro',

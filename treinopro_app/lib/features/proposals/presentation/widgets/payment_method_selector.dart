@@ -139,7 +139,6 @@ class PaymentMethodSelector extends StatelessWidget {
   }
 
   Widget _buildMethodsList() {
-    // Criar lista apenas com métodos salvos (sem PIX)
     final List<Widget> methodWidgets = [];
 
     // Adicionar métodos salvos
@@ -246,23 +245,19 @@ class PaymentMethodSelector extends StatelessWidget {
         return Icons.credit_card;
       case PaymentMethodType.debitCard:
         return Icons.account_balance_wallet;
-      case PaymentMethodType.mercadoPago:
-        return Icons.payment;
-      case PaymentMethodType.pix:
-        return Icons.qr_code;
     }
   }
 
   String _getPaymentMethodDisplayName(PaymentMethod method) {
+    if (method.id == 'stripe_payment_sheet') {
+      return 'Cartão pelo Stripe';
+    }
+
     switch (method.type) {
       case PaymentMethodType.creditCard:
         return 'Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Cartão de Débito';
-      case PaymentMethodType.mercadoPago:
-        return 'Mercado Pago';
-      case PaymentMethodType.pix:
-        return 'PIX';
     }
   }
 }

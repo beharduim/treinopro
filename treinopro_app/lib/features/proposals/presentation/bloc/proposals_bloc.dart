@@ -507,29 +507,12 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           ),
         );
       } else if (paymentStatus == 'pending' || paymentStatus == 'in_process') {
-        final method = (response.payment?.method ?? '').toLowerCase();
-        final qrCode = response.payment?.qrCode;
-        if (method == 'pix' && qrCode != null && qrCode.isNotEmpty) {
-          emit(
-            ProposalsPixPending(
-              submittedProposal: currentState.proposal,
-              proposalId: response.id,
-              qrCode: qrCode,
-              qrCodeBase64: response.payment?.qrCodeBase64,
-              expiresAt: response.payment?.expiresAt,
-            ),
-          );
-        } else {
-          // Cartão com pagamento pendente/falhou — solicitar outro método
-          emit(
-            ProposalsError(
-              message:
-                  'Pagamento não foi processado automaticamente. Por favor, escolha outro método de pagamento.',
-              details:
-                  'O pagamento com o cartão selecionado não pôde ser processado. Tente usar outro cartão.',
-            ),
-          );
-        }
+        emit(
+          ProposalsError(
+            message:
+                'Pagamento pendente. Confirme o pagamento pelo Stripe para continuar.',
+          ),
+        );
       } else {
         // Outros casos - mostrar erro
         print(
@@ -617,18 +600,15 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
     final currentState = state as ProposalsLoaded;
 
-    // PIX é tratado como método fixo, não está na lista de savedCards
-    final selectedMethod = event.paymentMethodId == 'pix'
-        ? _buildPixPaymentMethod()
-        : currentState.availablePaymentMethods.firstWhere(
-            (method) => method.id == event.paymentMethodId,
-          );
+    final selectedMethod = currentState.availablePaymentMethods.firstWhere(
+      (method) => method.id == event.paymentMethodId,
+    );
 
     final updatedProposal = currentState.proposal.copyWith(
       paymentMethodId: event.paymentMethodId,
       paymentMethodName: event.paymentMethodName,
       selectedPaymentMethod: selectedMethod,
-      // Limpar CVV temporário ao trocar de método/cartão para evitar reuso indevido.
+      // Limpar qualquer dado temporário de pagamento ao trocar de método/cartão.
       clearSavedCardCvv: true,
     );
 
@@ -671,28 +651,28 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     }
 
     final currentState = state as ProposalsLoaded;
-    final pixMethod = _buildPixPaymentMethod();
-    final existingNonPixMethods = currentState.availablePaymentMethods
-        .where((method) => method.id != 'pix')
+    final stripeCardMethod = _buildStripeCardPaymentMethod();
+    final existingMethods = currentState.availablePaymentMethods
+        .where((method) => method.id != stripeCardMethod.id)
         .toList();
     final provisionalMethods = <PaymentMethod>[
-      pixMethod,
-      ...existingNonPixMethods,
+      stripeCardMethod,
+      ...existingMethods,
     ];
 
     Proposal proposalWithDefaultMethod = currentState.proposal;
     if (proposalWithDefaultMethod.paymentMethodId == null ||
         proposalWithDefaultMethod.paymentMethodId!.isEmpty) {
       proposalWithDefaultMethod = proposalWithDefaultMethod.copyWith(
-        paymentMethodId: pixMethod.id,
-        paymentMethodName: _getPaymentMethodDisplayName(pixMethod),
-        selectedPaymentMethod: pixMethod,
+        paymentMethodId: stripeCardMethod.id,
+        paymentMethodName: _getPaymentMethodDisplayName(stripeCardMethod),
+        selectedPaymentMethod: stripeCardMethod,
       );
     }
 
     try {
       print('💳 [PROPOSALS_BLOC] Carregando métodos de pagamento...');
-      // Exibe PIX imediatamente para evitar bloqueio visual em caso de API lenta
+      // Exibe o checkout Stripe imediatamente para evitar bloqueio visual em caso de API lenta
       emit(
         currentState.copyWith(
           proposal: proposalWithDefaultMethod,
@@ -707,10 +687,9 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           .timeout(const Duration(seconds: 15));
       final savedCards = paymentSettings.savedCards;
 
-      // PIX é sempre disponível como opção fixa
       final allMethods = <PaymentMethod>[
-        pixMethod,
-        ...savedCards.where((method) => method.id != 'pix'),
+        stripeCardMethod,
+        ...savedCards.where((method) => method.id != stripeCardMethod.id),
       ];
 
       final latestState = state is ProposalsLoaded
@@ -726,7 +705,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           }
         }
       }
-      final resolvedSelectedMethod = selectedMethod ?? pixMethod;
+      final resolvedSelectedMethod = selectedMethod ?? stripeCardMethod;
       final updatedProposal = latestState.proposal.copyWith(
         paymentMethodId: resolvedSelectedMethod.id,
         paymentMethodName: _getPaymentMethodDisplayName(resolvedSelectedMethod),
@@ -734,7 +713,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
 
       print(
-        '💳 [PROPOSALS_BLOC] Métodos disponíveis: ${allMethods.length} (1 PIX + ${savedCards.length} cartões)',
+        '💳 [PROPOSALS_BLOC] Métodos disponíveis: ${allMethods.length} (Stripe + ${savedCards.length} cartões)',
       );
 
       emit(
@@ -746,7 +725,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
     } on TimeoutException catch (_) {
       print(
-        '⚠️ [PROPOSALS_BLOC] Timeout ao carregar métodos de pagamento. Exibindo fallback PIX.',
+        '⚠️ [PROPOSALS_BLOC] Timeout ao carregar métodos de pagamento. Exibindo fallback Stripe.',
       );
       final latestState = state is ProposalsLoaded
           ? state as ProposalsLoaded
@@ -754,32 +733,31 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       emit(
         latestState.copyWith(
           proposal: proposalWithDefaultMethod,
-          availablePaymentMethods: [pixMethod],
+          availablePaymentMethods: [stripeCardMethod],
           isLoadingPaymentMethods: false,
         ),
       );
     } catch (e) {
       print('❌ [PROPOSALS_BLOC] Erro ao carregar métodos de pagamento: $e');
-      // Mesmo com erro na API, PIX ainda deve aparecer
+      // Mesmo com erro na API, o checkout Stripe ainda deve aparecer
       final latestState = state is ProposalsLoaded
           ? state as ProposalsLoaded
           : currentState;
       emit(
         latestState.copyWith(
           proposal: proposalWithDefaultMethod,
-          availablePaymentMethods: [pixMethod],
+          availablePaymentMethods: [stripeCardMethod],
           isLoadingPaymentMethods: false,
         ),
       );
     }
   }
 
-  /// Cria o objeto PaymentMethod fixo para PIX
-  PaymentMethod _buildPixPaymentMethod() {
+  PaymentMethod _buildStripeCardPaymentMethod() {
     final now = DateTime.now();
     return PaymentMethod(
-      id: 'pix',
-      type: PaymentMethodType.pix,
+      id: 'stripe_payment_sheet',
+      type: PaymentMethodType.creditCard,
       isVerified: true,
       isDefault: false,
       createdAt: now,
@@ -788,15 +766,15 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
   }
 
   String _getPaymentMethodDisplayName(PaymentMethod method) {
+    if (method.id == 'stripe_payment_sheet') {
+      return 'Cartão pelo Stripe';
+    }
+
     switch (method.type) {
       case PaymentMethodType.creditCard:
         return 'Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Cartão de Débito';
-      case PaymentMethodType.mercadoPago:
-        return 'Mercado Pago';
-      case PaymentMethodType.pix:
-        return 'PIX';
     }
   }
 
@@ -876,8 +854,8 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
               coords.lat != null &&
               coords.lng != null) {
             return GeoUtils.isWithinRadiusKm(
-              centerLat: centerLat!,
-              centerLng: centerLng!,
+              centerLat: centerLat,
+              centerLng: centerLng,
               targetLat: coords.lat!,
               targetLng: coords.lng!,
               radiusKm: radiusKm,

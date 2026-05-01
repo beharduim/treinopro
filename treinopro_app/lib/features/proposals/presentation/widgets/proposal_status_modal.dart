@@ -71,7 +71,6 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
     return time ?? '--:--';
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -173,76 +172,84 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
               scale: _scaleAnimation.value,
               child: BlocBuilder<ProposalSearchBloc, ProposalSearchState>(
                 builder: (context, state) {
-                  final bool isMatched = state.modalState == ProposalModalState.matched;
+                  final bool isMatched =
+                      state.modalState == ProposalModalState.matched;
                   return Container(
-              decoration: BoxDecoration(
-                    color: isMatched ? const Color(0xFFF9F9F9) : Colors.white,
-                    borderRadius: isMatched ? BorderRadius.circular(12) : BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-                  child: Stack(
-                  children: [
-                      // Conteúdo do modal
-                    _buildDynamicContent(),
+                    decoration: BoxDecoration(
+                      color: isMatched ? const Color(0xFFF9F9F9) : Colors.white,
+                      borderRadius: isMatched
+                          ? BorderRadius.circular(12)
+                          : BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Conteúdo do modal
+                        _buildDynamicContent(),
 
-                      // Botão X de fechar
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: IconButton(
-                          onPressed: () {
-                            if (widget.onClose != null) {
-                              widget.onClose!();
-                            }
-                          },
-                          icon: const Icon(
-                            Icons.close,
-                            size: 20,
-                            color: Color(0xFF6B7280),
-                          ),
-                          padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                        // Botão X de fechar
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IconButton(
+                            onPressed: () {
+                              if (widget.onClose != null) {
+                                widget.onClose!();
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.close,
+                              size: 20,
+                              color: Color(0xFF6B7280),
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-
   Widget _buildDynamicContent() {
     return BlocBuilder<ProposalSearchBloc, ProposalSearchState>(
       builder: (context, state) {
-        print('🔔 [PROPOSAL_STATUS_MODAL] BlocBuilder executado - Estado: ${state.runtimeType}');
+        print(
+          '🔔 [PROPOSAL_STATUS_MODAL] BlocBuilder executado - Estado: ${state.runtimeType}',
+        );
         print('🔔 [PROPOSAL_STATUS_MODAL] ModalState: ${state.modalState}');
         if (state is ProposalSearchMatched) {
           print('🔔 [PROPOSAL_STATUS_MODAL] Estado é ProposalSearchMatched!');
-          print('🔔 [PROPOSAL_STATUS_MODAL] personalName: ${state.personalName}');
-          print('🔔 [PROPOSAL_STATUS_MODAL] personalPhoto: ${state.personalPhoto}');
+          print(
+            '🔔 [PROPOSAL_STATUS_MODAL] personalName: ${state.personalName}',
+          );
+          print(
+            '🔔 [PROPOSAL_STATUS_MODAL] personalPhoto: ${state.personalPhoto}',
+          );
         }
-        
+
         return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, animation) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            child: _buildContentForModalState(state),
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: _buildContentForModalState(state),
         );
       },
     );
@@ -529,74 +536,71 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
   }
 
   Widget _buildSearchInfo(ProposalSearchState state) {
-        // Extrair informações do estado se disponível
-        String location = widget.location;
-        String? trainingInfo;
+    // Extrair informações do estado se disponível
+    String location = widget.location;
+    String? trainingInfo;
 
-        if (state is ProposalSearchActive) {
-          location = state.location;
-          if (state.trainingDate != null || state.trainingTime != null) {
-            final date = _formatTrainingDate(state.trainingDate);
-            final time = _formatTrainingTime(state.trainingTime);
-            trainingInfo = 'Data: $date • Horário: $time';
-          }
-        }
+    if (state is ProposalSearchActive) {
+      location = state.location;
+      if (state.trainingDate != null || state.trainingTime != null) {
+        final date = _formatTrainingDate(state.trainingDate);
+        final time = _formatTrainingTime(state.trainingTime);
+        trainingInfo = 'Data: $date • Horário: $time';
+      }
+    }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              // Texto principal de busca
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: AppTextStyles.paragraph.copyWith(
-                    color: const Color(0xFF42464D),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    height: 1.3,
-                  ),
-                  children: [
-                    const TextSpan(
-                      text: 'Procurando personal disponível próximo da ',
-                    ),
-                    TextSpan(
-                      text: location,
-                      style: TextStyle(
-                        color: AppColors.primaryOrange,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(text: '.'),
-                  ],
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        children: [
+          // Texto principal de busca
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: AppTextStyles.paragraph.copyWith(
+                color: const Color(0xFF42464D),
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 1.3,
               ),
-
-              // Informações de data e horário se disponível
-              if (trainingInfo != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryOrange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    trainingInfo,
-                    style: AppTextStyles.small.copyWith(
-                      color: AppColors.primaryOrange,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
+              children: [
+                const TextSpan(
+                  text: 'Procurando personal disponível próximo da ',
+                ),
+                TextSpan(
+                  text: location,
+                  style: TextStyle(
+                    color: AppColors.primaryOrange,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const TextSpan(text: '.'),
               ],
-            ],
+            ),
           ),
+
+          // Informações de data e horário se disponível
+          if (trainingInfo != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primaryOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                trainingInfo,
+                style: AppTextStyles.small.copyWith(
+                  color: AppColors.primaryOrange,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -732,437 +736,509 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
     final pid = (widget.proposalId != null && widget.proposalId!.isNotEmpty)
         ? widget.proposalId!
         : (state.proposalId ?? '');
-    
-    print('🚗 [PROPOSAL_STATUS_MODAL] Estratégia Uber: _buildMatchInfo chamado | proposalId=$pid');
-    print('🚗 [PROPOSAL_STATUS_MODAL] Dados do estado (já completos): personalName=${state.personalName} | personalPhoto=${state.personalPhoto} | personalRating=${state.personalRating}');
-    print('🚗 [PROPOSAL_STATUS_MODAL] Dados enriquecidos: _enrichedPersonalName=$_enrichedPersonalName | _enrichedPersonalPhoto=$_enrichedPersonalPhoto | _enrichedPersonalRating=$_enrichedPersonalRating');
-    
+
+    print(
+      '🚗 [PROPOSAL_STATUS_MODAL] Estratégia Uber: _buildMatchInfo chamado | proposalId=$pid',
+    );
+    print(
+      '🚗 [PROPOSAL_STATUS_MODAL] Dados do estado (já completos): personalName=${state.personalName} | personalPhoto=${state.personalPhoto} | personalRating=${state.personalRating}',
+    );
+    print(
+      '🚗 [PROPOSAL_STATUS_MODAL] Dados enriquecidos: _enrichedPersonalName=$_enrichedPersonalName | _enrichedPersonalPhoto=$_enrichedPersonalPhoto | _enrichedPersonalRating=$_enrichedPersonalRating',
+    );
+
     // ✅ CORREÇÃO: Só fazer enrichment UMA VEZ por proposalId e apenas se realmente necessário
-    if (pid.isNotEmpty && 
-        !_isFetchingEnrichment && 
+    if (pid.isNotEmpty &&
+        !_isFetchingEnrichment &&
         _enrichedForProposalId != pid &&
-        _enrichedPersonalName == null && // ✅ Só fazer se ainda não temos dados enriquecidos
-        (state.personalName == 'Personal Trainer' || state.personalName == 'Personal' || state.personalPhoto.isEmpty)) {
+        _enrichedPersonalName ==
+            null && // ✅ Só fazer se ainda não temos dados enriquecidos
+        (state.personalName == 'Personal Trainer' ||
+            state.personalName == 'Personal' ||
+            state.personalPhoto.isEmpty)) {
       final schedulePid = pid;
-      print('⚠️ [PROPOSAL_STATUS_MODAL] Dados do estado estão vazios, fazendo enrichment de segurança para proposalId=$schedulePid');
+      print(
+        '⚠️ [PROPOSAL_STATUS_MODAL] Dados do estado estão vazios, fazendo enrichment de segurança para proposalId=$schedulePid',
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_enrichedForProposalId == schedulePid) return;
         _enrichedForProposalId = schedulePid;
         _enrichmentAttempts = 0;
-        print('🚀 [PROPOSAL_STATUS_MODAL] Disparando _fetchAndEnrichMatchData de segurança para proposalId=$schedulePid');
+        print(
+          '🚀 [PROPOSAL_STATUS_MODAL] Disparando _fetchAndEnrichMatchData de segurança para proposalId=$schedulePid',
+        );
         _fetchAndEnrichMatchData(state);
       });
     } else {
-      print('✅ [PROPOSAL_STATUS_MODAL] Estratégia Uber: Dados já estão completos ou enrichment já foi feito, sem necessidade de enrichment');
+      print(
+        '✅ [PROPOSAL_STATUS_MODAL] Estratégia Uber: Dados já estão completos ou enrichment já foi feito, sem necessidade de enrichment',
+      );
     }
-    
+
     // DEBUG: Log dos dados do ProposalSearchBloc (igual ao proposal_modal.dart)
-    print('🔍 [PROPOSAL_STATUS_MODAL] _buildMatchInfo - Dados do ProposalSearchBloc:');
-    print('🔍 [PROPOSAL_STATUS_MODAL] state.personalName: ${state.personalName}');
-    print('🔍 [PROPOSAL_STATUS_MODAL] state.personalPhoto: ${state.personalPhoto}');
-    print('🔍 [PROPOSAL_STATUS_MODAL] state.personalRating: ${state.personalRating}');
-    print('🔍 [PROPOSAL_STATUS_MODAL] state.personalResponseTime: ${state.personalResponseTime}');
-    print('🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalName: $_enrichedPersonalName');
-    print('🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalPhoto: $_enrichedPersonalPhoto');
-    print('🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalRating: $_enrichedPersonalRating');
-    print('🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalTimeOnPlatform: $_enrichedPersonalTimeOnPlatform');
-    
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] _buildMatchInfo - Dados do ProposalSearchBloc:',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] state.personalName: ${state.personalName}',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] state.personalPhoto: ${state.personalPhoto}',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] state.personalRating: ${state.personalRating}',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] state.personalResponseTime: ${state.personalResponseTime}',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalName: $_enrichedPersonalName',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalPhoto: $_enrichedPersonalPhoto',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalRating: $_enrichedPersonalRating',
+    );
+    print(
+      '🔍 [PROPOSAL_STATUS_MODAL] _enrichedPersonalTimeOnPlatform: $_enrichedPersonalTimeOnPlatform',
+    );
+
     // Layout EXATAMENTE igual ao MatchModal do personal
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-            // Header com ícone de handshake - EXATO do MatchModal
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-                      const Icon(
-                        Icons.handshake,
-                        size: 29,
-              color: AppColors.primaryOrange,
-          ),
-          const SizedBox(width: 8),
-                      const Text(
-            'Match confirmado!',
-                        style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-                          color: Color(0xFF42464D),
-                          fontFamily: 'Outfit',
-            ),
-          ),
-        ],
-      ),
-                  const SizedBox(height: 8),
-                  const Text(
-            'Você foi conectado a um personal disponível para o seu treino.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-              fontSize: 16,
-                      color: Color(0xFF2D3748),
-                      fontFamily: 'Fira Sans',
-              height: 1.3,
-            ),
+          // Header com ícone de handshake - EXATO do MatchModal
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.handshake,
+                      size: 29,
+                      color: AppColors.primaryOrange,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Match confirmado!',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF42464D),
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Você foi conectado a um personal disponível para o seu treino.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF2D3748),
+                    fontFamily: 'Fira Sans',
+                    height: 1.3,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-            // Divisor - EXATO do MatchModal
+          // Divisor - EXATO do MatchModal
           Container(
             height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 24),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
             color: const Color(0xFFA6A6A6),
           ),
 
           const SizedBox(height: 16),
 
-            // Informações do personal - EXATO do MatchModal
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-                  // Foto e dados básicos - EXATO do MatchModal
-          Row(
-            children: [
-                      // Foto do personal - EXATO do MatchModal
-              GestureDetector(
-                onTap: () {
-                  // ✅ ESTRATÉGIA UBER: Prioridade: dados enriquecidos > estado WS (dados completos)
-                  final photoUrl = (_enrichedPersonalPhoto?.isNotEmpty == true ? _enrichedPersonalPhoto! : 
-                                   (state.personalPhoto.isNotEmpty ? state.personalPhoto : ''));
-                  if (photoUrl.isNotEmpty) {
-                    ImageViewerModal.show(
-                      context,
-                      imageUrl: photoUrl,
-                      title: (_enrichedPersonalName?.isNotEmpty == true ? _enrichedPersonalName! : 
-                              (state.personalName.isNotEmpty && state.personalName != 'Personal Trainer' && state.personalName != 'Personal' 
-                               ? state.personalName 
-                               : 'Personal Trainer')),
-                      subtitle: 'Personal Trainer',
-                    );
-                  }
-                },
-                child: Container(
-                width: 47,
-                height: 47,
-                decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                  shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primaryOrange,
-                              width: 3,
-                            ),
-                            image: ((_enrichedPersonalPhoto?.isNotEmpty == true ? _enrichedPersonalPhoto! : 
-                                     (state.personalPhoto.isNotEmpty ? state.personalPhoto : ''))).isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage(
-                                      (_enrichedPersonalPhoto?.isNotEmpty == true ? _enrichedPersonalPhoto! : 
-                                       (state.personalPhoto.isNotEmpty ? state.personalPhoto : '')),
-                                    ),
-                          fit: BoxFit.cover,
-                                  )
-                                : null,
+          // Informações do personal - EXATO do MatchModal
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                // Foto e dados básicos - EXATO do MatchModal
+                Row(
+                  children: [
+                    // Foto do personal - EXATO do MatchModal
+                    GestureDetector(
+                      onTap: () {
+                        // ✅ ESTRATÉGIA UBER: Prioridade: dados enriquecidos > estado WS (dados completos)
+                        final photoUrl =
+                            (_enrichedPersonalPhoto?.isNotEmpty == true
+                            ? _enrichedPersonalPhoto!
+                            : (state.personalPhoto.isNotEmpty
+                                  ? state.personalPhoto
+                                  : ''));
+                        if (photoUrl.isNotEmpty) {
+                          ImageViewerModal.show(
+                            context,
+                            imageUrl: photoUrl,
+                            title: (_enrichedPersonalName?.isNotEmpty == true
+                                ? _enrichedPersonalName!
+                                : (state.personalName.isNotEmpty &&
+                                          state.personalName !=
+                                              'Personal Trainer' &&
+                                          state.personalName != 'Personal'
+                                      ? state.personalName
+                                      : 'Personal Trainer')),
+                            subtitle: 'Personal Trainer',
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: 47,
+                        height: 47,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primaryOrange,
+                            width: 3,
                           ),
-                          child: ((_enrichedPersonalPhoto?.isNotEmpty == true ? _enrichedPersonalPhoto! : 
-                                   (state.personalPhoto.isNotEmpty ? state.personalPhoto : ''))).isEmpty
-                              ? const Icon(
-                                Icons.person,
-                                size: 24,
-                                  color: Colors.grey,
+                          image:
+                              ((_enrichedPersonalPhoto?.isNotEmpty == true
+                                      ? _enrichedPersonalPhoto!
+                                      : (state.personalPhoto.isNotEmpty
+                                            ? state.personalPhoto
+                                            : '')))
+                                  .isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(
+                                    (_enrichedPersonalPhoto?.isNotEmpty == true
+                                        ? _enrichedPersonalPhoto!
+                                        : (state.personalPhoto.isNotEmpty
+                                              ? state.personalPhoto
+                                              : '')),
+                                  ),
+                                  fit: BoxFit.cover,
                                 )
                               : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-                      // Nome e avaliação - EXATO do MatchModal
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                              (_enrichedPersonalName?.isNotEmpty == true ? _enrichedPersonalName! : 
-                               (state.personalName.isNotEmpty && state.personalName != 'Personal Trainer' && state.personalName != 'Personal' 
-                                ? state.personalName 
-                                : 'Personal Trainer')),
-                              style: const TextStyle(
-                        fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2D3748),
-                                fontFamily: 'Fira Sans',
+                        ),
+                        child:
+                            ((_enrichedPersonalPhoto?.isNotEmpty == true
+                                    ? _enrichedPersonalPhoto!
+                                    : (state.personalPhoto.isNotEmpty
+                                          ? state.personalPhoto
+                                          : '')))
+                                .isEmpty
+                            ? const Icon(
+                                Icons.person,
+                                size: 24,
+                                color: Colors.grey,
+                              )
+                            : null,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                                const Icon(
-                                  Icons.star,
-                                  size: 22,
-                                  color: AppColors.primaryOrange,
-                                ),
-                        const SizedBox(width: 4),
-                        Text(
-                                  ((_enrichedPersonalRating != null && _enrichedPersonalRating! > 0.0) ? _enrichedPersonalRating! : 
-                                   (state.personalRating > 0.0 ? state.personalRating : 0.0)).toString(),
-                                  style: const TextStyle(
-                            fontSize: 16,
-                                    color: Color(0xFF2D3748),
-                                    fontFamily: 'Fira Sans',
-                          ),
-                        ),
-                                const SizedBox(width: 8),
-                                const Text(
-                          '|',
-                                  style: TextStyle(
-                            fontSize: 16,
-                                    color: Color(0xFF2D3748),
-                                    fontFamily: 'Fira Sans',
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  (_enrichedPersonalTimeOnPlatform?.isNotEmpty == true ? _enrichedPersonalTimeOnPlatform! : 
-                                   (state.personalResponseTime.isNotEmpty && state.personalResponseTime != 'Rápido' 
-                                    ? state.personalResponseTime 
-                                    : 'Rápido')),
-                                  style: const TextStyle(
+                    const SizedBox(width: 12),
+                    // Nome e avaliação - EXATO do MatchModal
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (_enrichedPersonalName?.isNotEmpty == true
+                                ? _enrichedPersonalName!
+                                : (state.personalName.isNotEmpty &&
+                                          state.personalName !=
+                                              'Personal Trainer' &&
+                                          state.personalName != 'Personal'
+                                      ? state.personalName
+                                      : 'Personal Trainer')),
+                            style: const TextStyle(
                               fontSize: 16,
-                                    color: Color(0xFF2D3748),
-                                    fontFamily: 'Fira Sans',
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2D3748),
+                              fontFamily: 'Fira Sans',
+                            ),
                           ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 22,
+                                color: AppColors.primaryOrange,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                ((_enrichedPersonalRating != null &&
+                                            _enrichedPersonalRating! > 0.0)
+                                        ? _enrichedPersonalRating!
+                                        : (state.personalRating > 0.0
+                                              ? state.personalRating
+                                              : 0.0))
+                                    .toString(),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF2D3748),
+                                  fontFamily: 'Fira Sans',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                '|',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF2D3748),
+                                  fontFamily: 'Fira Sans',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                (_enrichedPersonalTimeOnPlatform?.isNotEmpty ==
+                                        true
+                                    ? _enrichedPersonalTimeOnPlatform!
+                                    : (state.personalResponseTime.isNotEmpty &&
+                                              state.personalResponseTime !=
+                                                  'Rápido'
+                                          ? state.personalResponseTime
+                                          : 'Rápido')),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF2D3748),
+                                  fontFamily: 'Fira Sans',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Local - EXATO do ProposalModal do personal
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AppColors.primaryOrange,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Local',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 3,
+                        ), // Alinhar com a borda esquerda do ícone
+                        child: Text(
+                          state.location.isNotEmpty
+                              ? state.location
+                              : (_enrichedLocation ?? 'Localização'),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1F2937),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Data, Horário e Modalidade (uma linha) - EXATO do ProposalModal do personal
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.event,
+                              size: 16,
+                              color: AppColors.primaryOrange,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Data',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _enrichedDate ??
+                              _formatTrainingDate(state.trainingDate),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF1F2937),
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              size: 16,
+                              color: AppColors.primaryOrange,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Horário',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _enrichedTime ??
+                              _formatTrainingTime(state.trainingTime),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF1F2937),
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.fitness_center,
+                              size: 16,
+                              color: AppColors.primaryOrange,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Modalidade',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          (state as ProposalSearchMatched?)?.modality ??
+                              _enrichedModality ??
+                              'Personal Training',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF1F2937),
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
 
-          const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
-                  // Local - EXATO do ProposalModal do personal
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 16,
-                              color: AppColors.primaryOrange,
-                            ),
-                            const SizedBox(width: 6),
-            Text(
-                              'Local',
-                              style: TextStyle(
-                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-          ),
-        ],
-      ),
-                        const SizedBox(height: 2),
-                        Padding( 
-                         padding: const EdgeInsets.only(left: 3), // Alinhar com a borda esquerda do ícone
-                          child: Text(
-                            state.location.isNotEmpty
-                                ? state.location
-                                : (_enrichedLocation ?? 'Localização'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1F2937),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-          ),
-        ],
-      ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Data, Horário e Modalidade (uma linha) - EXATO do ProposalModal do personal
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.event,
-                                size: 16,
-            color: AppColors.primaryOrange,
-                              ),
-                              const SizedBox(width: 6),
-              Text(
-                                'Data',
-                                style: TextStyle(
-                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                ),
-                              ),
-                            ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                            _enrichedDate ?? _formatTrainingDate(state.trainingDate),
-                            style: const TextStyle(
-                        fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF1F2937),
-                      ),
-                            textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                // Botão Chat - EXATO do MatchModal
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _handleChatPressed(state),
+                    icon: const Icon(
+                      Icons.chat,
+                      size: 16,
+                      color: AppColors.primaryOrange,
                     ),
-            ],
-          ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.schedule,
-                                size: 16,
-                                color: AppColors.primaryOrange,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Horário',
-                                style: TextStyle(
-          fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-              ),
-              const SizedBox(height: 2),
-                          Text(
-                            _enrichedTime ?? _formatTrainingTime(state.trainingTime),
-                            style: const TextStyle(
-                        fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF1F2937),
-                      ),
-                            textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-            ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                              Icon(
-                                Icons.fitness_center,
-                                size: 16,
-                                color: AppColors.primaryOrange,
-                              ),
-                              const SizedBox(width: 6),
-                      Text(
-                                'Modalidade',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (state as ProposalSearchMatched?)?.modality ?? 
-                            _enrichedModality ?? 'Personal Training',
-                            style: const TextStyle(
-          fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF1F2937),
-        ),
-                            textAlign: TextAlign.center,
-        overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ],
-              ),
-
-                  const SizedBox(height: 16),
-
-                  // Botão Chat - EXATO do MatchModal
-              SizedBox(
-                width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _handleChatPressed(state),
-                      icon: const Icon(
-                        Icons.chat,
-                        size: 16,
+                    label: const Text(
+                      'Chat',
+                      style: TextStyle(
+                        fontSize: 16,
                         color: AppColors.primaryOrange,
+                        fontFamily: 'Fira Sans',
                       ),
-                      label: const Text(
-                        'Chat',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.primaryOrange,
-                          fontFamily: 'Fira Sans',
-                        ),
-                      ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 40,
                     ),
-                        side: const BorderSide(
-                          color: AppColors.primaryOrange,
-                          width: 2,
-                        ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                        ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 40,
                       ),
-                    ],
+                      side: const BorderSide(
+                        color: AppColors.primaryOrange,
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
                 ),
-
-            const SizedBox(height: 24),
-
-            // Divisor - EXATO do MatchModal
-            Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              color: const Color(0xFFA6A6A6),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-            // ✅ NOVO: Card de Atenção para o Aluno
-            _buildAttentionCard(),
-          ],
-        ),
-      );
+          // Divisor - EXATO do MatchModal
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            color: const Color(0xFFA6A6A6),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ✅ NOVO: Card de Atenção para o Aluno
+          _buildAttentionCard(),
+        ],
+      ),
+    );
   }
 
   /// Card de atenção com layout escuro (replicado do MatchModal do personal)
@@ -1179,11 +1255,7 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.warning,
-                size: 21,
-                color: Color(0xFFF9F9F9),
-              ),
+              const Icon(Icons.warning, size: 21, color: Color(0xFFF9F9F9)),
               const SizedBox(width: 8),
               const Text(
                 'Atenção',
@@ -1216,12 +1288,15 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
   }
 
   Future<void> _fetchAndEnrichMatchData(ProposalSearchMatched state) async {
-    final proposalId = (widget.proposalId != null && widget.proposalId!.isNotEmpty)
+    final proposalId =
+        (widget.proposalId != null && widget.proposalId!.isNotEmpty)
         ? widget.proposalId!
         : (state.proposalId ?? '');
     if (proposalId.isEmpty) return;
     if (_isFetchingEnrichment) return;
-    print('🔎 [PROPOSAL_MODAL] Iniciando enrichment | proposalId=$proposalId | tentativa=$_enrichmentAttempts');
+    print(
+      '🔎 [PROPOSAL_MODAL] Iniciando enrichment | proposalId=$proposalId | tentativa=$_enrichmentAttempts',
+    );
     setState(() {
       _isFetchingEnrichment = true;
     });
@@ -1230,63 +1305,85 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
       final cls = await classesApi.getClassByProposalId(proposalId);
       if (!mounted) return;
       if (cls != null) {
-        print('✅ [PROPOSAL_MODAL] Classe encontrada para proposalId=$proposalId | classId=${cls.id} | personalId=${cls.personalId}');
-        print('✅ [PROPOSAL_MODAL] Dados do personal: name=${cls.personalName} | photo=${cls.personalProfileImageUrl} | rating=${cls.personalRating} | timeOnPlatform=${cls.personalTimeOnPlatform}');
-        print('✅ [PROPOSAL_MODAL] Modalidade da proposta: ${cls.proposalModality}');
-        
+        print(
+          '✅ [PROPOSAL_MODAL] Classe encontrada para proposalId=$proposalId | classId=${cls.id} | personalId=${cls.personalId}',
+        );
+        print(
+          '✅ [PROPOSAL_MODAL] Dados do personal: name=${cls.personalName} | photo=${cls.personalProfileImageUrl} | rating=${cls.personalRating} | timeOnPlatform=${cls.personalTimeOnPlatform}',
+        );
+        print(
+          '✅ [PROPOSAL_MODAL] Modalidade da proposta: ${cls.proposalModality}',
+        );
+
         // Primeiro, tentar obter dados completos do personal via UsersApiService
         String enrichedPersonalName = cls.personalName;
         String? enrichedPersonalPhoto = cls.personalProfileImageUrl;
         double? enrichedPersonalRating = cls.personalRating;
         String? enrichedPersonalTimeOnPlatform = cls.personalTimeOnPlatform;
-        
+
         try {
           final usersApi = sl<UsersApiService>();
           final personalInfo = await usersApi.getUserBasicInfo(cls.personalId);
           if (!mounted) return;
-          print('ℹ️ [PROPOSAL_MODAL] Complementando com UsersApiService para personalId=${cls.personalId}');
-          
+          print(
+            'ℹ️ [PROPOSAL_MODAL] Complementando com UsersApiService para personalId=${cls.personalId}',
+          );
+
           final firstName = (personalInfo['firstName'] ?? '').toString();
           final lastName = (personalInfo['lastName'] ?? '').toString();
           final fullName = ('$firstName $lastName').trim();
           if (fullName.isNotEmpty) enrichedPersonalName = fullName;
-          
+
           final photo = (personalInfo['profileImageUrl'] ?? '').toString();
           if (photo.isNotEmpty) enrichedPersonalPhoto = photo;
-          
-          final rating = double.tryParse((personalInfo['rating'] ?? '0.0').toString());
+
+          final rating = double.tryParse(
+            (personalInfo['rating'] ?? '0.0').toString(),
+          );
           if (rating != null && rating > 0.0) enrichedPersonalRating = rating;
-          
-          final timeOnPlatform = (personalInfo['timeOnPlatform'] ?? '').toString();
-          if (timeOnPlatform.isNotEmpty) enrichedPersonalTimeOnPlatform = timeOnPlatform;
-          
-          print('✅ [PROPOSAL_MODAL] Dados enriquecidos: name=$enrichedPersonalName | photo=$enrichedPersonalPhoto | rating=$enrichedPersonalRating | timeOnPlatform=$enrichedPersonalTimeOnPlatform');
+
+          final timeOnPlatform = (personalInfo['timeOnPlatform'] ?? '')
+              .toString();
+          if (timeOnPlatform.isNotEmpty)
+            enrichedPersonalTimeOnPlatform = timeOnPlatform;
+
+          print(
+            '✅ [PROPOSAL_MODAL] Dados enriquecidos: name=$enrichedPersonalName | photo=$enrichedPersonalPhoto | rating=$enrichedPersonalRating | timeOnPlatform=$enrichedPersonalTimeOnPlatform',
+          );
         } catch (e) {
           print('⚠️ [PROPOSAL_MODAL] Erro ao enriquecer dados do personal: $e');
         }
-        
+
         setState(() {
           _enrichedClassId = cls.id;
           _enrichedReceiverId = cls.personalId; // aluno fala com personal
-          _enrichedPersonalName = enrichedPersonalName.isNotEmpty ? enrichedPersonalName : state.personalName;
+          _enrichedPersonalName = enrichedPersonalName.isNotEmpty
+              ? enrichedPersonalName
+              : state.personalName;
           _enrichedPersonalPhoto = enrichedPersonalPhoto ?? state.personalPhoto;
-          _enrichedPersonalRating = enrichedPersonalRating ?? state.personalRating;
-          _enrichedPersonalTimeOnPlatform = enrichedPersonalTimeOnPlatform ?? state.personalResponseTime;
+          _enrichedPersonalRating =
+              enrichedPersonalRating ?? state.personalRating;
+          _enrichedPersonalTimeOnPlatform =
+              enrichedPersonalTimeOnPlatform ?? state.personalResponseTime;
           _enrichedLocation = cls.location;
           _enrichedDate = _formatTrainingDate(cls.date);
           _enrichedTime = cls.time;
           _enrichedDuration = '${cls.duration}min';
           _enrichedModality = cls.proposalModality;
         });
-        
+
         // Se não havia classId no estado matched, atualiza-o via evento
         if (state.classId == null || state.classId!.isEmpty) {
           try {
-            context.read<ProposalSearchBloc>().add(UpdateClassId(classId: cls.id));
+            context.read<ProposalSearchBloc>().add(
+              UpdateClassId(classId: cls.id),
+            );
           } catch (_) {}
         }
       } else {
-        print('⏳ [PROPOSAL_MODAL] Classe ainda não disponível para proposalId=$proposalId (tentativa=$_enrichmentAttempts)');
+        print(
+          '⏳ [PROPOSAL_MODAL] Classe ainda não disponível para proposalId=$proposalId (tentativa=$_enrichmentAttempts)',
+        );
         // Tenta novamente algumas vezes para aguardar a consistência da API
         if (_enrichmentAttempts < 5) {
           _enrichmentAttempts += 1;
@@ -1309,23 +1406,27 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
 
   void _handleChatPressed(ProposalSearchMatched state) async {
     print('💬 [PROPOSAL_MODAL] Botão Chat pressionado');
-    
+
     final classId = _enrichedClassId ?? state.classId;
     String receiverId = _enrichedReceiverId ?? '';
-    
+
     print('💬 [PROPOSAL_MODAL] classId: $classId, receiverId: $receiverId');
-    
+
     if (classId == null || classId.isEmpty) {
-      print('❌ [PROPOSAL_MODAL] classId não disponível, tentando enriquecer...');
+      print(
+        '❌ [PROPOSAL_MODAL] classId não disponível, tentando enriquecer...',
+      );
       await _fetchAndEnrichMatchData(state);
-      
+
       if (_enrichedClassId == null || _enrichedClassId!.isEmpty) {
         print('❌ [PROPOSAL_MODAL] Ainda não há classId disponível');
         // Mostrar snackbar de erro
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Aula ainda não está disponível. Tente novamente em alguns segundos.'),
+              content: Text(
+                'Aula ainda não está disponível. Tente novamente em alguns segundos.',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1333,11 +1434,13 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
         return;
       }
     }
-    
+
     // Garantir receiverId válido (UUID) antes de navegar
     if (receiverId.isEmpty) {
       try {
-        print('🔎 [PROPOSAL_MODAL] receiverId vazio, buscando dados da aula por classId...');
+        print(
+          '🔎 [PROPOSAL_MODAL] receiverId vazio, buscando dados da aula por classId...',
+        );
         final classesApi = sl<ClassesApiService>();
         final cls = await classesApi.getClassById(classId ?? _enrichedClassId!);
         // Como este modal é do aluno, o destinatário é o personal
@@ -1349,7 +1452,9 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Não foi possível iniciar o chat agora. Tente novamente.'),
+              content: Text(
+                'Não foi possível iniciar o chat agora. Tente novamente.',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1357,14 +1462,14 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
         return;
       }
     }
-  
+
     print('✅ [PROPOSAL_MODAL] Navegando para ChatPage...');
-    
+
     // Fechar modal em background e navegar imediatamente
     if (widget.onClose != null) {
       widget.onClose!();
     }
-    
+
     // Navegar para ChatPage em background
     if (mounted) {
       try {
@@ -1394,10 +1499,6 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
       }
     }
   }
-
-
-
-
 
   // _buildMatchButton removido (no MatchModal original não há botão de ação aqui)
 
@@ -1671,7 +1772,9 @@ class _ProposalStatusModalState extends State<ProposalStatusModal>
                 context.read<ProposalSearchBloc>().add(
                   const CancelProposalSearch(),
                 );
-                print('🔴 [PROPOSAL_MODAL] Evento CancelProposalSearch enviado');
+                print(
+                  '🔴 [PROPOSAL_MODAL] Evento CancelProposalSearch enviado',
+                );
                 if (widget.onClose != null) {
                   print('🔴 [PROPOSAL_MODAL] Chamando onClose callback');
                   widget.onClose!();
@@ -1836,9 +1939,7 @@ void showProposalStatusModal(
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Container(
-                color: Colors.black.withOpacity(0.3),
-              ),
+              child: Container(color: Colors.black.withOpacity(0.3)),
             ),
           ),
           // Modal content
@@ -1851,14 +1952,14 @@ void showProposalStatusModal(
                   location: location,
                   onClose: () {
                     Navigator.of(context).pop();
-      if (onClose != null) {
-        onClose();
+                    if (onClose != null) {
+                      onClose();
                     }
                   },
-                proposalId: proposalId,
-                autoCloseOnMatched: autoCloseOnMatched,
-          ),
-        ),
+                  proposalId: proposalId,
+                  autoCloseOnMatched: autoCloseOnMatched,
+                ),
+              ),
             ),
           ),
         ],

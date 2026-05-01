@@ -28,18 +28,14 @@ class UpdatePreferredMethod extends PaymentMethodsEvent {
 class UpdatePaymentSettings extends PaymentMethodsEvent {
   final PaymentMethodType preferredMethod;
   final bool? enableAutoPayment;
-  final String? mpEmail;
-  final bool? mpAllowSaveCard;
 
   const UpdatePaymentSettings({
     required this.preferredMethod,
     this.enableAutoPayment,
-    this.mpEmail,
-    this.mpAllowSaveCard,
   });
 
   @override
-  List<Object?> get props => [preferredMethod, enableAutoPayment, mpEmail, mpAllowSaveCard];
+  List<Object?> get props => [preferredMethod, enableAutoPayment];
 }
 
 /// Salvar cartão
@@ -61,7 +57,14 @@ class SaveCard extends PaymentMethodsEvent {
   });
 
   @override
-  List<Object> get props => [cardNumber, cardHolderName, expiryMonth, expiryYear, cvv, cardType];
+  List<Object> get props => [
+    cardNumber,
+    cardHolderName,
+    expiryMonth,
+    expiryYear,
+    cvv,
+    cardType,
+  ];
 }
 
 /// Validar cartão
@@ -81,7 +84,13 @@ class ValidateCard extends PaymentMethodsEvent {
   });
 
   @override
-  List<Object> get props => [cardNumber, cardHolderName, expiryMonth, expiryYear, cvv];
+  List<Object> get props => [
+    cardNumber,
+    cardHolderName,
+    expiryMonth,
+    expiryYear,
+    cvv,
+  ];
 }
 
 /// Remover cartão
@@ -102,16 +111,6 @@ class SetDefaultCard extends PaymentMethodsEvent {
 
   @override
   List<Object> get props => [cardId];
-}
-
-/// Validar conta do Mercado Pago
-class ValidateMercadoPagoAccount extends PaymentMethodsEvent {
-  final String email;
-
-  const ValidateMercadoPagoAccount(this.email);
-
-  @override
-  List<Object> get props => [email];
 }
 
 /// Limpar erros

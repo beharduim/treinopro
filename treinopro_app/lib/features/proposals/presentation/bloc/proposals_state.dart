@@ -74,11 +74,13 @@ class ProposalsLoaded extends ProposalsState {
       searchedLocations: searchedLocations ?? this.searchedLocations,
       availableModalities: availableModalities ?? this.availableModalities,
       availableTimeSlots: availableTimeSlots ?? this.availableTimeSlots,
-      availablePaymentMethods: availablePaymentMethods ?? this.availablePaymentMethods,
+      availablePaymentMethods:
+          availablePaymentMethods ?? this.availablePaymentMethods,
       isLoadingLocations: isLoadingLocations ?? this.isLoadingLocations,
       isLoadingModalities: isLoadingModalities ?? this.isLoadingModalities,
       isLoadingTimeSlots: isLoadingTimeSlots ?? this.isLoadingTimeSlots,
-      isLoadingPaymentMethods: isLoadingPaymentMethods ?? this.isLoadingPaymentMethods,
+      isLoadingPaymentMethods:
+          isLoadingPaymentMethods ?? this.isLoadingPaymentMethods,
       isSubmitting: isSubmitting ?? this.isSubmitting,
     );
   }
@@ -110,19 +112,19 @@ class ProposalsLoaded extends ProposalsState {
 
   @override
   List<Object?> get props => [
-        proposal,
-        currentStep,
-        totalSteps,
-        searchedLocations,
-        availableModalities,
-        availableTimeSlots,
-        availablePaymentMethods,
-        isLoadingLocations,
-        isLoadingModalities,
-        isLoadingTimeSlots,
-        isLoadingPaymentMethods,
-        isSubmitting,
-      ];
+    proposal,
+    currentStep,
+    totalSteps,
+    searchedLocations,
+    availableModalities,
+    availableTimeSlots,
+    availablePaymentMethods,
+    isLoadingLocations,
+    isLoadingModalities,
+    isLoadingTimeSlots,
+    isLoadingPaymentMethods,
+    isSubmitting,
+  ];
 }
 
 /// Estado de erro
@@ -130,10 +132,7 @@ class ProposalsError extends ProposalsState {
   final String message;
   final String? details;
 
-  const ProposalsError({
-    required this.message,
-    this.details,
-  });
+  const ProposalsError({required this.message, this.details});
 
   @override
   List<Object?> get props => [message, details];
@@ -144,10 +143,7 @@ class ProposalsSubmitted extends ProposalsState {
   final Proposal submittedProposal;
   final String? proposalId; // ID da resposta da API
 
-  const ProposalsSubmitted({
-    required this.submittedProposal,
-    this.proposalId,
-  });
+  const ProposalsSubmitted({required this.submittedProposal, this.proposalId});
 
   @override
   List<Object?> get props => [submittedProposal, proposalId];
@@ -165,26 +161,6 @@ class ProposalsPaymentPending extends ProposalsState {
 
   @override
   List<Object> get props => [submittedProposal, checkoutUrl];
-}
-
-/// Estado de pagamento PIX pendente — aguardando escaneamento do QR Code
-class ProposalsPixPending extends ProposalsState {
-  final Proposal submittedProposal;
-  final String proposalId;
-  final String qrCode;
-  final String? qrCodeBase64;
-  final DateTime? expiresAt;
-
-  const ProposalsPixPending({
-    required this.submittedProposal,
-    required this.proposalId,
-    required this.qrCode,
-    this.qrCodeBase64,
-    this.expiresAt,
-  });
-
-  @override
-  List<Object?> get props => [submittedProposal, proposalId, qrCode, qrCodeBase64, expiresAt];
 }
 
 // ===== ESTADOS PARA LISTAGEM DE PROPOSTAS (PERSONAL TRAINER) =====
@@ -266,10 +242,7 @@ class ProposalsAvailableError extends ProposalsState {
   final String message;
   final List<ProposalResponseDto>? proposals;
 
-  const ProposalsAvailableError({
-    required this.message,
-    this.proposals,
-  });
+  const ProposalsAvailableError({required this.message, this.proposals});
 
   @override
   List<Object?> get props => [message, proposals];

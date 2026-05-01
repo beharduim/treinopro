@@ -339,10 +339,11 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
     String paymentMethod = 'credit_card'; // default
     if (proposal.paymentMethodId != null) {
       switch (proposal.paymentMethodId) {
+        case 'stripe_payment_sheet':
+          paymentMethod = 'credit_card';
+          break;
         case 'credit_card':
         case 'debit_card':
-        case 'mercado_pago':
-        case 'pix':
           paymentMethod = proposal.paymentMethodId!;
           break;
         default:
@@ -354,12 +355,6 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
                 break;
               case PaymentMethodType.debitCard:
                 paymentMethod = 'debit_card';
-                break;
-              case PaymentMethodType.mercadoPago:
-                paymentMethod = 'mercado_pago';
-                break;
-              case PaymentMethodType.pix:
-                paymentMethod = 'pix';
                 break;
             }
           }
@@ -449,7 +444,6 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
       price: proposal.price ?? 0.0,
       additionalNotes: proposal.additionalNotes,
       paymentMethod: paymentMethod,
-      // PIX não usa cardId; cartões salvos só enviam UUID válido
       cardId: _resolveCardId(paymentMethod, proposal.selectedPaymentMethod?.id),
       savedCardCvv: proposal.savedCardCvv,
       cardData: null, // TODO: Implementar captura de dados de cartão novo
@@ -461,11 +455,8 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
     );
   }
 
-  /// Retorna o cardId apenas quando aplicável:
-  /// - PIX nunca usa cardId → null
-  /// - Cartão salvo: só enviar se for UUID válido (descarta 'pix' ou id inválido)
+  /// Retorna o cardId apenas quando o cartão salvo é um UUID válido.
   String? _resolveCardId(String paymentMethod, String? id) {
-    if (paymentMethod == 'pix') return null;
     if (id == null) return null;
     const uuidPattern =
         r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';

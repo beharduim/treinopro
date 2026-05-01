@@ -8,8 +8,10 @@ class TimeSlotSelector extends StatefulWidget {
   final String? initialValue;
   final ValueChanged<String> onTimeChanged;
   final bool isLoading;
-  final DateTime? selectedDate; // Data selecionada para validar horários passados
-  final ProposalsApiService? apiService; // Serviço da API para buscar conflitos reais
+  final DateTime?
+  selectedDate; // Data selecionada para validar horários passados
+  final ProposalsApiService?
+  apiService; // Serviço da API para buscar conflitos reais
 
   const TimeSlotSelector({
     super.key,
@@ -49,11 +51,15 @@ class _TimeSlotSelectorState extends State<TimeSlotSelector> {
 
   Future<void> _loadTimeConflicts() async {
     if (widget.apiService == null || widget.selectedDate == null) {
-      print('⚠️ [CONFLICTS] Não carregando conflitos - apiService: ${widget.apiService != null}, selectedDate: ${widget.selectedDate != null}');
+      print(
+        '⚠️ [CONFLICTS] Não carregando conflitos - apiService: ${widget.apiService != null}, selectedDate: ${widget.selectedDate != null}',
+      );
       return;
     }
 
-    print('🔍 [CONFLICTS] Carregando conflitos para data: ${widget.selectedDate}');
+    print(
+      '🔍 [CONFLICTS] Carregando conflitos para data: ${widget.selectedDate}',
+    );
 
     setState(() {
       _isLoadingConflicts = true;
@@ -62,14 +68,14 @@ class _TimeSlotSelectorState extends State<TimeSlotSelector> {
     try {
       final dateString = widget.selectedDate!.toIso8601String().split('T')[0];
       print('🔍 [CONFLICTS] Data string: $dateString');
-      
+
       final conflicts = await widget.apiService!.getTimeConflicts(dateString);
-      
+
       print('✅ [CONFLICTS] Conflitos carregados:');
       print('  - Propostas existentes: ${conflicts.existingProposals.length}');
       print('  - Aulas em match: ${conflicts.matchedClasses.length}');
       print('  - Horários bloqueados: ${conflicts.blockedTimeSlots}');
-      
+
       setState(() {
         _timeConflicts = conflicts;
         _isLoadingConflicts = false;
@@ -137,7 +143,8 @@ class _TimeSlotSelectorState extends State<TimeSlotSelector> {
         try {
           final parts = p.trainingTime.split(':');
           final start = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-          final end = start + (p.durationMinutes != null ? p.durationMinutes! : 60);
+          final end =
+              start + (p.durationMinutes != null ? p.durationMinutes! : 60);
           final overlaps = candidateStart < end && candidateEnd > start;
           if (overlaps && (p.status == 'pending' || p.status == 'matched')) {
             print('❌ [TIME VALIDATION] Sobreposição com proposta ${p.id}');
@@ -188,7 +195,8 @@ class _TimeSlotSelectorState extends State<TimeSlotSelector> {
         try {
           final parts = p.trainingTime.split(':');
           final start = int.parse(parts[0]) * 60 + int.parse(parts[1]);
-          final end = start + (p.durationMinutes != null ? p.durationMinutes! : 60);
+          final end =
+              start + (p.durationMinutes != null ? p.durationMinutes! : 60);
           final overlaps = candidateStart < end && candidateEnd > start;
           if (overlaps && (p.status == 'pending' || p.status == 'matched')) {
             final status = p.status == 'pending' ? 'pendente' : 'em andamento';

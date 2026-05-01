@@ -2,14 +2,13 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/services/api_service.dart';
 import '../../domain/entities/payment_method.dart';
 import '../models/payment_method_model.dart';
+import '../services/stripe_payment_sheet_service.dart';
 
 abstract class PaymentMethodsApiDataSource {
   Future<StudentPaymentSettingsModel> getStudentPaymentMethods();
   Future<StudentPaymentSettingsModel> updatePaymentMethods({
     required PaymentMethodType preferredMethod,
     bool? enableAutoPayment,
-    String? mpEmail,
-    bool? mpAllowSaveCard,
   });
   Future<PaymentMethodModel> saveCard({
     required String cardNumber,
@@ -28,16 +27,16 @@ abstract class PaymentMethodsApiDataSource {
   });
   Future<void> removeCard(String cardId);
   Future<void> setDefaultCard(String cardId);
-  Future<bool> validateMercadoPagoAccount(String email);
 }
 
 class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
   final ApiService apiService;
+  final StripePaymentSheetService stripePaymentSheetService;
 
   PaymentMethodsApiDataSourceImpl({
     required this.apiService,
+    required this.stripePaymentSheetService,
   });
-
 
   @override
   Future<StudentPaymentSettingsModel> getStudentPaymentMethods() async {
@@ -53,17 +52,11 @@ class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
   Future<StudentPaymentSettingsModel> updatePaymentMethods({
     required PaymentMethodType preferredMethod,
     bool? enableAutoPayment,
-    String? mpEmail,
-    bool? mpAllowSaveCard,
   }) async {
     try {
       final body = {
         'preferredMethod': _paymentMethodTypeToString(preferredMethod),
         if (enableAutoPayment != null) 'enableAutoPayment': enableAutoPayment,
-        if (mpEmail != null) 'mercadoPagoAccount': {
-          'email': mpEmail,
-          'allowSaveCard': mpAllowSaveCard ?? true,
-        },
       };
 
       final response = await apiService.dio.put(
@@ -87,17 +80,33 @@ class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
     required CardType cardType,
   }) async {
     try {
-      final body = {
-        'cardNumber': cardNumber,
-        'cardHolderName': cardHolderName,
-        'expirationDate': '$expiryMonth/$expiryYear',
-        'cvv': cvv,
-        'cardType': _cardTypeToString(cardType),
-      };
+      final setupResponse = await apiService.dio.post(
+        '/payments/student/stripe/setup-intent',
+      );
+      final setupData = setupResponse.data as Map<String, dynamic>;
+
+      final clientSecret = setupData['clientSecret']?.toString() ?? '';
+      final customerId = setupData['customerId']?.toString() ?? '';
+      final ephemeralKeySecret =
+          setupData['ephemeralKeySecret']?.toString() ?? '';
+      final publishableKey = setupData['publishableKey']?.toString() ?? '';
+      final setupIntentId =
+          setupData['setupIntentId']?.toString() ??
+          clientSecret.split('_secret_').first;
+
+      await stripePaymentSheetService.presentSetupSheet(
+        clientSecret: clientSecret,
+        customerId: customerId,
+        ephemeralKeySecret: ephemeralKeySecret,
+        publishableKey: publishableKey,
+      );
 
       final response = await apiService.dio.post(
-        '/payments/student/cards/save',
-        data: body,
+        '/payments/student/stripe/setup-intent/confirm',
+        data: {
+          'setupIntentId': setupIntentId,
+          'cardType': _cardTypeToString(cardType),
+        },
       );
 
       return PaymentMethodModel.fromJson(response.data);
@@ -147,29 +156,10 @@ class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
   Future<void> setDefaultCard(String cardId) async {
     try {
       final body = {'defaultCardId': cardId};
-      
-      await apiService.dio.put(
-        '/payments/student/methods',
-        data: body,
-      );
+
+      await apiService.dio.put('/payments/student/methods', data: body);
     } catch (e) {
       throw ServerException('Erro ao definir cartão padrão: $e');
-    }
-  }
-
-  @override
-  Future<bool> validateMercadoPagoAccount(String email) async {
-    try {
-      final body = {'email': email};
-      
-      final response = await apiService.dio.post(
-        '/payments/student/methods/validate-mp',
-        data: body,
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
     }
   }
 
@@ -179,10 +169,6 @@ class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
-      case PaymentMethodType.mercadoPago:
-        return 'mercado_pago';
-      case PaymentMethodType.pix:
-        return 'pix';
     }
   }
 

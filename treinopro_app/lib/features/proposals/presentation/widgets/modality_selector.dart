@@ -108,9 +108,7 @@ class _ModalityCard extends StatelessWidget {
                       : _cardColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: Center(
-                  child: _getModalityIcon(modality.id),
-                ),
+                child: Center(child: _getModalityIcon(modality.id)),
               ),
 
               const SizedBox(height: 8), // Ajustado para 3 por linha
@@ -132,7 +130,9 @@ class _ModalityCard extends StatelessWidget {
               // Indicador de seleção
               if (isSelected)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4), // Ajustado para 3 por linha
+                  padding: const EdgeInsets.only(
+                    top: 4,
+                  ), // Ajustado para 3 por linha
                   child: Icon(
                     Icons.check_circle,
                     color: AppColors.primaryOrange,
@@ -149,50 +149,22 @@ class _ModalityCard extends StatelessWidget {
   /// Retorna o ícone apropriado para cada modalidade
   Widget _getModalityIcon(String modalityId) {
     final iconColor = isSelected ? Colors.white : _cardColor;
-    
+
     switch (modalityId) {
       case 'musculacao':
-        return Icon(
-          Icons.fitness_center,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.fitness_center, size: 18, color: iconColor);
       case 'cardio':
-        return Icon(
-          Icons.directions_run,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.directions_run, size: 18, color: iconColor);
       case 'funcional':
-        return Icon(
-          Icons.accessibility_new,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.accessibility_new, size: 18, color: iconColor);
       case 'hiit':
-        return Icon(
-          Icons.local_fire_department,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.local_fire_department, size: 18, color: iconColor);
       case 'alongamento':
-        return Icon(
-          Icons.self_improvement,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.self_improvement, size: 18, color: iconColor);
       case 'taf':
-        return Icon(
-          Icons.check_circle_outline,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.check_circle_outline, size: 18, color: iconColor);
       default:
-        return Icon(
-          Icons.fitness_center,
-          size: 18,
-          color: iconColor,
-        );
+        return Icon(Icons.fitness_center, size: 18, color: iconColor);
     }
   }
 }

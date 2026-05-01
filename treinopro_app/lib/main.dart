@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:treinopro_app/core/services/notification_service.dart';
 import 'package:treinopro_app/core/services/notification_foreground_service.dart';
@@ -105,6 +106,10 @@ void main() async {
 
   // Carrega as configurações de ambiente
   await AppConfig.load();
+  if (AppConfig.stripePublishableKey.isNotEmpty) {
+    Stripe.publishableKey = AppConfig.stripePublishableKey;
+    await Stripe.instance.applySettings();
+  }
 
   // Inicializa SharedPreferences
   final prefs = await SharedPreferences.getInstance();
@@ -265,7 +270,9 @@ class TreinoProApp extends StatefulWidget {
 
 class _TreinoProAppState extends State<TreinoProApp>
     with WidgetsBindingObserver {
-  static const _deepLinkChannel = MethodChannel('com.treinopro.oficial/deep_link');
+  static const _deepLinkChannel = MethodChannel(
+    'com.treinopro.oficial/deep_link',
+  );
 
   @override
   void initState() {
