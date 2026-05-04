@@ -309,6 +309,8 @@ class _AddPaymentMethodBottomSheetState
           cardType: CardType.debit,
           onCardSaved: widget.onCardSaved,
         );
+      case PaymentMethodType.pix:
+        return const SizedBox.shrink();
     }
   }
 
@@ -318,6 +320,8 @@ class _AddPaymentMethodBottomSheetState
         return 'Adicionar Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Adicionar Cartão de Débito';
+      case PaymentMethodType.pix:
+        return 'PIX';
     }
   }
 

@@ -495,6 +495,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
       // Verificar se o pagamento foi processado automaticamente
       final paymentStatus = (response.paymentStatus ?? '').toLowerCase();
+      final paymentMethod = (response.payment?.method ?? '').toLowerCase();
 
       if (paymentStatus == 'approved' ||
           paymentStatus == 'authorized' ||
@@ -507,6 +508,17 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           ),
         );
       } else if (paymentStatus == 'pending' || paymentStatus == 'in_process') {
+        if (paymentMethod == 'pix' && response.payment != null) {
+          emit(
+            ProposalsPaymentPending(
+              submittedProposal: currentState.proposal,
+              proposalId: response.id,
+              payment: response.payment!,
+            ),
+          );
+          return;
+        }
+
         emit(
           ProposalsError(
             message:
@@ -652,11 +664,16 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
     final currentState = state as ProposalsLoaded;
     final stripeCardMethod = _buildStripeCardPaymentMethod();
+    final pixMethod = _buildPixPaymentMethod();
     final existingMethods = currentState.availablePaymentMethods
-        .where((method) => method.id != stripeCardMethod.id)
+        .where(
+          (method) =>
+              method.id != stripeCardMethod.id && method.id != pixMethod.id,
+        )
         .toList();
     final provisionalMethods = <PaymentMethod>[
       stripeCardMethod,
+      pixMethod,
       ...existingMethods,
     ];
 
@@ -689,6 +706,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
       final allMethods = <PaymentMethod>[
         stripeCardMethod,
+        pixMethod,
         ...savedCards.where((method) => method.id != stripeCardMethod.id),
       ];
 
@@ -733,7 +751,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       emit(
         latestState.copyWith(
           proposal: proposalWithDefaultMethod,
-          availablePaymentMethods: [stripeCardMethod],
+          availablePaymentMethods: [stripeCardMethod, pixMethod],
           isLoadingPaymentMethods: false,
         ),
       );
@@ -746,7 +764,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       emit(
         latestState.copyWith(
           proposal: proposalWithDefaultMethod,
-          availablePaymentMethods: [stripeCardMethod],
+          availablePaymentMethods: [stripeCardMethod, pixMethod],
           isLoadingPaymentMethods: false,
         ),
       );
@@ -765,9 +783,24 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     );
   }
 
+  PaymentMethod _buildPixPaymentMethod() {
+    final now = DateTime.now();
+    return PaymentMethod(
+      id: 'pix',
+      type: PaymentMethodType.pix,
+      isVerified: true,
+      isDefault: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
   String _getPaymentMethodDisplayName(PaymentMethod method) {
     if (method.id == 'stripe_payment_sheet') {
       return 'Cartão pelo Stripe';
+    }
+    if (method.id == 'pix') {
+      return 'PIX';
     }
 
     switch (method.type) {
@@ -775,6 +808,8 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
         return 'Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Cartão de Débito';
+      case PaymentMethodType.pix:
+        return 'PIX';
     }
   }
 

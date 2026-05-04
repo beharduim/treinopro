@@ -81,6 +81,8 @@ class PaymentMethodModel extends PaymentMethod {
         return PaymentMethodType.creditCard;
       case 'debit_card':
         return PaymentMethodType.debitCard;
+      case 'pix':
+        return PaymentMethodType.pix;
       default:
         throw ArgumentError('Tipo de método de pagamento inválido: $type');
     }
@@ -92,6 +94,8 @@ class PaymentMethodModel extends PaymentMethod {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
+      case PaymentMethodType.pix:
+        return 'pix';
     }
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 class StripePaymentSheetService {
+  static String? _appliedPublishableKey;
+
   Future<void> presentSetupSheet({
     required String clientSecret,
     required String customerId,
@@ -43,19 +45,23 @@ class StripePaymentSheetService {
   }
 
   Future<void> _applyPublishableKey(String publishableKey) async {
-    if (publishableKey.trim().isEmpty) {
+    final normalizedPublishableKey = publishableKey.trim();
+    if (normalizedPublishableKey.isEmpty) {
       throw Exception('Chave publica Stripe nao recebida');
     }
 
-    if (Stripe.publishableKey != publishableKey) {
-      Stripe.publishableKey = publishableKey;
+    if (_appliedPublishableKey != normalizedPublishableKey) {
+      Stripe.publishableKey = normalizedPublishableKey;
       await Stripe.instance.applySettings();
+      _appliedPublishableKey = normalizedPublishableKey;
     }
   }
 
   Future<void> _present() async {
     try {
       await Stripe.instance.presentPaymentSheet();
+    } on StripeConfigException catch (e) {
+      throw Exception(e.message);
     } on StripeException catch (e) {
       final code = e.error.code.toString().toLowerCase();
       if (code.contains('cancel')) {

@@ -245,6 +245,8 @@ class PaymentMethodSelector extends StatelessWidget {
         return Icons.credit_card;
       case PaymentMethodType.debitCard:
         return Icons.account_balance_wallet;
+      case PaymentMethodType.pix:
+        return Icons.qr_code_2;
     }
   }
 
@@ -252,12 +254,17 @@ class PaymentMethodSelector extends StatelessWidget {
     if (method.id == 'stripe_payment_sheet') {
       return 'Cartão pelo Stripe';
     }
+    if (method.id == 'pix') {
+      return 'PIX';
+    }
 
     switch (method.type) {
       case PaymentMethodType.creditCard:
         return 'Cartão de Crédito';
       case PaymentMethodType.debitCard:
         return 'Cartão de Débito';
+      case PaymentMethodType.pix:
+        return 'PIX';
     }
   }
 }

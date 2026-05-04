@@ -169,6 +169,8 @@ class PaymentMethodsApiDataSourceImpl implements PaymentMethodsApiDataSource {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
+      case PaymentMethodType.pix:
+        return 'pix';
     }
   }
 

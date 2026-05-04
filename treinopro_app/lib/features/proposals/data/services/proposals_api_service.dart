@@ -331,6 +331,7 @@ class ProposalsApiService {
     final payment = response.payment;
     if (payment == null ||
         payment.provider != 'stripe' ||
+        payment.method == 'pix' ||
         payment.clientSecret == null ||
         payment.clientSecret!.isEmpty) {
       return response;

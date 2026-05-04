@@ -845,6 +845,8 @@ class _RecontractPageState extends State<RecontractPage> {
         return 'credit_card';
       case PaymentMethodType.debitCard:
         return 'debit_card';
+      case PaymentMethodType.pix:
+        return 'pix';
     }
   }
 
@@ -867,6 +869,7 @@ class _RecontractPageState extends State<RecontractPage> {
           break;
         case 'credit_card':
         case 'debit_card':
+        case 'pix':
           paymentMethod = selectedMethodId;
           break;
         default:
@@ -984,8 +987,6 @@ class _RecontractPageState extends State<RecontractPage> {
       final paymentStatus =
           (response.paymentStatus ?? response.payment?.status ?? '')
               .toLowerCase();
-      final responsePaymentMethod = (response.payment?.method ?? paymentMethod)
-          .toLowerCase();
       final isPaymentConfirmed =
           paymentStatus == 'approved' ||
           paymentStatus == 'authorized' ||

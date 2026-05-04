@@ -152,15 +152,17 @@ class ProposalsSubmitted extends ProposalsState {
 /// Estado de pagamento pendente (redirecionamento para checkout)
 class ProposalsPaymentPending extends ProposalsState {
   final Proposal submittedProposal;
-  final String checkoutUrl;
+  final String proposalId;
+  final PaymentData payment;
 
   const ProposalsPaymentPending({
     required this.submittedProposal,
-    required this.checkoutUrl,
+    required this.proposalId,
+    required this.payment,
   });
 
   @override
-  List<Object> get props => [submittedProposal, checkoutUrl];
+  List<Object> get props => [submittedProposal, proposalId, payment];
 }
 
 // ===== ESTADOS PARA LISTAGEM DE PROPOSTAS (PERSONAL TRAINER) =====

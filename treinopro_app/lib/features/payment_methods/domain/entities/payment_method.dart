@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// Enum para tipos de métodos de pagamento
-enum PaymentMethodType { creditCard, debitCard }
+enum PaymentMethodType { creditCard, debitCard, pix }
 
 /// Enum para bandeiras de cartão
 enum CardBrand {

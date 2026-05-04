@@ -344,6 +344,7 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
           break;
         case 'credit_card':
         case 'debit_card':
+        case 'pix':
           paymentMethod = proposal.paymentMethodId!;
           break;
         default:
@@ -355,6 +356,9 @@ class ProposalsRepositoryImpl implements ProposalsRepository {
                 break;
               case PaymentMethodType.debitCard:
                 paymentMethod = 'debit_card';
+                break;
+              case PaymentMethodType.pix:
+                paymentMethod = 'pix';
                 break;
             }
           }
