@@ -500,7 +500,7 @@ class _CreateProposalView extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.open_in_new),
-                    label: const Text('Abrir instruções da Stripe'),
+                    label: const Text('Abrir instruções de pagamento'),
                   ),
                 ],
               ],

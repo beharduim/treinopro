@@ -207,10 +207,10 @@ class PaymentMethodSelector extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (method.cardNumber != null) ...[
+                          if (_getPaymentMethodSubtitle(method) != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              'Terminado em ${method.cardNumber!.substring(method.cardNumber!.length - 4)}',
+                              _getPaymentMethodSubtitle(method)!,
                               style: AppTextStyles.small.copyWith(
                                 color: AppColors.secondaryDark.withOpacity(0.7),
                               ),
@@ -252,19 +252,69 @@ class PaymentMethodSelector extends StatelessWidget {
 
   String _getPaymentMethodDisplayName(PaymentMethod method) {
     if (method.id == 'stripe_payment_sheet') {
-      return 'Cartão pelo Stripe';
+      return _hasSavedCardMethods ? 'Usar outro cartão' : 'Cartão de crédito';
     }
     if (method.id == 'pix') {
       return 'PIX';
     }
 
+    if (method.cardNumber != null) {
+      final brand = _getCardBrandLabel(method.cardBrand);
+      return method.type == PaymentMethodType.debitCard
+          ? '$brand débito'
+          : '$brand crédito';
+    }
+
     switch (method.type) {
       case PaymentMethodType.creditCard:
-        return 'Cartão de Crédito';
+        return 'Cartão de crédito';
       case PaymentMethodType.debitCard:
-        return 'Cartão de Débito';
+        return 'Cartão de débito';
       case PaymentMethodType.pix:
         return 'PIX';
+    }
+  }
+
+  String? _getPaymentMethodSubtitle(PaymentMethod method) {
+    if (method.id == 'stripe_payment_sheet') {
+      return _hasSavedCardMethods ? 'Pagar com cartão não cadastrado' : null;
+    }
+
+    if (method.cardNumber != null && method.cardNumber!.length >= 4) {
+      return 'Terminado em ${method.cardNumber!.substring(method.cardNumber!.length - 4)}';
+    }
+
+    return null;
+  }
+
+  bool get _hasSavedCardMethods => availableMethods.any(
+    (method) =>
+        method.id != 'stripe_payment_sheet' && method.cardNumber != null,
+  );
+
+  String _getCardBrandLabel(CardBrand? brand) {
+    switch (brand) {
+      case CardBrand.visa:
+        return 'Visa';
+      case CardBrand.mastercard:
+        return 'Mastercard';
+      case CardBrand.americanExpress:
+        return 'American Express';
+      case CardBrand.elo:
+        return 'Elo';
+      case CardBrand.hipercard:
+        return 'Hipercard';
+      case CardBrand.diners:
+        return 'Diners Club';
+      case CardBrand.discover:
+        return 'Discover';
+      case CardBrand.jcb:
+        return 'JCB';
+      case CardBrand.aura:
+        return 'Aura';
+      case CardBrand.unknown:
+      case null:
+        return 'Cartão';
     }
   }
 }

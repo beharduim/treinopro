@@ -121,7 +121,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
                     ),
                   ),
                   Text(
-                    'Valor mínimo de R\$ 40',
+                    'Valor mínimo de R\$ 1',
                     style: AppTextStyles.small.copyWith(
                       color: AppColors.secondaryDark.withOpacity(0.7),
                     ),
@@ -137,7 +137,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
         // Campo de preço inteligente
         SmartPriceField(
           initialValue: state.proposal.price,
-          minValue: 40.0,
+          minValue: 1.0,
           suggestedValue: suggestedPrice,
           onValueChanged: (price) {
             context.read<ProposalsBloc>().add(ProposalsUpdatePrice(price));
@@ -238,7 +238,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
   }
 
   List<double> _getPriceSuggestions(double? suggestedPrice) {
-    final baseSuggestions = [40.0, 50.0, 60.0, 80.0, 100.0];
+    final baseSuggestions = [1.0, 5.0, 10.0, 40.0, 60.0, 80.0, 100.0];
 
     if (suggestedPrice != null && !baseSuggestions.contains(suggestedPrice)) {
       final suggestions = [...baseSuggestions, suggestedPrice];

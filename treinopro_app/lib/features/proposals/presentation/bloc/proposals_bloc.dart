@@ -521,8 +521,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
         emit(
           ProposalsError(
-            message:
-                'Pagamento pendente. Confirme o pagamento pelo Stripe para continuar.',
+            message: 'Pagamento pendente. Confirme o pagamento para continuar.',
           ),
         );
       } else {
@@ -689,7 +688,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
     try {
       print('💳 [PROPOSALS_BLOC] Carregando métodos de pagamento...');
-      // Exibe o checkout Stripe imediatamente para evitar bloqueio visual em caso de API lenta
+      // Exibe a opção de cartão imediatamente para evitar bloqueio visual em caso de API lenta.
       emit(
         currentState.copyWith(
           proposal: proposalWithDefaultMethod,
@@ -703,11 +702,14 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           .getStudentPaymentMethods()
           .timeout(const Duration(seconds: 15));
       final savedCards = paymentSettings.savedCards;
+      final savedCardsWithoutDup = savedCards
+          .where((method) => method.id != stripeCardMethod.id)
+          .toList();
 
       final allMethods = <PaymentMethod>[
+        ...savedCardsWithoutDup,
         stripeCardMethod,
         pixMethod,
-        ...savedCards.where((method) => method.id != stripeCardMethod.id),
       ];
 
       final latestState = state is ProposalsLoaded
@@ -723,7 +725,21 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           }
         }
       }
-      final resolvedSelectedMethod = selectedMethod ?? stripeCardMethod;
+      final shouldPreferSavedCard =
+          savedCardsWithoutDup.isNotEmpty &&
+          (selectedMethodId == null ||
+              selectedMethodId.isEmpty ||
+              selectedMethodId == stripeCardMethod.id);
+      PaymentMethod? defaultSavedCard;
+      for (final method in savedCardsWithoutDup) {
+        if (method.isDefault) {
+          defaultSavedCard = method;
+          break;
+        }
+      }
+      final resolvedSelectedMethod = shouldPreferSavedCard
+          ? (defaultSavedCard ?? savedCardsWithoutDup.first)
+          : (selectedMethod ?? stripeCardMethod);
       final updatedProposal = latestState.proposal.copyWith(
         paymentMethodId: resolvedSelectedMethod.id,
         paymentMethodName: _getPaymentMethodDisplayName(resolvedSelectedMethod),
@@ -731,7 +747,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
 
       print(
-        '💳 [PROPOSALS_BLOC] Métodos disponíveis: ${allMethods.length} (Stripe + ${savedCards.length} cartões)',
+        '💳 [PROPOSALS_BLOC] Métodos disponíveis: ${allMethods.length} (${savedCards.length} cartões salvos)',
       );
 
       emit(
@@ -743,7 +759,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
     } on TimeoutException catch (_) {
       print(
-        '⚠️ [PROPOSALS_BLOC] Timeout ao carregar métodos de pagamento. Exibindo fallback Stripe.',
+        '⚠️ [PROPOSALS_BLOC] Timeout ao carregar métodos de pagamento. Exibindo fallback de cartão.',
       );
       final latestState = state is ProposalsLoaded
           ? state as ProposalsLoaded
@@ -757,7 +773,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       );
     } catch (e) {
       print('❌ [PROPOSALS_BLOC] Erro ao carregar métodos de pagamento: $e');
-      // Mesmo com erro na API, o checkout Stripe ainda deve aparecer
+      // Mesmo com erro na API, a opção de cartão ainda deve aparecer.
       final latestState = state is ProposalsLoaded
           ? state as ProposalsLoaded
           : currentState;
@@ -797,7 +813,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
   String _getPaymentMethodDisplayName(PaymentMethod method) {
     if (method.id == 'stripe_payment_sheet') {
-      return 'Cartão pelo Stripe';
+      return 'Cartão de crédito';
     }
     if (method.id == 'pix') {
       return 'PIX';
@@ -805,9 +821,9 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
 
     switch (method.type) {
       case PaymentMethodType.creditCard:
-        return 'Cartão de Crédito';
+        return 'Cartão de crédito';
       case PaymentMethodType.debitCard:
-        return 'Cartão de Débito';
+        return 'Cartão de débito';
       case PaymentMethodType.pix:
         return 'PIX';
     }

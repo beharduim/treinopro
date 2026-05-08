@@ -108,7 +108,7 @@ class Proposal extends Equatable {
   /// Validação da Etapa 3: Preço e Método de Pagamento
   bool get isStep3Valid =>
       price != null &&
-      price! >= 40.0 &&
+      price! >= 1.0 &&
       paymentMethodId != null &&
       paymentMethodId!.isNotEmpty;
 

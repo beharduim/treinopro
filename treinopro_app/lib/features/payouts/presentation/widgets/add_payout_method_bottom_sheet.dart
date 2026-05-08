@@ -67,6 +67,11 @@ class _AddPayoutMethodBottomSheetState
       _isLoadingStatus = true;
       _error = null;
     });
+    try {
+      await _payoutApi.ensureStripeConnectedAccount();
+    } catch (_) {
+      // Ainda tenta carregar o último status persistido se a sincronização falhar.
+    }
     await _loadExistingData();
     widget.onSaved();
   }
@@ -187,6 +192,11 @@ class _AddPayoutMethodBottomSheetState
         stripeAccount?.outstandingRequirements ?? [];
     final isReady = stripeAccount?.isReadyForPayout ?? false;
     final hasAccount = stripeAccount?.accountId.isNotEmpty == true;
+    final shouldOpenOnboarding =
+        !hasAccount ||
+        isReady ||
+        (stripeAccount?.hasPendingRequirements ?? false);
+    final showSecondaryRefresh = shouldOpenOnboarding;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -286,17 +296,6 @@ class _AddPayoutMethodBottomSheetState
                                   : const Color(0xFF92400E),
                             ),
                           ),
-                          if (hasAccount) ...[
-                            const SizedBox(height: 10),
-                            Text(
-                              'Conta conectada: ${stripeAccount!.accountId}',
-                              style: const TextStyle(
-                                fontFamily: 'Fira Sans',
-                                fontSize: 12,
-                                color: Color(0xFF475569),
-                              ),
-                            ),
-                          ],
                           if (outstandingRequirements.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             const Text(
@@ -346,7 +345,11 @@ class _AddPayoutMethodBottomSheetState
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _submitting ? null : _startStripeOnboarding,
+              onPressed: _submitting
+                  ? null
+                  : shouldOpenOnboarding
+                  ? _startStripeOnboarding
+                  : _refreshStatus,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryOrange,
                 foregroundColor: Colors.white,
@@ -373,25 +376,27 @@ class _AddPayoutMethodBottomSheetState
                     ),
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _submitting ? null : _refreshStatus,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF334155),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          if (showSecondaryRefresh) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _submitting ? null : _refreshStatus,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF334155),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Atualizar status',
+                  style: TextStyle(fontFamily: 'Fira Sans', fontSize: 15),
                 ),
               ),
-              child: const Text(
-                'Atualizar status',
-                style: TextStyle(fontFamily: 'Fira Sans', fontSize: 15),
-              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -317,7 +317,7 @@ class ProposalsApiService {
 
     if (response.statusCode != 200) {
       throw Exception(
-        'Erro ao confirmar pagamento Stripe: ${_extractErrorMessage(response)}',
+        'Erro ao confirmar pagamento: ${_extractErrorMessage(response)}',
       );
     }
 

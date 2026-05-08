@@ -54,4 +54,34 @@ void main() {
       containsAll(['external_account', 'representative.document']),
     );
   });
+
+  test('separates Stripe verification from user onboarding requirements', () {
+    final model = FinancialProfileModel.fromJson({
+      'preferredMethod': 'bank_transfer',
+      'canReceivePayments': false,
+      'stripeAccount': {
+        'accountId': 'acct_789',
+        'onboardingCompleted': true,
+        'chargesEnabled': false,
+        'payoutsEnabled': false,
+        'detailsSubmitted': true,
+        'requirements': {
+          'currentlyDue': [],
+          'eventuallyDue': [],
+          'pastDue': [],
+          'pendingVerification': ['identity.individual.political_exposure'],
+          'disabledReason': null,
+        },
+      },
+    });
+
+    expect(model.requiresStripeOnboarding, isTrue);
+    expect(model.stripeAccount?.hasPendingRequirements, isFalse);
+    expect(model.stripeAccount?.hasPendingVerification, isTrue);
+    expect(
+      model.stripeAccount?.statusTitle,
+      'Validação da Stripe em andamento',
+    );
+    expect(model.stripeAccount?.actionLabel, 'Verificar status');
+  });
 }

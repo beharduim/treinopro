@@ -68,18 +68,23 @@ class StripeConnectAccountModel {
     final values = <String>{
       ...requirements.currentlyDue,
       ...requirements.pastDue,
-      ...requirements.pendingVerification,
     };
     return values.toList();
   }
 
+  List<String> get pendingVerificationRequirements =>
+      requirements.pendingVerification;
+
   bool get hasPendingRequirements => outstandingRequirements.isNotEmpty;
+
+  bool get hasPendingVerification => pendingVerificationRequirements.isNotEmpty;
 
   bool get isReadyForPayout =>
       onboardingCompleted &&
       detailsSubmitted &&
       payoutsEnabled &&
-      !hasPendingRequirements;
+      !hasPendingRequirements &&
+      !hasPendingVerification;
 
   String get statusTitle {
     if (isReadyForPayout) {
@@ -91,7 +96,10 @@ class StripeConnectAccountModel {
     if (hasPendingRequirements) {
       return 'Onboarding pendente';
     }
-    return 'Aguardando validação';
+    if (hasPendingVerification || !payoutsEnabled) {
+      return 'Validação da Stripe em andamento';
+    }
+    return 'Validação da Stripe em andamento';
   }
 
   String get statusDescription {
@@ -105,8 +113,11 @@ class StripeConnectAccountModel {
       final count = outstandingRequirements.length;
       return 'Faltam $count requisito${count == 1 ? '' : 's'} para liberar seus saques.';
     }
+    if (hasPendingVerification) {
+      return 'Recebemos seus dados e a Stripe está finalizando a análise da sua conta. Você não precisa refazer o cadastro; avisaremos quando os saques forem liberados.';
+    }
     if (!payoutsEnabled) {
-      return 'Sua conta ainda está sendo validada pelo Stripe.';
+      return 'A Stripe ainda está finalizando a análise da sua conta. Isso pode levar algum tempo, mas você não precisa refazer o cadastro.';
     }
     return 'Revise seus dados para concluir a configuração financeira.';
   }
@@ -117,6 +128,9 @@ class StripeConnectAccountModel {
     }
     if (isReadyForPayout) {
       return 'Revisar dados';
+    }
+    if (!hasPendingRequirements) {
+      return 'Verificar status';
     }
     return 'Continuar onboarding';
   }
