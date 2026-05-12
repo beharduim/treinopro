@@ -72,6 +72,15 @@ class StripeConnectAccountModel {
     return values.toList();
   }
 
+  List<StripeRequirementItem> get outstandingRequirementItems =>
+      outstandingRequirements
+          .map((code) => StripeRequirementItem.fromCode(code))
+          .toList();
+
+  List<String> get outstandingRequirementLabels => outstandingRequirementItems
+      .map((requirement) => requirement.displayLabel)
+      .toList();
+
   List<String> get pendingVerificationRequirements =>
       requirements.pendingVerification;
 
@@ -173,5 +182,118 @@ class StripeRequirementStatusModel {
       return value.map((item) => item.toString()).toList();
     }
     return const [];
+  }
+}
+
+class StripeRequirementItem {
+  final String code;
+  final StripeRequirementType type;
+
+  const StripeRequirementItem({required this.code, required this.type});
+
+  factory StripeRequirementItem.fromCode(String code) {
+    return StripeRequirementItem(
+      code: code,
+      type: StripeRequirementType.fromCode(code),
+    );
+  }
+
+  String get displayLabel => type.displayLabelFor(code);
+}
+
+enum StripeRequirementType {
+  externalAccount('Conta bancária para recebimento'),
+  identityProofOfLiveness('Verificação facial de identidade'),
+  identityDocument('Documento de identidade'),
+  representativeDocument('Documento do representante'),
+  businessProfile('Dados profissionais'),
+  address('Endereço'),
+  birthDate('Data de nascimento'),
+  fullName('Nome completo'),
+  phone('Telefone'),
+  email('E-mail'),
+  taxId('CPF/CNPJ'),
+  termsOfService('Aceite dos termos da Stripe'),
+  unknown('Informação adicional solicitada pela Stripe');
+
+  final String label;
+
+  const StripeRequirementType(this.label);
+
+  static StripeRequirementType fromCode(String code) {
+    final normalized = code.trim().toLowerCase();
+
+    if (normalized == 'external_account') {
+      return StripeRequirementType.externalAccount;
+    }
+    if (normalized.contains('proof_of_liveness')) {
+      return StripeRequirementType.identityProofOfLiveness;
+    }
+    if (normalized == 'representative.document') {
+      return StripeRequirementType.representativeDocument;
+    }
+    if (normalized.contains('verification.document')) {
+      if (normalized.startsWith('representative.')) {
+        return StripeRequirementType.representativeDocument;
+      }
+      return StripeRequirementType.identityDocument;
+    }
+    if (normalized.contains('business_profile')) {
+      return StripeRequirementType.businessProfile;
+    }
+    if (normalized.contains('.address.')) {
+      return StripeRequirementType.address;
+    }
+    if (normalized.contains('.dob.') || normalized.endsWith('.dob')) {
+      return StripeRequirementType.birthDate;
+    }
+    if (normalized.endsWith('.first_name') ||
+        normalized.endsWith('.last_name') ||
+        normalized.endsWith('.name')) {
+      return StripeRequirementType.fullName;
+    }
+    if (normalized.endsWith('.phone')) {
+      return StripeRequirementType.phone;
+    }
+    if (normalized.endsWith('.email')) {
+      return StripeRequirementType.email;
+    }
+    if (normalized.endsWith('.id_number') ||
+        normalized.endsWith('.tax_id') ||
+        normalized.endsWith('.tax_id_registrar')) {
+      return StripeRequirementType.taxId;
+    }
+    if (normalized.contains('tos_acceptance')) {
+      return StripeRequirementType.termsOfService;
+    }
+
+    return StripeRequirementType.unknown;
+  }
+
+  String displayLabelFor(String code) {
+    if (this != StripeRequirementType.unknown) {
+      return label;
+    }
+
+    final normalized = code.trim();
+    if (normalized.isEmpty) {
+      return label;
+    }
+
+    return '$label: ${_humanizeUnknownRequirement(normalized)}';
+  }
+
+  static String _humanizeUnknownRequirement(String code) {
+    final parts = code
+        .split('.')
+        .where((part) => part.trim().isNotEmpty)
+        .map((part) => part.replaceAll('_', ' '))
+        .toList();
+
+    if (parts.isEmpty) {
+      return code;
+    }
+
+    return parts.join(' > ');
   }
 }

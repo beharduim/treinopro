@@ -234,12 +234,28 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
             'Solicitar saque',
             style: TextStyle(fontFamily: 'Outfit', color: Colors.white),
           ),
-          content: Text(
-            'Deseja solicitar o saque de ${_formatCurrency(_availableBalance)} para a conta de recebimento conectada?',
-            style: const TextStyle(
-              fontFamily: 'Fira Sans',
-              color: Color(0xFFE5E7EB),
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Deseja solicitar o saque de ${_formatCurrency(_availableBalance)} para a conta de recebimento conectada?',
+                style: const TextStyle(
+                  fontFamily: 'Fira Sans',
+                  color: Color(0xFFE5E7EB),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'O saque não é instantâneo. Após confirmar, a Stripe processa o valor e pode levar alguns dias úteis para liberar o depósito na conta bancária.',
+                style: TextStyle(
+                  fontFamily: 'Fira Sans',
+                  fontSize: 13,
+                  height: 1.35,
+                  color: Color(0xFFFBBF24),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -423,7 +439,7 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                        'Os saques podem ser solicitados a qualquer momento. Após a solicitação, o valor ficará em análise e processamento.',
+                        'O saque não é instantâneo. A Stripe pode levar alguns dias úteis para liberar o depósito na conta bancária.',
                         style: TextStyle(fontFamily: 'Fira Sans', fontSize: 14),
                       ),
                       backgroundColor: Color(0xFF2D3748),
@@ -461,6 +477,8 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
                   ),
                 ),
           const SizedBox(height: 24),
+          _buildWithdrawalProcessingNotice(),
+          const SizedBox(height: 16),
           // Botão de saque
           SizedBox(
             width: double.infinity,
@@ -595,6 +613,40 @@ class _PersonalBalancePageState extends State<PersonalBalancePage> {
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWithdrawalProcessingNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3A3F47),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primaryOrange.withOpacity(0.35)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.schedule_outlined,
+            size: 18,
+            color: AppColors.primaryOrange,
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Saque não instantâneo: depois da solicitação, a Stripe processa o valor e pode levar alguns dias úteis para depositar na conta bancária.',
+              style: TextStyle(
+                fontFamily: 'Fira Sans',
+                fontSize: 13,
+                height: 1.35,
+                color: Color(0xFFE5E7EB),
+              ),
+            ),
           ),
         ],
       ),

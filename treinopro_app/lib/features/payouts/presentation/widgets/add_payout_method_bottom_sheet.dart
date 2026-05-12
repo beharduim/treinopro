@@ -188,8 +188,8 @@ class _AddPayoutMethodBottomSheetState
 
   Widget _buildStripeConnectForm() {
     final stripeAccount = _stripeAccount;
-    final outstandingRequirements =
-        stripeAccount?.outstandingRequirements ?? [];
+    final outstandingRequirementLabels =
+        stripeAccount?.outstandingRequirementLabels ?? [];
     final isReady = stripeAccount?.isReadyForPayout ?? false;
     final hasAccount = stripeAccount?.accountId.isNotEmpty == true;
     final shouldOpenOnboarding =
@@ -226,6 +226,53 @@ class _AddPayoutMethodBottomSheetState
                         height: 1.4,
                         color: Color(0xFF334155),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.schedule_outlined,
+                          size: 18,
+                          color: Color(0xFFB45309),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Prazo de análise',
+                                style: TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Depois que você enviar os dados, a Stripe pode levar algum tempo para validar a conta e liberar saques. Você pode voltar aqui para atualizar o status.',
+                                style: TextStyle(
+                                  fontFamily: 'Fira Sans',
+                                  fontSize: 13,
+                                  height: 1.35,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -296,7 +343,7 @@ class _AddPayoutMethodBottomSheetState
                                   : const Color(0xFF92400E),
                             ),
                           ),
-                          if (outstandingRequirements.isNotEmpty) ...[
+                          if (outstandingRequirementLabels.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             const Text(
                               'Itens pendentes',
@@ -308,7 +355,7 @@ class _AddPayoutMethodBottomSheetState
                               ),
                             ),
                             const SizedBox(height: 6),
-                            ...outstandingRequirements
+                            ...outstandingRequirementLabels
                                 .take(4)
                                 .map(
                                   (requirement) => Padding(

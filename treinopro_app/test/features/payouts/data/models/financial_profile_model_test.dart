@@ -53,6 +53,30 @@ void main() {
       model.stripeAccount?.outstandingRequirements,
       containsAll(['external_account', 'representative.document']),
     );
+    expect(
+      model.stripeAccount?.outstandingRequirementLabels,
+      containsAll([
+        'Conta bancária para recebimento',
+        'Documento do representante',
+      ]),
+    );
+  });
+
+  test('maps Stripe technical requirement codes to user-facing labels', () {
+    final proofOfLiveness = StripeRequirementItem.fromCode(
+      'identity.individual.verification.proof_of_liveness',
+    );
+    final unknown = StripeRequirementItem.fromCode(
+      'identity.individual.unmapped_requirement',
+    );
+
+    expect(proofOfLiveness.type, StripeRequirementType.identityProofOfLiveness);
+    expect(proofOfLiveness.displayLabel, 'Verificação facial de identidade');
+    expect(unknown.type, StripeRequirementType.unknown);
+    expect(
+      unknown.displayLabel,
+      'Informação adicional solicitada pela Stripe: identity > individual > unmapped requirement',
+    );
   });
 
   test('separates Stripe verification from user onboarding requirements', () {
