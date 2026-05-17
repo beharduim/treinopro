@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -462,24 +463,32 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_canReportNoShow && 
-                (currentClass?.status == ClassStatus.SCHEDULED || 
-                 currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
+                (_currentClass?.status == ClassStatus.SCHEDULED || 
+                 _currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (currentClass == null) return;
+                    if (_currentClass == null) return;
                     
                     // Buscar timeline do estado se disponível
                     ClassTimelineDto? tl;
                     final state = context.read<ClassesBloc>().state;
                     if (state is ClassesLoaded) {
-                      tl = state.timelines[currentClass.id];
+                      tl = state.timelines[_currentClass.id];
                     }
                     
                     // Fallback para timeline básico
                     tl ??= ClassTimelineDto(
+                      matchTime: DateTime.now(),
+                      currentTime: DateTime.now(),
+                      classTime: DateTime.now(),
+                      canCancel: false,
+                      canStart: false,
+                      canReportNoShow: false,
+                      canConfirmStart: false,
                       canReportPersonalNoShow: true,
+                      canComplete: false,
                       noShowReportDeadline: DateTime.now().toIso8601String(),
                     );
 
@@ -488,13 +497,13 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => ReportNoShowModal(
-                        classData: currentClass!,
+                        classData: _currentClass!,
                         timeline: tl!,
                         isPersonalNoShow: true, // Aluno reportando Personal
                         onReport: (reportData) {
                           context.read<ClassesBloc>().add(
                                 ClassesReportPersonalNoShow(
-                                  classId: currentClass!.id,
+                                  classId: _currentClass!.id,
                                   dto: ReportNoShowDto(
                                     reason: reportData['reason'],
                                     notes: reportData['notes'],

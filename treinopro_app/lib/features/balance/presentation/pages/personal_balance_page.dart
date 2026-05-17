@@ -341,7 +341,11 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const AddPayoutMethodBottomSheet(),
+      builder: (ctx) => AddPayoutMethodBottomSheet(
+        onSaved: () {
+          context.read<BalanceBloc>().add(const LoadBalance());
+        },
+      ),
     );
   }
 

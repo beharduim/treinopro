@@ -876,7 +876,15 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                           
                           // Fallback para timeline básico
                           tl ??= ClassTimelineDto(
+                            matchTime: DateTime.now(),
+                            currentTime: DateTime.now(),
+                            classTime: DateTime.now(),
+                            canCancel: false,
+                            canStart: false,
                             canReportNoShow: true,
+                            canConfirmStart: false,
+                            canReportPersonalNoShow: false,
+                            canComplete: false,
                             noShowReportDeadline: DateTime.now().toIso8601String(),
                           );
 

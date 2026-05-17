@@ -41,6 +41,8 @@ import 'core/services/api_service.dart';
 import 'features/home/data/services/auth_service.dart';
 import 'package:get_it/get_it.dart' show GetIt;
 import 'package:flutter/services.dart';
+import 'features/balance/presentation/bloc/balance_bloc.dart';
+import 'features/balance/presentation/bloc/balance_event.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

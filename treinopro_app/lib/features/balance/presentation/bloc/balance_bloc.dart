@@ -3,7 +3,7 @@ import 'balance_event.dart';
 import 'balance_state.dart';
 import '../../../payouts/data/services/payout_methods_api_service.dart';
 import '../../../home/data/services/personal_financial_api_service.dart';
-import '../../../../home/data/models/payment_models.dart';
+import '../../../home/data/models/payment_models.dart';
 
 class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
   final PayoutMethodsApiService _payoutApi;

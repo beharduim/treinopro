@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../../payouts/data/models/financial_profile_model.dart';
-import '../../../../home/data/models/payment_models.dart';
+import '../../../home/data/models/payment_models.dart';
 
 abstract class BalanceState extends Equatable {
   const BalanceState();

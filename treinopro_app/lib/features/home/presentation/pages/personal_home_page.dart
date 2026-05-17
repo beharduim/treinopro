@@ -47,6 +47,10 @@ import '../../../proposals/presentation/bloc/proposals_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/deep_link_service.dart';
 import '../../../../core/services/wakelock_service.dart';
+import '../../../balance/presentation/bloc/balance_bloc.dart';
+import '../../../balance/presentation/bloc/balance_state.dart';
+import '../../../balance/presentation/bloc/balance_event.dart';
+import '../../../payouts/presentation/widgets/add_payout_method_bottom_sheet.dart';
 
 /// Página principal da home do personal trainer
 class PersonalHomePage extends StatefulWidget {
@@ -2430,7 +2434,11 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (context) => const AddPayoutMethodBottomSheet(),
+                      builder: (context) => AddPayoutMethodBottomSheet(
+                        onSaved: () {
+                          context.read<BalanceBloc>().add(const LoadBalance());
+                        },
+                      ),
                     );
                   },
                   child: const Text(

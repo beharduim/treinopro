@@ -139,7 +139,7 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
     () => LoginWithFacebookUseCase(),
   );
 
-  sl.registerForgotPasswordUseCase(
+  sl.registerLazySingleton<ForgotPasswordUseCase>(
     () => ForgotPasswordUseCase(sl<AuthApiDataSource>()),
   );
 
