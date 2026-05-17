@@ -1,12 +1,16 @@
+import '../../../home/data/models/payment_models.dart';
+
 class FinancialProfileModel {
   final String preferredMethod;
   final bool canReceivePayments;
   final StripeConnectAccountModel? stripeAccount;
+  final WalletBalanceModel? wallet;
 
   const FinancialProfileModel({
     required this.preferredMethod,
     required this.canReceivePayments,
     required this.stripeAccount,
+    this.wallet,
   });
 
   factory FinancialProfileModel.fromJson(Map<String, dynamic> json) {
@@ -17,6 +21,9 @@ class FinancialProfileModel {
           ? StripeConnectAccountModel.fromJson(
               json['stripeAccount'] as Map<String, dynamic>,
             )
+          : null,
+      wallet: json['wallet'] is Map<String, dynamic>
+          ? WalletBalanceModel.fromJson(json['wallet'] as Map<String, dynamic>)
           : null,
     );
   }

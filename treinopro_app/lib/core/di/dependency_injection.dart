@@ -74,6 +74,7 @@ import '../../features/auth/domain/usecases/upload_usecase.dart';
 import '../../features/chat/data/services/chat_api_service.dart';
 import '../../features/payouts/data/services/payout_methods_api_service.dart';
 import '../../features/payouts/presentation/services/stripe_connect_onboarding_service.dart';
+import '../../features/balance/presentation/bloc/balance_bloc.dart';
 import '../../features/users/data/services/users_api_service.dart';
 
 /// Instância global do GetIt para injeção de dependência
@@ -138,7 +139,7 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
     () => LoginWithFacebookUseCase(),
   );
 
-  sl.registerLazySingleton<ForgotPasswordUseCase>(
+  sl.registerForgotPasswordUseCase(
     () => ForgotPasswordUseCase(sl<AuthApiDataSource>()),
   );
 
@@ -258,7 +259,7 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
 
   if (!sl.isRegistered<LocationsService>()) {
     sl.registerLazySingleton<LocationsService>(
-      () => LocationsService(client: sl<http.Client>()),
+      () => LocationsService(client: sl<http.Client>(),),
     );
   }
 
@@ -575,4 +576,12 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
   );
 
   sl.registerLazySingleton<ClassStateService>(() => ClassStateService());
+
+  // Balance Feature
+  sl.registerFactory<BalanceBloc>(
+    () => BalanceBloc(
+      payoutApi: sl<PayoutMethodsApiService>(),
+      financialApi: sl<PersonalFinancialApiService>(),
+    ),
+  );
 }

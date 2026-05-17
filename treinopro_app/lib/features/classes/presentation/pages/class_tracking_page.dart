@@ -6,6 +6,9 @@ import '../../../home/presentation/bloc/home_bloc.dart';
 import '../../../home/presentation/bloc/home_state.dart' as home_states;
 import '../widgets/fluid_timer_widget.dart';
 import '../../data/models/class_response_dto.dart';
+import '../widgets/report_no_show_modal.dart';
+import '../../data/models/report_no_show_dto.dart';
+import '../../data/models/class_timeline_dto.dart';
 import '../widgets/report_problem_modal.dart';
 import '../bloc/classes_bloc.dart';
 import '../bloc/classes_state.dart';
@@ -22,6 +25,10 @@ class ClassTrackingPage extends StatefulWidget {
 }
 
 class _ClassTrackingPageState extends State<ClassTrackingPage> {
+  // Controle de 10 minutos para no-show
+  Timer? _noShowCheckTimer;
+  bool _canReportNoShow = false;
+
   @override
   void initState() {
     super.initState();
@@ -33,10 +40,56 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
         classesBloc.add(const ClassesInitialize());
       }
     });
+    
+    _initNoShowTimer();
+  }
+
+  void _initNoShowTimer() {
+    _checkNoShowDeadline();
+    _noShowCheckTimer = Timer.periodic(const Duration(seconds: 30), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      _checkNoShowDeadline();
+    });
+  }
+
+  void _checkNoShowDeadline() {
+    try {
+      final dateStr = widget.aula['date']?.toString();
+      final timeStr = widget.aula['time']?.toString();
+      if (dateStr == null || timeStr == null) return;
+      
+      // Formato esperado: "dd/MM/yyyy" e "HH:MM"
+      final parts = dateStr.split('/');
+      if (parts.length != 3) return;
+      
+      final day = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year = int.parse(parts[2]);
+      
+      final timeParts = timeStr.split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      
+      final classStart = DateTime(year, month, day, hour, minute);
+      final deadline = classStart.add(const Duration(minutes: 10));
+      
+      final now = DateTime.now();
+      final passed = now.isAfter(deadline);
+      
+      if (passed != _canReportNoShow) {
+        setState(() => _canReportNoShow = passed);
+      }
+    } catch (e) {
+      debugPrint('Error checking no-show deadline: $e');
+    }
   }
 
   @override
   void dispose() {
+    _noShowCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -408,6 +461,78 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_canReportNoShow && 
+                (currentClass?.status == ClassStatus.SCHEDULED || 
+                 currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (currentClass == null) return;
+                    
+                    // Buscar timeline do estado se disponível
+                    ClassTimelineDto? tl;
+                    final state = context.read<ClassesBloc>().state;
+                    if (state is ClassesLoaded) {
+                      tl = state.timelines[currentClass.id];
+                    }
+                    
+                    // Fallback para timeline básico
+                    tl ??= ClassTimelineDto(
+                      canReportPersonalNoShow: true,
+                      noShowReportDeadline: DateTime.now().toIso8601String(),
+                    );
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => ReportNoShowModal(
+                        classData: currentClass!,
+                        timeline: tl!,
+                        isPersonalNoShow: true, // Aluno reportando Personal
+                        onReport: (reportData) {
+                          context.read<ClassesBloc>().add(
+                                ClassesReportPersonalNoShow(
+                                  classId: currentClass!.id,
+                                  dto: ReportNoShowDto(
+                                    reason: reportData['reason'],
+                                    notes: reportData['notes'],
+                                    evidenceUrls: reportData['evidenceImages'],
+                                  ),
+                                ),
+                              );
+                        },
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_off, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Personal não compareceu / Abrir Disputa',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

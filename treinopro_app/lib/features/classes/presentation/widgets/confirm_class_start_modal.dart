@@ -154,13 +154,21 @@ class _ConfirmClassStartModalState extends State<ConfirmClassStartModal> {
               TextField(
                 controller: _codeController,
                 keyboardType: TextInputType.number,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                enableSuggestions: false,
+                autocorrect: false,
                 maxLength: 4,
                 textAlign: TextAlign.center,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                enableInteractiveSelection: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 12,
+                  color: Color(0xFF2D3748),
                 ),
                 decoration: InputDecoration(
                   counterText: '',
@@ -185,8 +193,12 @@ class _ConfirmClassStartModalState extends State<ConfirmClassStartModal> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onChanged: (_) {
+                onChanged: (value) {
                   if (_errorText != null) setState(() => _errorText = null);
+                  // ✅ Submissão automática se o usuário digitar/colar 4 dígitos
+                  if (value.length == 4) {
+                    _handleConfirm();
+                  }
                 },
                 onSubmitted: (_) => _handleConfirm(),
               ),

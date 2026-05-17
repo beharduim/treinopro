@@ -401,6 +401,7 @@ class _TreinoProAppState extends State<TreinoProApp>
                   di.sl<ProposalSearchBloc>(),
             ),
             BlocProvider(create: (context) => di.sl<ProposalsBloc>()),
+            BlocProvider(create: (context) => di.sl<BalanceBloc>()..add(const LoadBalance())),
           ],
           child: Builder(
             builder: (context) {

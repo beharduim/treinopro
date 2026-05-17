@@ -984,6 +984,9 @@ class _PersonalHomePageState extends State<PersonalHomePage>
           color: AppColors.primaryOrange,
           onRefresh: () async {
             await _loadPersonalData();
+            if (mounted) {
+              context.read<BalanceBloc>().add(RefreshBalance());
+            }
             final uid = sl<AuthService>().currentUserId;
             if (uid != null && uid.isNotEmpty) {
               sl<GamificationBloc>().add(RefreshGamificationData(userId: uid));
@@ -1001,6 +1004,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildStripeOnboardingBanner(),
                 if (latestUnreadCancellationNotification != null) ...[
                   PersistentNoticeCard(
                     title: latestUnreadCancellationNotification!.title,
@@ -2383,5 +2387,63 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         return;
       }
     }
+  }
+  Widget _buildStripeOnboardingBanner() {
+    return BlocBuilder<BalanceBloc, BalanceState>(
+      builder: (context, state) {
+        if (state is BalanceLoaded && state.profile.requiresStripeOnboarding) {
+          final stripe = state.profile.stripeAccount;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primaryOrange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primaryOrange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, color: AppColors.primaryOrange),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Configuração Financeira Pendente",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        stripe?.statusDescription ?? "Complete seu cadastro para liberar seus recebimentos.",
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const AddPayoutMethodBottomSheet(),
+                    );
+                  },
+                  child: const Text(
+                    "CONFIGURAR",
+                    style: TextStyle(color: AppColors.primaryOrange, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
   }
 }

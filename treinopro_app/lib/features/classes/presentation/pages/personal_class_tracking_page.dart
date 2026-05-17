@@ -13,6 +13,9 @@ import '../bloc/classes_state.dart';
 import '../bloc/classes_event.dart';
 import '../../data/models/class_timer_state.dart';
 import '../../data/models/class_response_dto.dart';
+import '../widgets/report_no_show_modal.dart';
+import '../../data/models/report_no_show_dto.dart';
+import '../../data/models/class_timeline_dto.dart';
 
 class PersonalClassTrackingPage extends StatefulWidget {
   final Map<String, dynamic> aula;
@@ -37,6 +40,10 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
   Timer? _minimumTimer;
   int _remainingToCompleteSeconds = 0; // 0 = já pode finalizar
   bool _canCompleteByTime = false;
+  
+  // Controle de 10 minutos para no-show
+  Timer? _noShowCheckTimer;
+  bool _canReportNoShow = false;
 
   @override
   void initState() {
@@ -44,8 +51,11 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
     // Capturar código de confirmação se foi recém iniciado
     _startConfirmationCode = widget.aula['startConfirmationCode']?.toString();
 
-    // Calcular tempo restante para poder finalizar (45min mínimo)
+    // Calcular tempo restante para poder finalizar (50min mínimo)
     _initMinimumCompletionTimer();
+    
+    // Iniciar timer para verificar no-show (10min após início)
+    _initNoShowTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final classesBloc = context.read<ClassesBloc>();
@@ -67,7 +77,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
       if (rawStarted != null) {
         final startedAt = DateTime.tryParse(rawStarted.toString());
         if (startedAt != null) {
-          minimumAt = startedAt.add(const Duration(minutes: 45));
+          minimumAt = startedAt.add(const Duration(minutes: 50));
         }
       }
     }
@@ -99,6 +109,48 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
     } else {
       // Sem startedAt: liberar (fallback permissivo)
       _canCompleteByTime = true;
+    }
+  }
+
+  void _initNoShowTimer() {
+    _checkNoShowDeadline();
+    _noShowCheckTimer = Timer.periodic(const Duration(seconds: 30), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      _checkNoShowDeadline();
+    });
+  }
+
+  void _checkNoShowDeadline() {
+    try {
+      final dateStr = widget.aula['date'].toString();
+      final timeStr = widget.aula['time'].toString();
+      
+      // Formato esperado: "dd/MM/yyyy" e "HH:MM"
+      final parts = dateStr.split('/');
+      if (parts.length != 3) return;
+      
+      final day = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year = int.parse(parts[2]);
+      
+      final timeParts = timeStr.split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      
+      final classStart = DateTime(year, month, day, hour, minute);
+      final deadline = classStart.add(const Duration(minutes: 10));
+      
+      final now = DateTime.now();
+      final passed = now.isAfter(deadline);
+      
+      if (passed != _canReportNoShow) {
+        setState(() => _canReportNoShow = passed);
+      }
+    } catch (e) {
+      debugPrint('Error checking no-show deadline: $e');
     }
   }
 
@@ -145,6 +197,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
   @override
   void dispose() {
     _minimumTimer?.cancel();
+    _noShowCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -202,13 +255,13 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           snackBarColor = Colors.green; // Verde pois a aula foi finalizada
         }
         // Verificar se é erro de regra de tempo mínimo
-        else if (e.toString().contains('MIN_45_RULE') ||
-            e.toString().contains('pelo menos 45 minutos')) {
+        else if (e.toString().contains('MIN_50_RULE') ||
+            e.toString().contains('pelo menos 50 minutos')) {
           // Extrair tempo restante da mensagem do backend
           final match = RegExp(r'Faltam (\d+) minuto').firstMatch(e.toString());
           final remaining = match?.group(1) ?? '?';
           errorMessage =
-              'A aula precisa durar pelo menos 45 minutos. Faltam $remaining minuto(s).';
+              'A aula precisa durar pelo menos 50 minutos. Faltam $remaining minuto(s).';
           snackBarColor = Colors.red;
         }
         // Verificar se é erro de aula já finalizada
@@ -805,6 +858,78 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  if (_canReportNoShow && 
+                      (currentClass?.status == ClassStatus.SCHEDULED || 
+                       currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (currentClass == null) return;
+                          
+                          // Buscar timeline do estado se disponível
+                          ClassTimelineDto? tl;
+                          final state = context.read<ClassesBloc>().state;
+                          if (state is ClassesLoaded) {
+                            tl = state.timelines[currentClass.id];
+                          }
+                          
+                          // Fallback para timeline básico
+                          tl ??= ClassTimelineDto(
+                            canReportNoShow: true,
+                            noShowReportDeadline: DateTime.now().toIso8601String(),
+                          );
+
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => ReportNoShowModal(
+                              classData: currentClass!,
+                              timeline: tl!,
+                              isPersonalNoShow: false, // Personal reportando Aluno
+                              onReport: (reportData) {
+                                context.read<ClassesBloc>().add(
+                                      ClassesReportNoShow(
+                                        classId: currentClass!.id,
+                                        dto: ReportNoShowDto(
+                                          reason: reportData['reason'],
+                                          notes: reportData['notes'],
+                                          evidenceUrls: reportData['evidenceImages'],
+                                        ),
+                                      ),
+                                    );
+                              },
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Aluno não compareceu / Abrir Disputa',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
