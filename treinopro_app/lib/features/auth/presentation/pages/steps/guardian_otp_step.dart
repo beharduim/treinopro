@@ -96,18 +96,30 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
   }
 
   void _onDigitChanged(String value, int index) {
-    if (value.isNotEmpty) {
+    if (value.length > 1) {
+      // Usuário colou um código completo ou parcial
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').split('');
+      int currIndex = index;
+      for (int i = 0; i < digits.length && currIndex < 6; i++) {
+        _controllers[currIndex].text = digits[i];
+        currIndex++;
+      }
+      if (currIndex < 6) {
+        _focusNodes[currIndex].requestFocus();
+      } else {
+        _focusNodes[5].unfocus();
+      }
+    } else if (value.length == 1) {
       if (index < 5) {
         _focusNodes[index + 1].requestFocus();
       } else {
         _focusNodes[index].unfocus();
       }
-    } else {
-      if (index > 0) {
-        _focusNodes[index - 1].requestFocus();
-      }
+    } else if (value.isEmpty && index > 0) {
+      _focusNodes[index - 1].requestFocus();
     }
     
+    _onCodeChanged();
     // Forçar reconstrução para atualizar as bordas dos campos
     setState(() {});
   }
@@ -321,7 +333,7 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
                               focusNode: _focusNodes[index],
                               textAlign: TextAlign.center,
                               keyboardType: TextInputType.number,
-                              maxLength: 1,
+                              maxLength: 6,
                               style: AppTextStyles.h6Semibold.copyWith(
                                 color: AppColors.secondary,
                               ),

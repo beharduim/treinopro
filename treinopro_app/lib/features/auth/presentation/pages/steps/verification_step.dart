@@ -97,7 +97,20 @@ class _VerificationStepState extends State<VerificationStep> {
   }
 
   void _onDigitChanged(String value, int index) {
-    if (value.length == 1) {
+    if (value.length > 1) {
+      // Usuário colou um código completo ou parcial
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').split('');
+      int currIndex = index;
+      for (int i = 0; i < digits.length && currIndex < 6; i++) {
+        _controllers[currIndex].text = digits[i];
+        currIndex++;
+      }
+      if (currIndex < 6) {
+        _focusNodes[currIndex].requestFocus();
+      } else {
+        _focusNodes[5].unfocus();
+      }
+    } else if (value.length == 1) {
       // Move para o próximo campo
       if (index < 5) {
         _focusNodes[index + 1].requestFocus();
@@ -110,6 +123,7 @@ class _VerificationStepState extends State<VerificationStep> {
     }
 
     _onCodeChanged();
+    setState(() {});
   }
 
   Future<void> _verifyCode() async {
@@ -347,7 +361,7 @@ class _VerificationStepState extends State<VerificationStep> {
                               focusNode: _focusNodes[index],
                               textAlign: TextAlign.center,
                               keyboardType: TextInputType.number,
-                              maxLength: 1,
+                              maxLength: 6,
                               style: AppTextStyles.h6Semibold.copyWith(
                                 color: AppColors.secondary,
                               ),

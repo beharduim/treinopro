@@ -96,6 +96,24 @@ class _CreateProposalView extends StatelessWidget {
               context.read<ProposalsBloc>().add(ProposalsNavigateToStep(3));
             }
           });
+        } else if (state is ProposalsLoaded && state.errorMessage != null) {
+          final detailMessage = state.errorDetails
+              ?.replaceFirst('Exception: ', '')
+              .trim();
+          final snackMessage =
+              (detailMessage != null && detailMessage.isNotEmpty)
+              ? detailMessage
+              : state.errorMessage!;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(snackMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+
+          context.read<ProposalsBloc>().add(const ProposalsClearErrors());
         } else if (state is ProposalsSubmitted) {
           _showSuccessAndNavigate(context);
         } else if (state is ProposalsPaymentPending) {

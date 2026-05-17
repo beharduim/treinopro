@@ -88,6 +88,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<ProposalsClear>(_onClear);
     on<ProposalsNextStep>(_onNextStep);
     on<ProposalsPreviousStep>(_onPreviousStep);
+    on<ProposalsClearErrors>(_onClearErrors);
 
     // ===== HANDLERS PARA LISTAGEM DE PROPOSTAS (PERSONAL TRAINER) =====
     on<ProposalsLoadAvailable>(_onLoadAvailable);
@@ -214,7 +215,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       locationLng: event.location.longitude, // ✅ Salvar coordenadas
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Registrar uso do local para popularidade
     await PopularLocationsService.addLocationUsage(event.location);
@@ -239,6 +240,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       currentState.copyWith(
         proposal: updatedProposal,
         availableTimeSlots: [], // Limpar horários antigos
+        clearError: true,
       ),
     );
 
@@ -263,7 +265,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           event.modality.suggestedPrice, // Sugerir preço baseado na modalidade
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -280,7 +282,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       trainingTime: event.time,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -297,7 +299,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       durationMinutes: event.durationMinutes,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -312,7 +314,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     final currentState = state as ProposalsLoaded;
     final updatedProposal = currentState.proposal.copyWith(price: event.price);
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -329,7 +331,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       additionalNotes: event.notes.isEmpty ? null : event.notes,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -530,18 +532,19 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           '❌ [PROPOSALS BLOC] Status de pagamento não reconhecido: ${response.paymentStatus}',
         );
         emit(
-          ProposalsError(
-            message: 'Erro no processamento do pagamento. Tente novamente.',
-            details: 'Status do pagamento: ${response.paymentStatus}',
+          currentState.copyWith(
+            isSubmitting: false,
+            errorMessage: 'Erro no processamento do pagamento. Tente novamente.',
+            errorDetails: 'Status do pagamento: ${response.paymentStatus}',
           ),
         );
       }
     } catch (e) {
-      emit(currentState.copyWith(isSubmitting: false));
       emit(
-        ProposalsError(
-          message: 'Erro ao enviar proposta',
-          details: e.toString(),
+        currentState.copyWith(
+          isSubmitting: false,
+          errorMessage: 'Erro ao enviar proposta',
+          errorDetails: e.toString().replaceFirst('Exception: ', '').trim(),
         ),
       );
     }
@@ -627,7 +630,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     print('  - ID: ${selectedMethod.id}');
     print('  - Type: ${selectedMethod.type}');
 
-    emit(currentState.copyWith(proposal: updatedProposal));
+    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
   }
 
   Future<void> _onSetSavedCardCvv(
@@ -640,6 +643,16 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       savedCardCvv: event.cvv,
     );
     emit(currentState.copyWith(proposal: updatedProposal));
+  }
+
+  void _onClearErrors(
+    ProposalsClearErrors event,
+    Emitter<ProposalsState> emit,
+  ) {
+    if (state is ProposalsLoaded) {
+      final currentState = state as ProposalsLoaded;
+      emit(currentState.copyWith(clearError: true));
+    }
   }
 
   Future<void> _onLoadPaymentMethods(

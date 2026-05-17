@@ -37,6 +37,8 @@ class ProposalsLoaded extends ProposalsState {
   final bool isLoadingTimeSlots;
   final bool isLoadingPaymentMethods;
   final bool isSubmitting;
+  final String? errorMessage;
+  final String? errorDetails;
 
   const ProposalsLoaded({
     required this.proposal,
@@ -51,6 +53,8 @@ class ProposalsLoaded extends ProposalsState {
     this.isLoadingTimeSlots = false,
     this.isLoadingPaymentMethods = false,
     this.isSubmitting = false,
+    this.errorMessage,
+    this.errorDetails,
   });
 
   ProposalsLoaded copyWith({
@@ -66,6 +70,9 @@ class ProposalsLoaded extends ProposalsState {
     bool? isLoadingTimeSlots,
     bool? isLoadingPaymentMethods,
     bool? isSubmitting,
+    String? errorMessage,
+    String? errorDetails,
+    bool clearError = false,
   }) {
     return ProposalsLoaded(
       proposal: proposal ?? this.proposal,
@@ -82,6 +89,8 @@ class ProposalsLoaded extends ProposalsState {
       isLoadingPaymentMethods:
           isLoadingPaymentMethods ?? this.isLoadingPaymentMethods,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      errorDetails: clearError ? null : (errorDetails ?? this.errorDetails),
     );
   }
 
@@ -124,6 +133,8 @@ class ProposalsLoaded extends ProposalsState {
     isLoadingTimeSlots,
     isLoadingPaymentMethods,
     isSubmitting,
+    errorMessage,
+    errorDetails,
   ];
 }
 

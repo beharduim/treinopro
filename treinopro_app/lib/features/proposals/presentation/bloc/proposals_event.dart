@@ -265,3 +265,9 @@ class ProposalsDisconnectWebSocket extends ProposalsEvent {
 class ProposalsRefresh extends ProposalsEvent {
   const ProposalsRefresh();
 }
+
+/// Limpar erros exibidos
+class ProposalsClearErrors extends ProposalsEvent {
+  const ProposalsClearErrors();
+}
+
