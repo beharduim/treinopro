@@ -5,7 +5,6 @@ import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/websocket_service.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
-import '../../data/models/class_timeline_calculator.dart';
 import '../../data/models/class_timer_state.dart';
 import '../../data/models/get_classes_dto.dart';
 // DTO imports não são necessários aqui, pois os tipos são usados nos eventos
@@ -14,6 +13,7 @@ import '../../data/services/persistent_timer_service.dart';
 import '../../data/services/student_photo_cache_service.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_event.dart';
+import '../../utils/class_operation_error_messages.dart';
 
 export 'classes_event.dart';
 export 'classes_state.dart';
@@ -45,6 +45,8 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
 
   // Rastreamento de conexão para sincronização após reconexão
   bool _wasDisconnected = false;
+  DateTime? _lastTimelineApiRefresh;
+  static const Duration _timelineRefreshInterval = Duration(seconds: 30);
 
   // Mapa de códigos de confirmação pendentes, indexado por classId
   final Map<String, String> _pendingStartCodes = {};
@@ -189,7 +191,12 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
     switch (action) {
       case 'start_class':
         allowed = tl.canStart == true;
-        if (!allowed) reason = 'Aula não pode ser iniciada neste momento.';
+        if (!allowed) {
+          reason = ClassOperationErrorMessages.friendlyMessage(
+            'Aula não pode ser iniciada neste momento.',
+            action: 'start_class',
+          );
+        }
         break;
       case 'confirm_start':
         allowed = tl.canConfirmStart == true;
@@ -198,7 +205,12 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         break;
       case 'complete_class':
         allowed = tl.canComplete == true;
-        if (!allowed) reason = 'Aula não pode ser finalizada no estado atual.';
+        if (!allowed) {
+          reason = ClassOperationErrorMessages.friendlyMessage(
+            'Aula não pode ser finalizada no estado atual.',
+            action: 'complete_class',
+          );
+        }
         break;
       case 'cancel_class':
         allowed = tl.canCancel == true;
@@ -467,13 +479,33 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       final List<dynamic> classesData = response['classes'] ?? [];
       _classes = classesData.map((e) => ClassResponseDto.fromJson(e)).toList();
 
-      // Carregar timelines para cada aula
-      _timelines.clear();
+      final classIds = _classes.map((c) => c.id).toSet();
+      _timelines.removeWhere((id, _) => !classIds.contains(id));
+
+      final filteredClasses = _applyLocalStatusFilter(_classes);
+
+      emit(
+        ClassesLoaded(
+          classes: filteredClasses,
+          timelines: Map<String, ClassTimelineDto>.from(_timelines),
+          timers: Map<String, ClassTimerState>.from(_timers),
+          selectedDate: _selectedDate,
+          selectedTime: _selectedTime,
+          selectedStatus: _selectedStatus,
+          isWebSocketConnected: true,
+          isLoadingTimelines: true,
+        ),
+      );
+
       for (final c in _classes) {
         try {
           final tl = await _classesApi.getClassTimeline(c.id);
           _timelines[c.id] = tl;
-        } catch (_) {}
+        } catch (e) {
+          print(
+            '⚠️ [CLASSES_BLOC] Falha ao carregar timeline da aula ${c.id}: $e',
+          );
+        }
       }
 
       // Buscar fotos dos alunos em paralelo (não bloqueia a UI)
@@ -548,9 +580,6 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         }
       }
 
-      // Aplicar o filtro local de status na lista antes de emitir o estado
-      final filteredClasses = _applyLocalStatusFilter(_classes);
-
       emit(
         ClassesLoaded(
           classes: filteredClasses,
@@ -560,6 +589,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           selectedTime: _selectedTime,
           selectedStatus: _selectedStatus,
           isWebSocketConnected: true,
+          isLoadingTimelines: false,
         ),
       );
     } catch (e) {
@@ -909,7 +939,10 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           classes: _classes,
           timelines: _timelines,
           timers: _timers,
-          error: e.toString(),
+          error: ClassOperationErrorMessages.friendlyMessage(
+            e,
+            action: 'start_class',
+          ),
           selectedDate: _selectedDate,
           selectedTime: _selectedTime,
           selectedStatus: _selectedStatus,
@@ -987,15 +1020,34 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         emit: emit,
       );
       if (!ok) return;
-      await _classesApi.completeClass(event.classId, event.dto);
+      final result = await _classesApi.completeClass(event.classId, event.dto);
       add(const ClassesRefresh());
+      if (result.settlementStatus == 'failed') {
+        emit(
+          ClassesOperationFailure(
+            classes: _classes,
+            timelines: _timelines,
+            timers: _timers,
+            error:
+                result.settlementMessage ??
+                'Aula concluída, mas o repasse não foi processado. Entre em contato com o suporte.',
+            selectedDate: _selectedDate,
+            selectedTime: _selectedTime,
+            selectedStatus: _selectedStatus,
+            isWebSocketConnected: _ws.isConnected,
+          ),
+        );
+      }
     } catch (e) {
       emit(
         ClassesOperationFailure(
           classes: _classes,
           timelines: _timelines,
           timers: _timers,
-          error: e.toString(),
+          error: ClassOperationErrorMessages.friendlyMessage(
+            e,
+            action: 'complete_class',
+          ),
           selectedDate: _selectedDate,
           selectedTime: _selectedTime,
           selectedStatus: _selectedStatus,
@@ -1279,48 +1331,42 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       }
     }
 
-    // 🚀 Recalcular timelines LOCALMENTE (sem API) para atualizar permissões em tempo real
-    // Isso permite que botões apareçam/desapareçam automaticamente conforme o tempo passa
+    // SSOT: atualizar timelines via API (backend NestJS) a cada 30s
+    final shouldRefreshTimelines = _lastTimelineApiRefresh == null ||
+        now.difference(_lastTimelineApiRefresh!) >= _timelineRefreshInterval;
 
-    // ✅ CORREÇÃO: Criar cópia da lista antes de iterar para evitar concurrent modification
-    // Isso previne o erro quando _classes é modificada (ex: remoção de aula cancelada) durante a iteração
-    final classesCopy = List<ClassResponseDto>.from(_classes);
-    for (final classData in classesCopy) {
-      // Recalcular apenas para aulas que podem ter mudanças de permissão
-      if (classData.status == ClassStatus.SCHEDULED ||
-          classData.status == ClassStatus.PENDING_CONFIRMATION) {
-        // Calcular timeline localmente (sem chamada à API!)
-        final newTimeline = ClassTimelineCalculator.calculate(classData);
-        final oldTimeline = _timelines[classData.id];
+    if (shouldRefreshTimelines) {
+      _lastTimelineApiRefresh = now;
+      final classesCopy = List<ClassResponseDto>.from(_classes);
 
-        // Verificar se houve mudança nas permissões
-        if (oldTimeline == null ||
-            oldTimeline.canReportPersonalNoShow !=
-                newTimeline.canReportPersonalNoShow ||
-            oldTimeline.canStart != newTimeline.canStart ||
-            oldTimeline.canCancel != newTimeline.canCancel ||
-            oldTimeline.canConfirmStart != newTimeline.canConfirmStart ||
-            oldTimeline.canReportNoShow != newTimeline.canReportNoShow) {
-          _timelines[classData.id] = newTimeline;
-          hasChanges = true;
+      for (final classData in classesCopy) {
+        final needsTimeline = classData.status == ClassStatus.SCHEDULED ||
+            classData.status == ClassStatus.PENDING_CONFIRMATION ||
+            classData.status == ClassStatus.ACTIVE;
 
-          // Log apenas quando há mudanças reais (para debug)
-          if (oldTimeline?.canCancel != newTimeline.canCancel) {
-            print(
-              '🔄 [TIMELINE] canCancel mudou para aula ${classData.id}: ${oldTimeline?.canCancel} → ${newTimeline.canCancel}',
-            );
+        if (!needsTimeline) continue;
+
+        try {
+          final newTimeline = await _classesApi.getClassTimeline(classData.id);
+          final oldTimeline = _timelines[classData.id];
+
+          if (oldTimeline == null ||
+              oldTimeline.canReportPersonalNoShow !=
+                  newTimeline.canReportPersonalNoShow ||
+              oldTimeline.canStart != newTimeline.canStart ||
+              oldTimeline.canCancel != newTimeline.canCancel ||
+              oldTimeline.canConfirmStart != newTimeline.canConfirmStart ||
+              oldTimeline.canReportNoShow != newTimeline.canReportNoShow ||
+              oldTimeline.canComplete != newTimeline.canComplete ||
+              oldTimeline.remainingToCompleteSeconds !=
+                  newTimeline.remainingToCompleteSeconds) {
+            _timelines[classData.id] = newTimeline;
+            hasChanges = true;
           }
-          if (oldTimeline?.canStart != newTimeline.canStart) {
-            print(
-              '🔄 [TIMELINE] canStart mudou para aula ${classData.id}: ${oldTimeline?.canStart} → ${newTimeline.canStart}',
-            );
-          }
-          if (oldTimeline?.canReportPersonalNoShow !=
-              newTimeline.canReportPersonalNoShow) {
-            print(
-              '🔄 [TIMELINE] canReportPersonalNoShow mudou para aula ${classData.id}: ${oldTimeline?.canReportPersonalNoShow} → ${newTimeline.canReportPersonalNoShow}',
-            );
-          }
+        } catch (e) {
+          print(
+            '⚠️ [TIMELINE] Falha ao atualizar timeline da aula ${classData.id}: $e',
+          );
         }
       }
     }

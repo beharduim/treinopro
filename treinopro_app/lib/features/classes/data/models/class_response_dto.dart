@@ -45,6 +45,8 @@ class ClassResponseDto {
   /// Código de confirmação de 4 dígitos — presente APENAS na resposta do startClass (HTTP).
   /// Nunca retornado em listagens ou WebSocket. Usar apenas para exibir ao personal no tracking.
   final String? startConfirmationCode;
+  final String? settlementStatus;
+  final String? settlementMessage;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -86,6 +88,8 @@ class ClassResponseDto {
     this.studentEvidence,
     this.personalEvidence,
     this.startConfirmationCode,
+    this.settlementStatus,
+    this.settlementMessage,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -223,6 +227,8 @@ class ClassResponseDto {
           ? List<String>.from(json['personalEvidence'])
           : null,
       startConfirmationCode: json['startConfirmationCode']?.toString(),
+      settlementStatus: json['settlementStatus']?.toString(),
+      settlementMessage: json['settlementMessage']?.toString(),
       createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
     );
