@@ -7,7 +7,6 @@ import com.stripe.android.connect.appearance.Appearance
 import com.stripe.android.connect.appearance.Button
 import com.stripe.android.connect.appearance.Colors
 import com.stripe.android.connect.appearance.CornerRadius
-import com.stripe.android.connect.appearance.Form
 import org.json.JSONObject
 import java.util.Locale
 
@@ -18,13 +17,11 @@ object StripeConnectAppearanceFactory {
         val background = parseColor(appearance["backgroundColor"] as? String, 0xFFFCFDFE.toInt())
         val text = parseColor(appearance["textColor"] as? String, 0xFF0F131A.toInt())
         val secondaryText =
-            parseColor(appearance["secondaryTextColor"] as? String, 0xFF616161)
+            parseColor(appearance["secondaryTextColor"] as? String, 0xFF616161.toInt())
         val danger = parseColor(appearance["dangerColor"] as? String, 0xFFE53D00.toInt())
         val border = parseColor(appearance["borderColor"] as? String, 0xFFE2E8F0.toInt())
         val formBackground =
             parseColor(appearance["formBackgroundColor"] as? String, 0xFFF3F3F3.toInt())
-        val formAccent =
-            parseColor(appearance["formAccentColor"] as? String, primary)
         val borderRadius = (appearance["borderRadius"] as? Number)?.toFloat() ?: 12f
         val spacingUnit = (appearance["spacingUnit"] as? Number)?.toFloat() ?: 8f
 
@@ -63,12 +60,6 @@ object StripeConnectAppearanceFactory {
                     colorBorder = border,
                     colorText = text,
                 )
-            )
-            .form(
-                Form.Builder()
-                    .colorBackground(formBackground)
-                    .accent(formAccent)
-                    .build()
             )
             .build()
     }
