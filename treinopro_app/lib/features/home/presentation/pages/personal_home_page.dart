@@ -1456,7 +1456,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                   value: _raioAtendimento,
                   min: ServiceRadiusConstants.minKm,
                   max: ServiceRadiusConstants.maxKm,
-                  divisions: ServiceRadiusConstants.maxKm.toInt(),
+                  divisions: ServiceRadiusConstants.maxKmInt,
                   onChanged: (double value) {
                     setState(() {
                       _raioAtendimento = ServiceRadiusConstants.clamp(value);
@@ -1507,7 +1507,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 ),
               ),
               const Text(
-                '${ServiceRadiusConstants.maxKm.toInt()} km',
+                '${ServiceRadiusConstants.maxKmInt} km',
                 style: TextStyle(
                   fontSize: 12, // Padrão do texto pequeno
                   color: Color(0xFFF3F3F3),
