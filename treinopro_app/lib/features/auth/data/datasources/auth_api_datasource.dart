@@ -334,7 +334,7 @@ class AuthApiDataSource {
     try {
       final response = await _apiService.dio.post(
         '/auth/verify-code',
-        data: {'email': email, 'code': code},
+        data: {'email': email, 'code': code, 'purpose': 'registration'},
       );
 
       if (response.statusCode == 200) {

@@ -8,6 +8,7 @@ import '../../domain/repositories/home_repository.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../data/services/auth_service.dart' as local_auth;
+import '../../../proposals/data/utils/payment_status_utils.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 
@@ -670,6 +671,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
 
       print('✅ [LOAD_CARD] Estado atualizado com sucesso');
 
+      if (!updatedState.isSearchingActive && !isClosed) {
+        _maybeStartSearchForRecentlyPaidProposal(pendingProposals);
+      }
+
       // Recalcular qual card mostrar
       if (!isClosed) add(const UpdateWorkoutCard());
     } catch (e) {
@@ -751,6 +756,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
           propId == null || !classProposalIds.contains(propId);
       if (!isNotConverted) {
         print('🔧 DEBUG: ❌ Proposta $propId já virou aula, ignorando');
+        return false;
+      }
+
+      // Só exibir card de busca/pendente quando o pagamento estiver confirmado
+      if (!isProposalMapPaymentConfirmed(prop)) {
+        print(
+          '🔧 DEBUG: ❌ Proposta $propId aguardando confirmação de pagamento, ignorando',
+        );
         return false;
       }
 
@@ -878,6 +891,61 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
 
     // Criar DateTime completo com data + hora
     return DateTime(dateTime.year, dateTime.month, dateTime.day, hour, minute);
+  }
+
+  void _maybeStartSearchForRecentlyPaidProposal(
+    List<Map<String, dynamic>> pendingProposals,
+  ) {
+    final now = DateTime.now();
+    final recentlyPaid = pendingProposals.where((prop) {
+      final propStatus = (prop['status'] as String?)?.toLowerCase() ?? '';
+      if (propStatus != 'pending') return false;
+      if (!isProposalMapPaymentConfirmed(prop)) return false;
+
+      final updatedAtRaw = prop['updatedAt'] as String?;
+      if (updatedAtRaw == null) return false;
+
+      final updatedAt = DateTime.tryParse(updatedAtRaw);
+      if (updatedAt == null) return false;
+
+      return now.difference(updatedAt) <= const Duration(minutes: 3);
+    }).toList();
+
+    if (recentlyPaid.isEmpty) return;
+
+    final nextProposal = _getNextPendingProposal(recentlyPaid);
+    if (nextProposal == null) return;
+
+    final location =
+        nextProposal['location']?.toString() ??
+        nextProposal['locationName']?.toString() ??
+        'Local não informado';
+    final trainingTime =
+        nextProposal['time']?.toString() ??
+        nextProposal['trainingTime']?.toString() ??
+        '00:00';
+    final trainingDateRaw =
+        nextProposal['trainingDate'] ?? nextProposal['date'];
+    DateTime trainingDate;
+    if (trainingDateRaw is String) {
+      trainingDate = DateTime.tryParse(trainingDateRaw) ?? DateTime.now();
+    } else if (trainingDateRaw is DateTime) {
+      trainingDate = trainingDateRaw;
+    } else {
+      trainingDate = DateTime.now();
+    }
+
+    print(
+      '💳 [LOAD_CARD] Pagamento confirmado recentemente — iniciando busca para proposta ${nextProposal['id']}',
+    );
+
+    add(
+      StartProposalSearch(
+        location: location,
+        trainingDate: trainingDate,
+        trainingTime: trainingTime,
+      ),
+    );
   }
 
   /// Encontra a próxima proposta pendente

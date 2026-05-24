@@ -16,3 +16,12 @@ class LoadBalance extends BalanceEvent {
 }
 
 class RefreshBalance extends BalanceEvent {}
+
+class RequestWithdrawal extends BalanceEvent {
+  final double amount;
+
+  const RequestWithdrawal(this.amount);
+
+  @override
+  List<Object?> get props => [amount];
+}

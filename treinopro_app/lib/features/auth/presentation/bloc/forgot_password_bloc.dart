@@ -70,7 +70,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
       if (currentState.isCodeSent && currentState.email != null) {
         emit(ForgotPasswordOtpStep(
           email: currentState.email!,
-          remainingTime: 300,
+          remainingTime: 600,
         ));
         _startTimer();
       }
@@ -79,7 +79,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
       if (currentState.isCodeVerified) {
         emit(ForgotPasswordNewPasswordStep(
           email: currentState.email,
-          code: '', // Será preenchido quando o código for verificado
+          code: currentState.verifiedCode ?? '',
         ));
       }
     }
@@ -103,6 +103,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
         emit((state as ForgotPasswordOtpStep).copyWith(
           isVerifying: false,
           isCodeVerified: true,
+          verifiedCode: event.code,
         ));
 
         // Avançar para o próximo step
@@ -172,7 +173,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
       final currentState = state as ForgotPasswordNewPasswordStep;
       emit(ForgotPasswordOtpStep(
         email: currentState.email,
-        remainingTime: 300,
+        remainingTime: 600,
       ));
       _startTimer();
     }
@@ -190,7 +191,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
       
       emit(ForgotPasswordOtpStep(
         email: event.email,
-        remainingTime: 300,
+        remainingTime: 600,
       ));
       
       _startTimer();
@@ -213,7 +214,7 @@ class ForgotPasswordBloc extends Bloc<ForgotPasswordEvent, ForgotPasswordState> 
 
   void _startTimer() {
     _timer?.cancel();
-    int remainingTime = 300;
+    int remainingTime = 600;
     
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       remainingTime--;

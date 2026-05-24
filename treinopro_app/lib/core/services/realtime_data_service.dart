@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../../features/home/presentation/bloc/home_bloc.dart';
@@ -56,6 +58,11 @@ class RealtimeDataService with WidgetsBindingObserver {
   
   // Debounce para evitar estouro de chamadas de LoadWorkoutCardData
   Timer? _homeCardReloadDebounce;
+
+  static const String _pendingPaymentConfirmedKey =
+      'pending_payment_confirmed_v1';
+  static const String _pendingPaymentConfirmedTsKey =
+      'pending_payment_confirmed_ts_v1';
 
   /// Inicializa o serviço com os BLoCs necessários
   void initialize({
@@ -276,6 +283,21 @@ class RealtimeDataService with WidgetsBindingObserver {
 
     // Verificar se é um cancelamento
     final action = data['action'] as String?;
+    if (action == 'payment_confirmed') {
+      debugPrint(
+        '💳 RealtimeDataService: Pagamento confirmado — iniciando busca de personal',
+      );
+
+      final proposal = data['proposal'] as Map<String, dynamic>?;
+      if (proposal != null) {
+        _startProposalSearchFromProposalMap(proposal);
+      }
+
+      _safeAddToBloc(_proposalsBloc, const ProposalsRefresh(), 'ProposalsBloc');
+      _scheduleHomeCardReload(const Duration(milliseconds: 100));
+      return;
+    }
+
     if (action == 'proposal_cancelled') {
       debugPrint('❌ RealtimeDataService: Proposta cancelada - atualizando imediatamente');
 
@@ -1549,19 +1571,130 @@ class RealtimeDataService with WidgetsBindingObserver {
     debugPrint('📢 [REALTIME] Location: $location');
     debugPrint('📢 [REALTIME] TrainingDate: $trainingDate');
     debugPrint('📢 [REALTIME] TrainingTime: $trainingTime');
-    
-    _safeAddToBloc(_homeBloc, home_events.StartProposalSearch(
+
+    _dispatchStartProposalSearch(
       location: location,
       trainingDate: trainingDate,
       trainingTime: trainingTime,
-    ), 'HomeBloc');
-    
-    // ✅ MELHORIA: Também notificar ProposalSearchBloc para sincronização completa
-    _safeAddToBloc(_proposalSearchBloc, proposal_search.StartProposalSearch(
+    );
+  }
+
+  /// Dispara busca após confirmação de pagamento via FCM (foreground ou fila pendente).
+  void handlePaymentConfirmedFromNotification(Map<String, dynamic> data) {
+    debugPrint('💳 [REALTIME] handlePaymentConfirmedFromNotification: $data');
+    _startProposalSearchFromNotificationData(data);
+    _safeAddToBloc(_homeBloc, const home_events.LoadWorkoutCardData(), 'HomeBloc');
+  }
+
+  /// Processa confirmação de pagamento salva enquanto o app ainda não estava pronto.
+  Future<void> processPendingPaymentConfirmedFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_pendingPaymentConfirmedKey);
+      if (raw == null || raw.isEmpty) return;
+
+      final savedAt = prefs.getInt(_pendingPaymentConfirmedTsKey) ?? 0;
+      final ageMs = DateTime.now().millisecondsSinceEpoch - savedAt;
+      if (ageMs > const Duration(minutes: 5).inMilliseconds) {
+        await prefs.remove(_pendingPaymentConfirmedKey);
+        await prefs.remove(_pendingPaymentConfirmedTsKey);
+        debugPrint(
+          'ℹ️ [REALTIME] Confirmação de pagamento pendente expirada — ignorando',
+        );
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        await prefs.remove(_pendingPaymentConfirmedKey);
+        await prefs.remove(_pendingPaymentConfirmedTsKey);
+        return;
+      }
+
+      await prefs.remove(_pendingPaymentConfirmedKey);
+      await prefs.remove(_pendingPaymentConfirmedTsKey);
+
+      handlePaymentConfirmedFromNotification(decoded);
+    } catch (e) {
+      debugPrint(
+        '⚠️ [REALTIME] Erro ao processar confirmação de pagamento pendente: $e',
+      );
+    }
+  }
+
+  void _startProposalSearchFromProposalMap(Map<String, dynamic> proposal) {
+    final location =
+        proposal['locationName']?.toString() ??
+        proposal['location']?.toString() ??
+        'Local não informado';
+    final trainingTime =
+        proposal['trainingTime']?.toString() ??
+        proposal['time']?.toString() ??
+        '00:00';
+
+    DateTime trainingDate;
+    final trainingDateRaw = proposal['trainingDate'] ?? proposal['date'];
+    if (trainingDateRaw is String) {
+      trainingDate = DateTime.tryParse(trainingDateRaw) ?? DateTime.now();
+    } else if (trainingDateRaw is DateTime) {
+      trainingDate = trainingDateRaw;
+    } else {
+      trainingDate = DateTime.now();
+    }
+
+    _dispatchStartProposalSearch(
       location: location,
       trainingDate: trainingDate,
       trainingTime: trainingTime,
-    ), 'ProposalSearchBloc');
+    );
+  }
+
+  void _startProposalSearchFromNotificationData(Map<String, dynamic> data) {
+    final location =
+        data['locationName']?.toString() ??
+        data['location']?.toString() ??
+        'Local não informado';
+    final trainingTime = data['trainingTime']?.toString() ?? '00:00';
+
+    DateTime trainingDate;
+    final trainingDateRaw = data['trainingDate'];
+    if (trainingDateRaw is String && trainingDateRaw.isNotEmpty) {
+      trainingDate = DateTime.tryParse(trainingDateRaw) ?? DateTime.now();
+    } else {
+      trainingDate = DateTime.now();
+    }
+
+    _dispatchStartProposalSearch(
+      location: location,
+      trainingDate: trainingDate,
+      trainingTime: trainingTime,
+    );
+  }
+
+  void _dispatchStartProposalSearch({
+    required String location,
+    required DateTime trainingDate,
+    required String trainingTime,
+  }) {
+    _safeAddToBloc(
+      _homeBloc,
+      home_events.StartProposalSearch(
+        location: location,
+        trainingDate: trainingDate,
+        trainingTime: trainingTime,
+      ),
+      'HomeBloc',
+    );
+
+    _safeAddToBloc(
+      _proposalSearchBloc,
+      proposal_search.StartProposalSearch(
+        location: location,
+        trainingDate: trainingDate,
+        trainingTime: trainingTime,
+      ),
+      'ProposalSearchBloc',
+    );
   }
 
   /// Obtém a instância atual do ProposalSearchBloc (para uso em outras páginas)

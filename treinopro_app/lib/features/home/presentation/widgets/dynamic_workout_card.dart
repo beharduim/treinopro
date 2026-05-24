@@ -10,6 +10,9 @@ import '../bloc/home_event.dart';
 import '../../../proposals/presentation/widgets/proposal_status_modal.dart';
 import '../../../proposals/presentation/bloc/proposal_search_bloc.dart'
     as proposal_search;
+import '../../../../core/di/dependency_injection.dart';
+import '../../../classes/data/services/classes_api_service.dart';
+import '../../../classes/data/models/class_timeline_dto.dart';
 
 /// Widget dinâmico que gerencia todos os estados do card de treinos
 class DynamicWorkoutCard extends StatefulWidget {
@@ -25,6 +28,9 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
   // Removido pulse: manter apenas animação da lupa andando
   Timer? _cancelAvailabilityTimer;
   DateTime? _scheduledDeadlineForAutoHide;
+  ClassTimelineDto? _classTimeline;
+  Timer? _timelineRefreshTimer;
+  String? _timelineClassId;
 
   @override
   void initState() {
@@ -40,52 +46,66 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
     )..repeat();
   }
 
-  void _scheduleAutoHideCancelButtonIfNeeded(DateTime? classDate, String? classTime) {
-    if (classDate == null || classTime == null) {
-      _cancelAvailabilityTimer?.cancel();
-      _cancelAvailabilityTimer = null;
-      _scheduledDeadlineForAutoHide = null;
+  void _scheduleAutoHideCancelButtonIfNeeded(ClassTimelineDto? timeline) {
+    _cancelAvailabilityTimer?.cancel();
+    _cancelAvailabilityTimer = null;
+    _scheduledDeadlineForAutoHide = null;
+
+    if (timeline?.cancellationDeadline == null) return;
+
+    final hideAt = DateTime.tryParse(timeline!.cancellationDeadline!);
+    if (hideAt == null) return;
+
+    if (_scheduledDeadlineForAutoHide == hideAt) return;
+    _scheduledDeadlineForAutoHide = hideAt;
+
+    final wait = hideAt.difference(DateTime.now());
+    if (wait.isNegative) {
+      if (mounted) setState(() {});
       return;
     }
 
-    // Calcular o momento exato em que o botão deve desaparecer (2 horas antes do treino)
+    _cancelAvailabilityTimer = Timer(wait, () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// SSOT: timeline da aula via GET /classes/:id/timeline
+  Future<void> _loadClassTimeline(String classId) async {
+    if (_timelineClassId == classId && _classTimeline != null) return;
+
     try {
-      final parts = classTime.split(':');
-      if (parts.length != 2) return;
-
-      final hour = int.parse(parts[0]);
-      final minute = int.parse(parts[1]);
-      final classDateTime = DateTime(
-        classDate.year,
-        classDate.month,
-        classDate.day,
-        hour,
-        minute,
-      );
-      final hideAt = classDateTime.subtract(const Duration(hours: 2));
-
-      // Se já agendamos para esse mesmo horário, não reagendar
-      if (_scheduledDeadlineForAutoHide != null && _scheduledDeadlineForAutoHide == hideAt) {
-        return;
-      }
-
-      _cancelAvailabilityTimer?.cancel();
-      _scheduledDeadlineForAutoHide = hideAt;
-
-      final now = DateTime.now();
-      final wait = hideAt.difference(now);
-      if (wait.isNegative) {
-        // Já passou do limite -> garantir rebuild para esconder imediatamente
-        if (mounted) setState(() {});
-        return;
-      }
-
-      _cancelAvailabilityTimer = Timer(wait, () {
-        if (mounted) setState(() {});
+      final timeline = await sl<ClassesApiService>().getClassTimeline(classId);
+      if (!mounted) return;
+      setState(() {
+        _classTimeline = timeline;
+        _timelineClassId = classId;
       });
-    } catch (_) {
-      // Em caso de erro de parsing, não agenda
+      _scheduleAutoHideCancelButtonIfNeeded(timeline);
+    } catch (e) {
+      print('⚠️ [DYNAMIC_WORKOUT_CARD] Falha ao carregar timeline: $e');
     }
+  }
+
+  void _startTimelineRefresh(String classId) {
+    _timelineRefreshTimer?.cancel();
+    _timelineRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _timelineClassId = null;
+      _loadClassTimeline(classId);
+    });
+  }
+
+  bool _canCancelFromTimeline() => _classTimeline?.canCancel ?? false;
+
+  String _cancelUnavailableMessage() {
+    final hours = _classTimeline?.cancellationWindowHours;
+    if (hours != null) {
+      final label = hours == hours.roundToDouble()
+          ? '${hours.toInt()}h'
+          : '${hours}h';
+      return 'Cancelamento indisponível — prazo mínimo de $label antes da aula.';
+    }
+    return 'Cancelamento indisponível — prazo mínimo antes da aula já expirou.';
   }
 
   @override
@@ -294,8 +314,12 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
       '🖼️ [DYNAMIC_WORKOUT_CARD] classData keys: ${classData.keys.toList()}',
     );
 
-    // Agendar auto atualização para esconder o botão exatamente no limite de 2h
-    _scheduleAutoHideCancelButtonIfNeeded(homeState.workoutCardDate, homeState.workoutCardTime);
+    // SSOT: carregar timeline do backend para cancelamento e prazos
+    final classId = classData['id']?.toString();
+    if (classId != null && classId.isNotEmpty) {
+      _loadClassTimeline(classId);
+      _startTimelineRefresh(classId);
+    }
 
     return Container(
       width: double.infinity,
@@ -487,7 +511,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
           const SizedBox(height: 20),
 
           // Botão de cancelar aula (oculto se faltar menos de 2h)
-          if (_canCancelClass(homeState.workoutCardDate, homeState.workoutCardTime))
+          if (_canCancelFromTimeline())
             SizedBox(
               width: double.infinity, // 100% da largura
               child: Container(
@@ -518,7 +542,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
             ),
           
           // Mensagem quando não pode mais cancelar
-          if (!_canCancelClass(homeState.workoutCardDate, homeState.workoutCardTime))
+          if (!_canCancelFromTimeline())
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -533,7 +557,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Cancelamento indisponível - o treino começa em menos de 2hrs',
+                      _cancelUnavailableMessage(),
                       style: TextStyle(
                         color: Colors.orange.shade900,
                         fontSize: 12,
@@ -1266,53 +1290,8 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
   @override
   void dispose() {
     _searchAnimationController.dispose();
-    // sem pulse
     _cancelAvailabilityTimer?.cancel();
+    _timelineRefreshTimer?.cancel();
     super.dispose();
-  }
-
-  /// Verifica se ainda é possível cancelar a aula (mais de 2 horas antes)
-  bool _canCancelClass(DateTime? classDate, String? classTime) {
-    if (classDate == null || classTime == null) {
-      return false;
-    }
-
-    try {
-      // Parsear o horário (formato HH:mm)
-      final timeParts = classTime.split(':');
-      if (timeParts.length != 2) {
-        print('⚠️ [CAN_CANCEL] Formato de horário inválido: $classTime');
-        return false;
-      }
-
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-
-      // Criar DateTime completo da aula
-      final classDateTime = DateTime(
-        classDate.year,
-        classDate.month,
-        classDate.day,
-        hour,
-        minute,
-      );
-
-      // Calcular diferença com o horário atual
-      final now = DateTime.now();
-      final difference = classDateTime.difference(now);
-
-      // Permitir cancelamento se faltar 120 minutos ou mais
-      final canCancel = difference.inMinutes >= 120;
-
-      print('🕐 [CAN_CANCEL] Aula: $classDateTime');
-      print('🕐 [CAN_CANCEL] Agora: $now');
-      print('🕐 [CAN_CANCEL] Diferença: ${difference.inHours}h ${difference.inMinutes % 60}min');
-      print('🕐 [CAN_CANCEL] Pode cancelar: $canCancel');
-
-      return canCancel;
-    } catch (e) {
-      print('❌ [CAN_CANCEL] Erro ao verificar: $e');
-      return false;
-    }
   }
 }

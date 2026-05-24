@@ -39,6 +39,10 @@ private struct ProposalAttributes: ActivityAttributes {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Forçar idioma Português (Brasil) incondicionalmente no iOS para que componentes nativos (como Stripe) abram sempre em PT-BR
+    UserDefaults.standard.set(["pt-BR", "pt"], forKey: "AppleLanguages")
+    UserDefaults.standard.synchronize()
+
     // Configurar Firebase ANTES de qualquer outra coisa
     if FirebaseApp.app() == nil {
       FirebaseApp.configure()
@@ -172,52 +176,108 @@ private struct ProposalAttributes: ActivityAttributes {
       return
     }
 
+    let locale = (args["locale"] as? String)?.isEmpty == false ? (args["locale"] as? String)! : "pt-BR"
+    UserDefaults.standard.set([locale, "pt"], forKey: "AppleLanguages")
+    UserDefaults.standard.synchronize()
+
+    let localAppearance = args["appearance"] as? [String: Any]
     let newConfig = StripeConnectConfiguration(
       publishableKey: publishableKey,
       baseUrl: baseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
-      accessToken: accessToken
+      accessToken: accessToken,
+      locale: locale,
+      localAppearance: localAppearance
     )
 
-    if stripeEmbeddedComponentManager == nil || stripeConnectConfig != newConfig {
-      stripeConnectConfig = newConfig
-      STPAPIClient.shared.publishableKey = publishableKey
-      stripeEmbeddedComponentManager = EmbeddedComponentManager(
-        fetchClientSecret: { [weak self] in
-          guard let self else { return nil }
-          return await self.fetchStripeClientSecret(
-            baseUrl: newConfig.baseUrl,
-            accessToken: newConfig.accessToken
+    stripeOnboardingResult = result
+
+    Task { [weak self] in
+      guard let self else { return }
+
+      guard let sessionPayload = await self.fetchStripeAccountSessionPayload(
+        baseUrl: newConfig.baseUrl,
+        accessToken: newConfig.accessToken
+      ) else {
+        await MainActor.run {
+          self.failStripeOnboarding(
+            code: "stripe_onboarding_session_failed",
+            message: "Não foi possível iniciar a sessão de onboarding do Stripe."
           )
         }
-      )
-    }
+        return
+      }
 
-    guard let presenter = topViewController() else {
-      result(
-        FlutterError(
-          code: "stripe_onboarding_presenter_unavailable",
-          message: "Não foi possível localizar uma tela para apresentar o onboarding.",
-          details: nil
-        )
+      let mergedAppearance = StripeConnectAppearanceFactory.mergeAppearance(
+        local: newConfig.localAppearance,
+        remote: sessionPayload
       )
-      return
-    }
-
-    guard let onboardingController = stripeEmbeddedComponentManager?.createAccountOnboardingController() else {
-      result(
-        FlutterError(
-          code: "stripe_onboarding_unavailable",
-          message: "Não foi possível criar o controller de onboarding do Stripe.",
-          details: nil
-        )
+      let resolvedConfig = StripeConnectConfiguration(
+        publishableKey: newConfig.publishableKey,
+        baseUrl: newConfig.baseUrl,
+        accessToken: newConfig.accessToken,
+        locale: locale,
+        localAppearance: mergedAppearance
       )
-      return
-    }
+      let appearance = StripeConnectAppearanceFactory.buildAppearance(from: mergedAppearance)
 
-    stripeOnboardingResult = result
-    onboardingController.delegate = self
-    onboardingController.title = "Configurar recebimento"
-    onboardingController.present(from: presenter)
+      await MainActor.run {
+        if self.stripeEmbeddedComponentManager == nil || self.stripeConnectConfig != resolvedConfig {
+          self.stripeConnectConfig = resolvedConfig
+          STPAPIClient.shared.publishableKey = publishableKey
+          self.stripeEmbeddedComponentManager = EmbeddedComponentManager(
+            appearance: appearance,
+            fetchClientSecret: { [weak self] in
+              guard let self else { return nil }
+              let payload = await self.fetchStripeAccountSessionPayload(
+                baseUrl: resolvedConfig.baseUrl,
+                accessToken: resolvedConfig.accessToken
+              )
+              return payload?["clientSecret"] as? String
+            }
+          )
+        } else {
+          self.stripeConnectConfig = resolvedConfig
+          self.stripeEmbeddedComponentManager?.update(appearance: appearance)
+        }
+
+        guard let presenter = self.topViewController() else {
+          self.failStripeOnboarding(
+            code: "stripe_onboarding_presenter_unavailable",
+            message: "Não foi possível localizar uma tela para apresentar o onboarding."
+          )
+          return
+        }
+
+        let onboardingTitle = (mergedAppearance["title"] as? String)?.isEmpty == false
+          ? (mergedAppearance["title"] as? String)!
+          : "Configurar recebimento"
+        let privacyPolicyUrl = (mergedAppearance["privacyPolicyUrl"] as? String).flatMap(URL.init(string:))
+        let termsOfServiceUrl = (mergedAppearance["termsOfServiceUrl"] as? String).flatMap(URL.init(string:))
+
+        guard let onboardingController = self.stripeEmbeddedComponentManager?.createAccountOnboardingController(
+          fullTermsOfServiceUrl: termsOfServiceUrl,
+          recipientTermsOfServiceUrl: termsOfServiceUrl,
+          privacyPolicyUrl: privacyPolicyUrl
+        ) else {
+          self.failStripeOnboarding(
+            code: "stripe_onboarding_unavailable",
+            message: "Não foi possível criar o controller de onboarding do Stripe."
+          )
+          return
+        }
+
+        onboardingController.delegate = self
+        onboardingController.title = onboardingTitle
+        onboardingController.present(from: presenter)
+      }
+    }
+  }
+
+  private func failStripeOnboarding(code: String, message: String) {
+    stripeOnboardingResult?(
+      FlutterError(code: code, message: message, details: nil)
+    )
+    stripeOnboardingResult = nil
   }
 
   private func topViewController(
@@ -240,10 +300,10 @@ private struct ProposalAttributes: ActivityAttributes {
     return rootController
   }
 
-  private func fetchStripeClientSecret(
+  private func fetchStripeAccountSessionPayload(
     baseUrl: String,
     accessToken: String
-  ) async -> String? {
+  ) async -> [String: Any]? {
     guard let url = URL(string: "\(baseUrl)/payments/profile/financial/stripe/account-session") else {
       return nil
     }
@@ -252,6 +312,7 @@ private struct ProposalAttributes: ActivityAttributes {
     request.httpMethod = "POST"
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("pt-BR,pt;q=0.9", forHTTPHeaderField: "Accept-Language")
     request.httpBody = Data()
 
     do {
@@ -267,7 +328,7 @@ private struct ProposalAttributes: ActivityAttributes {
         return nil
       }
 
-      return clientSecret
+      return payload
     } catch {
       return nil
     }
@@ -513,6 +574,16 @@ private struct StripeConnectConfiguration: Equatable {
   let publishableKey: String
   let baseUrl: String
   let accessToken: String
+  let locale: String
+  let localAppearance: [String: Any]?
+
+  static func == (lhs: StripeConnectConfiguration, rhs: StripeConnectConfiguration) -> Bool {
+    lhs.publishableKey == rhs.publishableKey &&
+      lhs.baseUrl == rhs.baseUrl &&
+      lhs.accessToken == rhs.accessToken &&
+      lhs.locale == rhs.locale &&
+      NSDictionary(dictionary: lhs.localAppearance ?? [:]).isEqual(to: rhs.localAppearance ?? [:])
+  }
 }
 
 // MARK: - MessagingDelegate

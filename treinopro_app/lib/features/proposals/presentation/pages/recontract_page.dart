@@ -5,6 +5,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../data/services/proposals_api_service.dart';
+import '../../data/utils/payment_status_utils.dart';
+import '../widgets/pix_payment_pending_dialog.dart';
 import '../widgets/location_search_field.dart';
 import '../widgets/visual_date_picker.dart';
 import '../widgets/time_slot_selector.dart';
@@ -987,12 +989,12 @@ class _RecontractPageState extends State<RecontractPage> {
       final paymentStatus =
           (response.paymentStatus ?? response.payment?.status ?? '')
               .toLowerCase();
-      final isPaymentConfirmed =
-          paymentStatus == 'approved' ||
-          paymentStatus == 'authorized' ||
-          paymentStatus == 'captured';
+      final isPaymentConfirmed = isProposalPaymentConfirmed(paymentStatus);
       final isPaymentPending =
           paymentStatus == 'pending' || paymentStatus == 'in_process';
+      final resolvedPaymentMethod =
+          (response.payment?.method ?? proposalData['paymentMethod'] ?? '')
+              .toLowerCase();
 
       if (isPaymentConfirmed) {
         scaffoldMessenger.showSnackBar(
@@ -1003,6 +1005,22 @@ class _RecontractPageState extends State<RecontractPage> {
         );
 
         appNavigator.pushNamedAndRemoveUntil('/student-home', (route) => false);
+        return;
+      }
+
+      if (isPaymentPending &&
+          resolvedPaymentMethod == 'pix' &&
+          response.payment != null) {
+        await showPixPaymentPendingDialog(
+          context,
+          response.payment!,
+          onAcknowledged: () {
+            appNavigator.pushNamedAndRemoveUntil(
+              '/student-home',
+              (route) => false,
+            );
+          },
+        );
         return;
       }
 

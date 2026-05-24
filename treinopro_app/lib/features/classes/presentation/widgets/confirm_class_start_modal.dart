@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
+import '../../../../core/widgets/otp_pin_input.dart';
 
 class ConfirmClassStartModal extends StatefulWidget {
   final ClassResponseDto classData;
@@ -22,18 +22,12 @@ class ConfirmClassStartModal extends StatefulWidget {
 }
 
 class _ConfirmClassStartModalState extends State<ConfirmClassStartModal> {
-  final TextEditingController _codeController = TextEditingController();
+  final OtpPinInputController _otpController = OtpPinInputController();
   String? _errorText;
   bool _isLoading = false;
 
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
   void _handleConfirm() {
-    final code = _codeController.text.trim();
+    final code = _otpController.code.trim();
     if (code.length != 4 || !RegExp(r'^\d{4}$').hasMatch(code)) {
       setState(() => _errorText = 'Digite o código de 4 dígitos');
       return;
@@ -151,57 +145,33 @@ class _ConfirmClassStartModalState extends State<ConfirmClassStartModal> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                autofillHints: const [AutofillHints.oneTimeCode],
-                enableSuggestions: false,
-                autocorrect: false,
-                maxLength: 4,
-                textAlign: TextAlign.center,
-                enableInteractiveSelection: true,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
-                ],
-                style: const TextStyle(
-                  fontSize: 28,
+              OtpPinInput(
+                length: 4,
+                controller: _otpController,
+                boxWidth: 56,
+                activeBorderColor: const Color(0xFFFF6B35),
+                inactiveBorderColor: const Color(0xFF718096),
+                enabled: !_isLoading,
+                textStyle: const TextStyle(
+                  fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 12,
                   color: Color(0xFF2D3748),
                 ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '_ _ _ _',
-                  hintStyle: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 12,
-                    color: Colors.grey.shade400,
-                  ),
-                  errorText: _errorText,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFFF6B35),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onChanged: (value) {
+                onChanged: (_) {
                   if (_errorText != null) setState(() => _errorText = null);
-                  // ✅ Submissão automática se o usuário digitar/colar 4 dígitos
-                  if (value.length == 4) {
-                    _handleConfirm();
-                  }
                 },
-                onSubmitted: (_) => _handleConfirm(),
+                onCompleted: (_) => _handleConfirm(),
               ),
+              if (_errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorText!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 20),
 

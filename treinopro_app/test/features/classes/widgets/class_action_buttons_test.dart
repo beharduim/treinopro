@@ -32,7 +32,7 @@ ClassTimelineDto _buildTimeline({required bool canComplete}) => ClassTimelineDto
 
 void main() {
   group('ClassActionButtons - botão Finalizar aula', () {
-    testWidgets('está desabilitado quando canComplete=false (< 45min)', (tester) async {
+    testWidgets('está desabilitado quando canComplete=false (timeline SSOT)', (tester) async {
       bool tapped = false;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -48,7 +48,7 @@ void main() {
       expect(tapped, isFalse);
     });
 
-    testWidgets('está habilitado quando canComplete=true (>= 45min)', (tester) async {
+    testWidgets('está habilitado quando canComplete=true (timeline SSOT)', (tester) async {
       bool tapped = false;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(

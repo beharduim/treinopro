@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/proposal.dart';
 import '../../domain/entities/training_location.dart';
 import '../../domain/entities/training_modality.dart';
 
@@ -172,6 +173,20 @@ class ProposalsSave extends ProposalsEvent {
 /// Submeter proposta finalizada
 class ProposalsSubmit extends ProposalsEvent {
   const ProposalsSubmit();
+}
+
+/// Confirmar pagamento Stripe após modal
+class ProposalsConfirmStripePayment extends ProposalsEvent {
+  final String proposalId;
+  final Proposal proposal;
+
+  const ProposalsConfirmStripePayment({
+    required this.proposalId,
+    required this.proposal,
+  });
+
+  @override
+  List<Object> get props => [proposalId, proposal];
 }
 
 /// Limpar proposta atual

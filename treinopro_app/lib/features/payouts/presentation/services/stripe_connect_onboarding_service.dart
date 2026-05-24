@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/services/api_service.dart';
+import 'stripe_connect_appearance.dart';
 
 class StripeConnectOnboardingService {
   static const MethodChannel _channel = MethodChannel(
@@ -34,11 +35,15 @@ class StripeConnectOnboardingService {
       );
     }
 
+    final appearance = StripeConnectAppearance.toNativeMap()
+      ..['locale'] = locale;
+
     await _channel.invokeMethod('presentEmbeddedOnboarding', {
       'publishableKey': publishableKey,
       'baseUrl': AppConfig.apiBaseUrl,
       'accessToken': accessToken,
       'locale': locale,
+      'appearance': appearance,
     });
   }
 }

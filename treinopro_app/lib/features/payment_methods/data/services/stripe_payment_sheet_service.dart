@@ -19,6 +19,16 @@ class StripePaymentSheetService {
         customerEphemeralKeySecret: ephemeralKeySecret,
         allowsDelayedPaymentMethods: false,
         style: ThemeMode.system,
+        billingDetails: const BillingDetails(
+          address: Address(
+            city: null,
+            country: 'BR',
+            line1: null,
+            line2: null,
+            postalCode: null,
+            state: null,
+          ),
+        ),
       ),
     );
     await _present();
@@ -39,6 +49,16 @@ class StripePaymentSheetService {
         customerEphemeralKeySecret: ephemeralKeySecret,
         allowsDelayedPaymentMethods: false,
         style: ThemeMode.system,
+        billingDetails: const BillingDetails(
+          address: Address(
+            city: null,
+            country: 'BR',
+            line1: null,
+            line2: null,
+            postalCode: null,
+            state: null,
+          ),
+        ),
       ),
     );
     await _present();

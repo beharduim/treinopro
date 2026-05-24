@@ -33,3 +33,11 @@ class BalanceError extends BalanceState {
   @override
   List<Object?> get props => [message];
 }
+
+class BalanceWithdrawSuccess extends BalanceState {
+  final String message;
+  const BalanceWithdrawSuccess(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

@@ -358,6 +358,7 @@ Future<void> setupDependencyInjection(SharedPreferences prefs) async {
         prefs: sl<SharedPreferences>(),
         cacheService: sl<CacheService>(),
         usersApiService: sl<UsersApiService>(),
+        healthQuestionnaireApiService: sl<HealthQuestionnaireApiService>(),
       ),
     );
   }

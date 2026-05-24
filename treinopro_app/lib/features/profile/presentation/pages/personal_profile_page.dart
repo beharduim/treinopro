@@ -20,6 +20,8 @@ import '../../../gamification/presentation/utils/level_labels.dart';
 import '../../data/services/notifications_api_service.dart';
 import '../../../auth/data/services/upload_service.dart';
 import 'trainer_lessons_history_page.dart';
+import '../../../classes/presentation/pages/my_disputes_page.dart';
+import '../../../classes/presentation/bloc/classes_bloc.dart';
 import '../../../../core/services/cache_service.dart';
 import '../../../../core/services/websocket_service.dart';
 import '../../../../core/services/realtime_data_service.dart';
@@ -1424,6 +1426,18 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const TrainerLessonsHistoryPage(),
+                ),
+              );
+            }),
+            const SizedBox(height: 16),
+            _buildOptionRow('Minhas Disputas', 'Ver', Icons.gavel, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider(
+                    create: (_) => sl<ClassesBloc>(),
+                    child: const MyDisputesPage(),
+                  ),
                 ),
               );
             }),

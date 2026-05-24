@@ -34,6 +34,7 @@ class ForgotPasswordOtpStep extends ForgotPasswordState {
   final String email;
   final bool isVerifying;
   final bool isCodeVerified;
+  final String? verifiedCode;
   final String? error;
   final int remainingTime;
 
@@ -41,14 +42,16 @@ class ForgotPasswordOtpStep extends ForgotPasswordState {
     required this.email,
     this.isVerifying = false,
     this.isCodeVerified = false,
+    this.verifiedCode,
     this.error,
-    this.remainingTime = 300, // 5 minutos
+    this.remainingTime = 600,
   });
 
   ForgotPasswordOtpStep copyWith({
     String? email,
     bool? isVerifying,
     bool? isCodeVerified,
+    String? verifiedCode,
     String? error,
     int? remainingTime,
   }) {
@@ -56,6 +59,7 @@ class ForgotPasswordOtpStep extends ForgotPasswordState {
       email: email ?? this.email,
       isVerifying: isVerifying ?? this.isVerifying,
       isCodeVerified: isCodeVerified ?? this.isCodeVerified,
+      verifiedCode: verifiedCode ?? this.verifiedCode,
       error: error,
       remainingTime: remainingTime ?? this.remainingTime,
     );

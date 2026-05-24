@@ -30,6 +30,8 @@ class _PersonalBalanceView extends StatefulWidget {
 }
 
 class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
+  bool _isWithdrawing = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,9 +46,16 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
       body: BlocConsumer<BalanceBloc, BalanceState>(
         listener: (context, state) {
           if (state is BalanceError) {
+            setState(() => _isWithdrawing = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: Colors.red),
             );
+          }
+          if (state is BalanceWithdrawSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+            );
+            setState(() => _isWithdrawing = false);
           }
         },
         builder: (context, state) {
@@ -211,7 +220,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
   }
 
   Widget _buildWithdrawButton(FinancialProfileModel profile) {
-    final canWithdraw = profile.stripeAccount?.payoutsEnabled ?? false;
+    final canWithdraw = profile.stripeAccount?.isReadyForPayout ?? false;
     final balance = profile.wallet?.availableBalance ?? 0.0;
 
     return SizedBox(
@@ -224,13 +233,21 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
-        onPressed: (canWithdraw && balance > 0) 
-          ? () => _requestWithdrawal(context)
-          : () => _showBlockedWithdrawalDialog(context, profile.stripeAccount, balance),
-        child: const Text(
-          'Solicitar Saque',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        onPressed: _isWithdrawing
+            ? null
+            : (canWithdraw && balance > 0)
+                ? () => _requestWithdrawal(context, profile)
+                : () => _showBlockedWithdrawalDialog(context, profile.stripeAccount, balance),
+        child: _isWithdrawing
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Text(
+                'Solicitar Saque',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
@@ -250,7 +267,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Entendi'),
           ),
-          if (stripe?.payoutsEnabled == false)
+          if (stripe?.payoutsEnabled == false || !(stripe?.isReadyForPayout ?? false))
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -349,10 +366,38 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     );
   }
 
-  void _requestWithdrawal(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sua solicitação de saque está sendo processada.')),
+  Future<void> _requestWithdrawal(
+    BuildContext context,
+    FinancialProfileModel profile,
+  ) async {
+    final balance = profile.wallet?.availableBalance ?? 0.0;
+    if (balance <= 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar saque'),
+        content: Text(
+          'Deseja sacar ${_formatCurrency(balance)} para sua conta Stripe Connect?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed != true || !context.mounted) return;
+
+    setState(() => _isWithdrawing = true);
+    context.read<BalanceBloc>().add(RequestWithdrawal(balance));
   }
 
   String _formatCurrency(double value) {

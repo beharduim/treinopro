@@ -1,3 +1,4 @@
+/// Timeline de aula — SSOT: GET /classes/:id/timeline (backend NestJS).
 class ClassTimelineDto {
   final DateTime matchTime;
   final DateTime currentTime;
@@ -16,6 +17,12 @@ class ClassTimelineDto {
   final DateTime? minimumCompletionAt;
   final int? remainingToCompleteSeconds;
   final bool hasPresenceSnapshot;
+  final DateTime? startWindowBegin;
+  final DateTime? startWindowEnd;
+  final int? startWindowBeforeMinutes;
+  final int? startWindowAfterMinutes;
+  final double? cancellationWindowHours;
+  final int? minCompletionMinutes;
 
   ClassTimelineDto({
     required this.matchTime,
@@ -35,6 +42,12 @@ class ClassTimelineDto {
     this.minimumCompletionAt,
     this.remainingToCompleteSeconds,
     this.hasPresenceSnapshot = false,
+    this.startWindowBegin,
+    this.startWindowEnd,
+    this.startWindowBeforeMinutes,
+    this.startWindowAfterMinutes,
+    this.cancellationWindowHours,
+    this.minCompletionMinutes,
   });
 
   factory ClassTimelineDto.fromJson(Map<String, dynamic> json) {
@@ -48,21 +61,50 @@ class ClassTimelineDto {
       canConfirmStart: json['canConfirmStart'] ?? false,
       canReportPersonalNoShow: json['canReportPersonalNoShow'] ?? false,
       canComplete: json['canComplete'] ?? false,
-      cancellationDeadline: json['cancellationDeadline'],
-      noShowReportDeadline: json['noShowReportDeadline'],
-      confirmationDeadline: json['confirmationDeadline'],
-      timeUntilClass: json['timeUntilClass'],
-      timeUntilCancellationDeadline: json['timeUntilCancellationDeadline'],
-      minimumCompletionAt: json['minimumCompletionAt'] != null
-          ? DateTime.tryParse(json['minimumCompletionAt'])
-          : null,
+      cancellationDeadline: _asIsoString(json['cancellationDeadline']),
+      noShowReportDeadline: _asIsoString(json['noShowReportDeadline']),
+      confirmationDeadline: json['confirmationDeadline']?.toString(),
+      timeUntilClass: json['timeUntilClass']?.toString(),
+      timeUntilCancellationDeadline: json['timeUntilCancellationDeadline']?.toString(),
+      minimumCompletionAt: _parseDateTime(json['minimumCompletionAt']),
       remainingToCompleteSeconds: json['remainingToCompleteSeconds'] is int
           ? json['remainingToCompleteSeconds']
           : (json['remainingToCompleteSeconds'] != null
               ? int.tryParse(json['remainingToCompleteSeconds'].toString())
               : null),
       hasPresenceSnapshot: json['hasPresenceSnapshot'] ?? false,
+      startWindowBegin: _parseDateTime(json['startWindowBegin']),
+      startWindowEnd: _parseDateTime(json['startWindowEnd']),
+      startWindowBeforeMinutes: _parseInt(json['startWindowBeforeMinutes']),
+      startWindowAfterMinutes: _parseInt(json['startWindowAfterMinutes']),
+      cancellationWindowHours: _parseDouble(json['cancellationWindowHours']),
+      minCompletionMinutes: _parseInt(json['minCompletionMinutes']),
     );
+  }
+
+  static String? _asIsoString(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is DateTime) return value.toIso8601String();
+    return value.toString();
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString());
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   Map<String, dynamic> toJson() {
@@ -84,86 +126,68 @@ class ClassTimelineDto {
       'minimumCompletionAt': minimumCompletionAt?.toIso8601String(),
       'remainingToCompleteSeconds': remainingToCompleteSeconds,
       'hasPresenceSnapshot': hasPresenceSnapshot,
+      'startWindowBegin': startWindowBegin?.toIso8601String(),
+      'startWindowEnd': startWindowEnd?.toIso8601String(),
+      'startWindowBeforeMinutes': startWindowBeforeMinutes,
+      'startWindowAfterMinutes': startWindowAfterMinutes,
+      'cancellationWindowHours': cancellationWindowHours,
+      'minCompletionMinutes': minCompletionMinutes,
     };
   }
 
-  /// Verifica se a aula já começou
   bool get hasClassStarted => currentTime.isAfter(classTime);
 
-  /// Verifica se ainda pode cancelar (dentro do prazo de 2h antes)
-  bool get isWithinCancellationWindow {
-    if (cancellationDeadline == null) return false;
-    final deadline = DateTime.parse(cancellationDeadline!);
-    return currentTime.isBefore(deadline);
-  }
+  /// SSOT: usar canCancel do backend em vez de calcular 2h localmente.
+  bool get isWithinCancellationWindow => canCancel;
 
-  /// Verifica se está dentro do prazo de confirmação (5-10 minutos)
   bool get isWithinConfirmationWindow {
     if (confirmationDeadline == null) return false;
-    final deadline = DateTime.parse(confirmationDeadline!);
+    final deadline = DateTime.tryParse(confirmationDeadline!);
+    if (deadline == null) return false;
     return currentTime.isBefore(deadline);
   }
 
-  /// Verifica se está dentro do prazo para reportar ausência
   bool get isWithinNoShowReportWindow {
     if (noShowReportDeadline == null) return false;
-    final deadline = DateTime.parse(noShowReportDeadline!);
+    final deadline = DateTime.tryParse(noShowReportDeadline!);
+    if (deadline == null) return false;
     return currentTime.isBefore(deadline);
   }
 
-  /// Calcula tempo restante até a aula
   Duration get timeUntilClassDuration {
-    final now = currentTime;
-    final classStart = classTime;
-    
-    if (now.isAfter(classStart)) {
-      return Duration.zero;
-    }
-    
-    return classStart.difference(now);
+    if (currentTime.isAfter(classTime)) return Duration.zero;
+    return classTime.difference(currentTime);
   }
 
-  /// Calcula tempo restante até o deadline de cancelamento
   Duration get timeUntilCancellationDuration {
     if (cancellationDeadline == null) return Duration.zero;
-    
-    final now = currentTime;
-    final deadline = DateTime.parse(cancellationDeadline!);
-    
-    if (now.isAfter(deadline)) {
-      return Duration.zero;
-    }
-    
-    return deadline.difference(now);
+    final deadline = DateTime.tryParse(cancellationDeadline!);
+    if (deadline == null) return Duration.zero;
+    if (currentTime.isAfter(deadline)) return Duration.zero;
+    return deadline.difference(currentTime);
   }
 
-  /// Retorna uma string formatada do tempo restante
   String get formattedTimeUntilClass {
     final duration = timeUntilClassDuration;
-    
     if (duration.inDays > 0) {
       return '${duration.inDays}d ${duration.inHours % 24}h';
     } else if (duration.inHours > 0) {
       return '${duration.inHours}h ${duration.inMinutes % 60}m';
     } else if (duration.inMinutes > 0) {
       return '${duration.inMinutes}m';
-    } else {
-      return 'Agora';
     }
+    return 'Agora';
   }
 
-  /// Retorna uma string formatada do tempo restante para cancelamento
   String get formattedTimeUntilCancellation {
     final duration = timeUntilCancellationDuration;
-    
     if (duration.inDays > 0) {
       return '${duration.inDays}d ${duration.inHours % 24}h';
     } else if (duration.inHours > 0) {
       return '${duration.inHours}h ${duration.inMinutes % 60}m';
     } else if (duration.inMinutes > 0) {
       return '${duration.inMinutes}m';
-    } else {
-      return 'Prazo expirado';
     }
+    return 'Prazo expirado';
   }
 }

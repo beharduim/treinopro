@@ -3,6 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../health_questionnaire/presentation/pages/health_questionnaire_page.dart';
 import 'student_lessons_history_page.dart';
+import '../../../classes/presentation/pages/my_disputes_page.dart';
+import '../../../classes/presentation/bloc/classes_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/dependency_injection.dart' show sl;
 import '../../../../core/constants/app_colors.dart';
@@ -625,6 +627,22 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const StudentLessonsHistoryPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildRowOption(
+              'Minhas Disputas',
+              'Ver',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BlocProvider(
+                      create: (_) => sl<ClassesBloc>(),
+                      child: const MyDisputesPage(),
+                    ),
                   ),
                 );
               },

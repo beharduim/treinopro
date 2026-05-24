@@ -24,6 +24,7 @@ import 'features/splash/presentation/pages/splash_page.dart';
 import 'features/home/presentation/pages/personal_home_page.dart';
 import 'features/home/presentation/pages/student_home_page.dart';
 import 'features/classes/presentation/pages/classes_page.dart';
+import 'features/classes/presentation/pages/my_disputes_page.dart';
 import 'features/classes/presentation/widgets/global_timer_widget.dart';
 import 'features/profile/presentation/pages/personal_profile_page.dart';
 import 'features/profile/presentation/pages/student_profile_page.dart';
@@ -432,6 +433,10 @@ class _TreinoProAppState extends State<TreinoProApp>
         '/student-profile': (context) => const StudentProfilePage(),
         '/classes': (context) => const ClassesPage(),
         '/profile': (context) => const PersonalProfilePage(),
+        '/my-disputes': (context) => BlocProvider(
+          create: (context) => di.sl<ClassesBloc>(),
+          child: const MyDisputesPage(),
+        ),
         '/proposals': (context) => const ProposalsPage(),
         // '/training' não existe ainda; redireciona para home por enquanto
         '/training': (context) => const PersonalHomePage(),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
+import 'timeline_completion_countdown.dart';
 
-class ClassActionButtons extends StatelessWidget {
+class ClassActionButtons extends StatefulWidget {
   final ClassResponseDto classData;
   final ClassTimelineDto timeline;
   final VoidCallback? onStartClass;
@@ -28,23 +29,56 @@ class ClassActionButtons extends StatelessWidget {
   });
 
   @override
+  State<ClassActionButtons> createState() => _ClassActionButtonsState();
+}
+
+class _ClassActionButtonsState extends State<ClassActionButtons> {
+  late final TimelineCompletionCountdownController _countdown;
+
+  @override
+  void initState() {
+    super.initState();
+    _countdown = TimelineCompletionCountdownController()
+      ..syncFromTimeline(widget.timeline);
+  }
+
+  @override
+  void didUpdateWidget(ClassActionButtons oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _countdown.syncFromTimeline(widget.timeline);
+  }
+
+  @override
+  void dispose() {
+    _countdown.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Botões principais baseados no status
-        _buildMainButtons(),
-        
-        // Informações de prazo se aplicável
-        if (_shouldShowDeadlineInfo()) ...[
-          const SizedBox(height: 12),
-          _buildDeadlineInfo(),
-        ],
-      ],
+    return ListenableBuilder(
+      listenable: _countdown,
+      builder: (context, _) {
+        return Column(
+          children: [
+            _buildMainButtons(),
+            if (_shouldShowDeadlineInfo()) ...[
+              const SizedBox(height: 12),
+              _buildDeadlineInfo(),
+            ],
+            if (widget.classData.status == ClassStatus.ACTIVE &&
+                _countdown.showCountdown) ...[
+              const SizedBox(height: 12),
+              _buildCompletionCountdownInfo(),
+            ],
+          ],
+        );
+      },
     );
   }
 
   Widget _buildMainButtons() {
-    switch (classData.status) {
+    switch (widget.classData.status) {
       case ClassStatus.SCHEDULED:
         return _buildScheduledButtons();
       case ClassStatus.PENDING_CONFIRMATION:
@@ -63,11 +97,10 @@ class ClassActionButtons extends StatelessWidget {
   Widget _buildScheduledButtons() {
     return Row(
       children: [
-        // Botão Chat (sempre disponível)
-        if (onChat != null) ...[
+        if (widget.onChat != null) ...[
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: onChat,
+              onPressed: widget.onChat,
               icon: const Icon(Icons.chat, size: 16),
               label: const Text('Chat'),
               style: OutlinedButton.styleFrom(
@@ -81,12 +114,10 @@ class ClassActionButtons extends StatelessWidget {
           ),
           const SizedBox(width: 12),
         ],
-        
-        // Botão Cancelar (se permitido)
-        if (timeline.canCancel && onCancelClass != null) ...[
+        if (widget.timeline.canCancel && widget.onCancelClass != null) ...[
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: onCancelClass,
+              onPressed: widget.onCancelClass,
               icon: const Icon(Icons.cancel, size: 16),
               label: const Text('Cancelar'),
               style: OutlinedButton.styleFrom(
@@ -100,25 +131,23 @@ class ClassActionButtons extends StatelessWidget {
           ),
           const SizedBox(width: 12),
         ],
-        
-        // Botão Iniciar (se permitido)
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: timeline.canStart ? onStartClass : null,
+            onPressed: widget.timeline.canStart ? widget.onStartClass : null,
             icon: Icon(
               Icons.play_circle,
               size: 16,
-              color: timeline.canStart ? Colors.white : Colors.grey,
+              color: widget.timeline.canStart ? Colors.white : Colors.grey,
             ),
             label: Text(
               'Iniciar aula',
               style: TextStyle(
-                color: timeline.canStart ? Colors.white : Colors.grey,
+                color: widget.timeline.canStart ? Colors.white : Colors.grey,
               ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: timeline.canStart 
-                  ? AppColors.primaryOrange 
+              backgroundColor: widget.timeline.canStart
+                  ? AppColors.primaryOrange
                   : Colors.grey.shade300,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -133,12 +162,11 @@ class ClassActionButtons extends StatelessWidget {
   Widget _buildPendingConfirmationButtons() {
     return Column(
       children: [
-        // Botão de confirmação para o aluno
-        if (timeline.canConfirmStart && onConfirmStart != null)
+        if (widget.timeline.canConfirmStart && widget.onConfirmStart != null)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: onConfirmStart,
+              onPressed: widget.onConfirmStart,
               icon: const Icon(Icons.check_circle, size: 16),
               label: const Text('Confirmar início'),
               style: ElevatedButton.styleFrom(
@@ -150,10 +178,7 @@ class ClassActionButtons extends StatelessWidget {
               ),
             ),
           ),
-        
         const SizedBox(height: 12),
-        
-        // Informação sobre o prazo de confirmação
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -183,25 +208,25 @@ class ClassActionButtons extends StatelessWidget {
   }
 
   Widget _buildActiveButtons() {
+    final canComplete = _countdown.effectiveCanComplete;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: timeline.canComplete ? onCompleteClass : null,
+        onPressed: canComplete ? widget.onCompleteClass : null,
         icon: Icon(
           Icons.stop_circle,
           size: 16,
-          color: timeline.canComplete ? Colors.white : Colors.grey,
+          color: canComplete ? Colors.white : Colors.grey,
         ),
         label: Text(
           'Finalizar aula',
           style: TextStyle(
-            color: timeline.canComplete ? Colors.white : Colors.grey,
+            color: canComplete ? Colors.white : Colors.grey,
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: timeline.canComplete 
-              ? AppColors.primaryOrange 
-              : Colors.grey.shade300,
+          backgroundColor:
+              canComplete ? AppColors.primaryOrange : Colors.grey.shade300,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -210,15 +235,41 @@ class ClassActionButtons extends StatelessWidget {
     );
   }
 
+  Widget _buildCompletionCountdownInfo() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.timer_outlined, size: 14, color: Colors.blue.shade700),
+          const SizedBox(width: 6),
+          Text(
+            'Finalizar em ${formatTimelineCountdown(_countdown.displayRemainingSeconds)} '
+            '(mín. ${_countdown.minCompletionMinutes} min)',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.blue.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDisputeButtons() {
     return Column(
       children: [
-        // Botões de disputa
-        if (timeline.canReportNoShow && onReportNoShow != null)
+        if (widget.timeline.canReportNoShow && widget.onReportNoShow != null)
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: onReportNoShow,
+              onPressed: widget.onReportNoShow,
               icon: const Icon(Icons.report_problem, size: 16),
               label: const Text('Reportar ausência'),
               style: OutlinedButton.styleFrom(
@@ -230,13 +281,13 @@ class ClassActionButtons extends StatelessWidget {
               ),
             ),
           ),
-        
-        if (timeline.canReportPersonalNoShow && onReportPersonalNoShow != null) ...[
+        if (widget.timeline.canReportPersonalNoShow &&
+            widget.onReportPersonalNoShow != null) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: onReportPersonalNoShow,
+              onPressed: widget.onReportPersonalNoShow,
               icon: const Icon(Icons.person_off, size: 16),
               label: const Text('Personal não compareceu'),
               style: OutlinedButton.styleFrom(
@@ -249,10 +300,7 @@ class ClassActionButtons extends StatelessWidget {
             ),
           ),
         ],
-        
         const SizedBox(height: 12),
-        
-        // Informação sobre disputa
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -309,7 +357,8 @@ class ClassActionButtons extends StatelessWidget {
   }
 
   Widget _buildDeadlineInfo() {
-    if (timeline.cancellationDeadline != null && timeline.canCancel) {
+    if (widget.timeline.cancellationDeadline != null &&
+        widget.timeline.canCancel) {
       return Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -322,7 +371,7 @@ class ClassActionButtons extends StatelessWidget {
             Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
             const SizedBox(width: 4),
             Text(
-              'Cancelamento permitido até ${timeline.formattedTimeUntilCancellation}',
+              'Cancelamento permitido até ${widget.timeline.formattedTimeUntilCancellation}',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey.shade600,
@@ -333,11 +382,12 @@ class ClassActionButtons extends StatelessWidget {
         ),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
   bool _shouldShowDeadlineInfo() {
-    return timeline.cancellationDeadline != null && timeline.canCancel;
+    return widget.timeline.cancellationDeadline != null &&
+        widget.timeline.canCancel;
   }
 }

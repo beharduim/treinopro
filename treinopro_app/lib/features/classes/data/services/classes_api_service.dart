@@ -118,19 +118,33 @@ class ClassesApiService {
     }
   }
 
-  /// Obter timeline da aula (estados dos botões)
-  Future<ClassTimelineDto> getClassTimeline(String id) async {
-    try {
-      final response = await _dio.get('/classes/$id/timeline');
+  /// Obter timeline da aula (estados dos botões) com retry automático.
+  Future<ClassTimelineDto> getClassTimeline(
+    String id, {
+    int maxAttempts = 3,
+  }) async {
+    Object? lastError;
 
-      if (response.statusCode == 200) {
-        return ClassTimelineDto.fromJson(response.data);
-      } else {
-        throw Exception('Erro ao buscar timeline: ${response.statusCode}');
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await _dio.get('/classes/$id/timeline');
+
+        if (response.statusCode == 200) {
+          return ClassTimelineDto.fromJson(response.data);
+        }
+        lastError = Exception(
+          'Erro ao buscar timeline: ${response.statusCode}',
+        );
+      } catch (e) {
+        lastError = e;
       }
-    } catch (e) {
-      throw Exception('Erro na requisição: $e');
+
+      if (attempt < maxAttempts) {
+        await Future.delayed(Duration(milliseconds: 400 * attempt));
+      }
     }
+
+    throw Exception('Erro na requisição: $lastError');
   }
 
   /// Iniciar aula (personal trainer)
@@ -146,6 +160,18 @@ class ClassesApiService {
       } else {
         throw Exception('Erro ao iniciar aula: ${response.statusCode}');
       }
+    } on DioException catch (dioE) {
+      final data = dioE.response?.data;
+      String? msg;
+      if (data is Map<String, dynamic>) {
+        msg = data['message']?.toString();
+      } else if (data is String) {
+        msg = data;
+      }
+      if (msg != null && msg.isNotEmpty) {
+        throw Exception(msg);
+      }
+      throw Exception('Falha ao iniciar aula: ${dioE.message}');
     } catch (e) {
       throw Exception('Erro na requisição: $e');
     }
@@ -201,8 +227,14 @@ class ClassesApiService {
         msg = data;
       }
 
-      if (code == 'MIN_45_RULE') {
-        throw Exception('MIN_45_RULE: ${msg ?? 'A aula precisa durar pelo menos 45 minutos.'}');
+      final normalizedMsg = msg ?? '';
+      if (code == 'MIN_50_RULE' ||
+          normalizedMsg.contains('MIN_50_RULE') ||
+          code == 'MIN_45_RULE' ||
+          normalizedMsg.contains('MIN_45_RULE')) {
+        throw Exception(
+          'MIN_50_RULE: ${normalizedMsg.isNotEmpty ? normalizedMsg : 'A aula precisa durar pelo menos 50 minutos.'}',
+        );
       }
       if (msg != null) {
         throw Exception('Erro: $msg');

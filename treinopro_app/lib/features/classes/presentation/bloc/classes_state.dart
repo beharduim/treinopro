@@ -30,6 +30,7 @@ class ClassesLoaded extends ClassesState {
   final String? selectedTime;
   final String? selectedStatus;
   final bool isWebSocketConnected;
+  final bool isLoadingTimelines;
   final String? error;
 
   const ClassesLoaded({
@@ -40,6 +41,7 @@ class ClassesLoaded extends ClassesState {
     this.selectedTime,
     this.selectedStatus,
     this.isWebSocketConnected = false,
+    this.isLoadingTimelines = false,
     this.error,
   });
 
@@ -52,6 +54,7 @@ class ClassesLoaded extends ClassesState {
     selectedTime,
     selectedStatus,
     isWebSocketConnected,
+    isLoadingTimelines,
     error,
   ];
 
@@ -64,6 +67,7 @@ class ClassesLoaded extends ClassesState {
     String? selectedTime,
     String? selectedStatus,
     bool? isWebSocketConnected,
+    bool? isLoadingTimelines,
     String? error,
   }) {
     return ClassesLoaded(
@@ -74,6 +78,7 @@ class ClassesLoaded extends ClassesState {
       selectedTime: selectedTime ?? this.selectedTime,
       selectedStatus: selectedStatus ?? this.selectedStatus,
       isWebSocketConnected: isWebSocketConnected ?? this.isWebSocketConnected,
+      isLoadingTimelines: isLoadingTimelines ?? this.isLoadingTimelines,
       error: error ?? this.error,
     );
   }

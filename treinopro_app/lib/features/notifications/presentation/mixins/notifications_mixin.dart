@@ -8,6 +8,7 @@ import '../../data/services/local_notifications_storage.dart';
 import '../widgets/notifications_modal.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../classes/presentation/pages/classes_page.dart';
+import '../../../classes/presentation/pages/my_disputes_page.dart';
 import '../../../../core/services/notification_service.dart';
 
 /// Mixin para gerenciar notificações (armazenadas localmente)
@@ -402,8 +403,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
 
       case 'dispute_created':
       case 'dispute_update':
-        // Apenas marca como lida, sem navegação
-        markAsRead(notification.id);
+        _navigateToDisputesHub(notification);
         break;
 
       case 'mission_completed':
@@ -458,6 +458,11 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const ClassesPage()));
+  }
+
+  void _navigateToDisputesHub(NotificationModel notification) {
+    markAsRead(notification.id);
+    Navigator.of(context).pushNamed('/my-disputes');
   }
 
   /// Recarrega as notificações

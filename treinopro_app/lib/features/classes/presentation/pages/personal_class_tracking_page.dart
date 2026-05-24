@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/dependency_injection.dart';
@@ -16,6 +15,8 @@ import '../../data/models/class_response_dto.dart';
 import '../widgets/report_no_show_modal.dart';
 import '../../data/models/report_no_show_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
+import '../widgets/timeline_completion_countdown.dart';
+import '../../utils/class_operation_error_messages.dart';
 
 class PersonalClassTrackingPage extends StatefulWidget {
   final Map<String, dynamic> aula;
@@ -35,129 +36,36 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
 
   // Código de confirmação 4 dígitos para o aluno confirmar
   String? _startConfirmationCode;
-
-  // Controle de 45 minutos mínimos
-  Timer? _minimumTimer;
-  int _remainingToCompleteSeconds = 0; // 0 = já pode finalizar
-  bool _canCompleteByTime = false;
-  
-  // Controle de 10 minutos para no-show
-  Timer? _noShowCheckTimer;
-  bool _canReportNoShow = false;
+  late final TimelineCompletionCountdownController _completionCountdown;
 
   @override
   void initState() {
     super.initState();
-    // Capturar código de confirmação se foi recém iniciado
+    _completionCountdown = TimelineCompletionCountdownController();
     _startConfirmationCode = widget.aula['startConfirmationCode']?.toString();
-
-    // Calcular tempo restante para poder finalizar (50min mínimo)
-    _initMinimumCompletionTimer();
-    
-    // Iniciar timer para verificar no-show (10min após início)
-    _initNoShowTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final classesBloc = context.read<ClassesBloc>();
       if (classesBloc.state is ClassesInitial) {
         classesBloc.add(const ClassesInitialize());
       }
+      // SSOT: timeline vem do backend (GET /classes/:id/timeline)
+      final classId = _resolveClassId();
+      if (classId != null) {
+        classesBloc.add(ClassesUpdateTimeline(classId: classId));
+      }
     });
   }
 
-  void _initMinimumCompletionTimer() {
-    // Tenta usar minimumCompletionAt do aula map, fallback para startedAt + 45min
-    DateTime? minimumAt;
-    final rawMinimum = widget.aula['minimumCompletionAt'];
-    if (rawMinimum != null) {
-      minimumAt = DateTime.tryParse(rawMinimum.toString());
-    }
-    if (minimumAt == null) {
-      final rawStarted = widget.aula['startedAt'] ?? widget.aula['confirmedAt'];
-      if (rawStarted != null) {
-        final startedAt = DateTime.tryParse(rawStarted.toString());
-        if (startedAt != null) {
-          minimumAt = startedAt.add(const Duration(minutes: 50));
-        }
-      }
-    }
-
-    if (minimumAt != null) {
-      final now = DateTime.now();
-      final remaining = minimumAt.difference(now);
-      if (remaining.isNegative || remaining.inSeconds <= 0) {
-        _canCompleteByTime = true;
-        _remainingToCompleteSeconds = 0;
-      } else {
-        _canCompleteByTime = false;
-        _remainingToCompleteSeconds = remaining.inSeconds;
-        _minimumTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-          if (!mounted) {
-            t.cancel();
-            return;
-          }
-          setState(() {
-            _remainingToCompleteSeconds = (_remainingToCompleteSeconds - 1)
-                .clamp(0, 99999);
-            if (_remainingToCompleteSeconds <= 0) {
-              _canCompleteByTime = true;
-              t.cancel();
-            }
-          });
-        });
-      }
-    } else {
-      // Sem startedAt: liberar (fallback permissivo)
-      _canCompleteByTime = true;
-    }
+  String? _resolveClassId() {
+    return widget.aula['id']?.toString() ??
+        widget.aula['classId']?.toString();
   }
 
-  void _initNoShowTimer() {
-    _checkNoShowDeadline();
-    _noShowCheckTimer = Timer.periodic(const Duration(seconds: 30), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
-      }
-      _checkNoShowDeadline();
-    });
-  }
-
-  void _checkNoShowDeadline() {
-    try {
-      final dateStr = widget.aula['date'].toString();
-      final timeStr = widget.aula['time'].toString();
-      
-      // Formato esperado: "dd/MM/yyyy" e "HH:MM"
-      final parts = dateStr.split('/');
-      if (parts.length != 3) return;
-      
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(parts[2]);
-      
-      final timeParts = timeStr.split(':');
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-      
-      final classStart = DateTime(year, month, day, hour, minute);
-      final deadline = classStart.add(const Duration(minutes: 10));
-      
-      final now = DateTime.now();
-      final passed = now.isAfter(deadline);
-      
-      if (passed != _canReportNoShow) {
-        setState(() => _canReportNoShow = passed);
-      }
-    } catch (e) {
-      debugPrint('Error checking no-show deadline: $e');
-    }
-  }
-
-  String _formatRemainingTime(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  @override
+  void dispose() {
+    _completionCountdown.dispose();
+    super.dispose();
   }
 
   double? _toPositiveDouble(dynamic value) {
@@ -194,13 +102,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
     return 40.0;
   }
 
-  @override
-  void dispose() {
-    _minimumTimer?.cancel();
-    _noShowCheckTimer?.cancel();
-    super.dispose();
-  }
-
   Future<void> _completeClass() async {
     if (_isCompleting) return;
 
@@ -223,7 +124,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           ),
         );
 
-        // Navegar direto para a avaliação do aluno apenas se ainda não navegou
         if (!_hasNavigatedToEvaluation) {
           _hasNavigatedToEvaluation = true;
           final String studentName = widget.aula['studentName'] ?? 'Aluno';
@@ -246,37 +146,22 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
         bool shouldNavigateToEvaluation = false;
         Color snackBarColor = Colors.orange;
 
-        // ✅ CORREÇÃO: Detectar erro 502 (Bad Gateway) especificamente
         if (e.toString().contains('502') ||
             e.toString().contains('Bad Gateway')) {
           errorMessage =
               'Aula finalizada! O sistema de pontos está temporariamente indisponível, mas você pode continuar.';
           shouldNavigateToEvaluation = true;
-          snackBarColor = Colors.green; // Verde pois a aula foi finalizada
-        }
-        // Verificar se é erro de regra de tempo mínimo
-        else if (e.toString().contains('MIN_50_RULE') ||
-            e.toString().contains('pelo menos 50 minutos')) {
-          // Extrair tempo restante da mensagem do backend
-          final match = RegExp(r'Faltam (\d+) minuto').firstMatch(e.toString());
-          final remaining = match?.group(1) ?? '?';
-          errorMessage =
-              'A aula precisa durar pelo menos 50 minutos. Faltam $remaining minuto(s).';
-          snackBarColor = Colors.red;
-        }
-        // Verificar se é erro de aula já finalizada
-        else if (e.toString().contains(
-              'Esta aula já foi finalizada anteriormente',
-            ) ||
-            e.toString().contains(
-              'Apenas aulas ativas podem ser finalizadas',
-            )) {
+          snackBarColor = Colors.green;
+        } else if (e.toString().contains('já foi finalizada anteriormente') ||
+            e.toString().contains('Apenas aulas ativas podem ser finalizadas')) {
           errorMessage = 'Esta aula já foi finalizada anteriormente.';
           shouldNavigateToEvaluation = true;
-        }
-        // Outros erros
-        else {
-          errorMessage = 'Erro ao finalizar aula: $e';
+        } else {
+          errorMessage = ClassOperationErrorMessages.friendlyMessage(
+            e,
+            action: 'complete_class',
+          );
+          snackBarColor = Colors.red;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -287,7 +172,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           ),
         );
 
-        // ✅ CORREÇÃO: Se for erro 502 ou aula já finalizada, continuar o fluxo normalmente
         if (shouldNavigateToEvaluation && !_hasNavigatedToEvaluation) {
           _hasNavigatedToEvaluation = true;
           Future.delayed(const Duration(milliseconds: 500), () {
@@ -331,14 +215,15 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
       builder: (context, state) {
         ClassTimerState? timerState;
         ClassResponseDto? currentClass;
+        ClassTimelineDto? timeline;
         String? studentPhotoUrl;
 
         if (state is ClassesLoaded) {
           timerState = state.timers[classId];
+          timeline = state.timelines[classId];
           try {
             currentClass = state.classes.firstWhere((c) => c.id == classId);
             studentPhotoUrl = currentClass.studentProfileImageUrl;
-            // Guardar preço conhecido para uso posterior na navegação
             if (currentClass.proposalPrice != null &&
                 currentClass.proposalPrice! > 0) {
               _lastKnownProposalPrice = currentClass.proposalPrice;
@@ -357,7 +242,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           }
         }
 
-        // Timer efetivo para exibição imediata (evita flash de 0s ao entrar)
         final ClassTimerState effectiveTimerState = (() {
           if (timerState != null) return timerState;
           final cc = currentClass;
@@ -384,7 +268,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           );
         })();
 
-        // Tratar rollback de confirmação para status SCHEDULED
         if (currentClass != null &&
             currentClass.status == ClassStatus.SCHEDULED &&
             !_hasHandledRollback) {
@@ -412,21 +295,8 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
         }
 
         if (timerState == null || !timerState.isActive) {
-          // Verificar se a aula já foi finalizada
-          ClassResponseDto? classData;
-          if (state is ClassesLoaded) {
-            try {
-              classData = state.classes.firstWhere((c) => c.id == classId);
-            } catch (e) {
-              classData = null;
-            }
-          } else if (state is ClassesStartSuccess &&
-              state.startedClass.id == classId) {
-            classData = state.startedClass;
-          }
-
+          ClassResponseDto? classData = currentClass;
           if (classData != null && classData.status == ClassStatus.COMPLETED) {
-            // Aula já finalizada, redirecionar para avaliação do aluno
             if (!_hasNavigatedToEvaluation) {
               _hasNavigatedToEvaluation = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -452,12 +322,22 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
               body: Center(child: CircularProgressIndicator()),
             );
           }
-
-          // Se não há timer ativo mas a aula não foi finalizada, mostrar interface normal
-          // mas sem timer (aula ainda não iniciada)
         }
 
-        return WillPopScope(
+        // SSOT: countdown visual local sincronizado com remainingToCompleteSeconds da API
+        _completionCountdown.syncFromTimeline(timeline);
+
+        return ListenableBuilder(
+          listenable: _completionCountdown,
+          builder: (context, _) {
+            final canComplete = _completionCountdown.effectiveCanComplete;
+            final canReportNoShow = timeline?.canReportNoShow ?? false;
+            final remainingToCompleteSeconds =
+                _completionCountdown.displayRemainingSeconds;
+            final minCompletionMinutes =
+                _completionCountdown.minCompletionMinutes;
+
+            return WillPopScope(
           onWillPop: () async => false,
           child: Scaffold(
             backgroundColor: const Color(0xFFFCFDFE),
@@ -467,7 +347,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3748)),
                 onPressed: () {
-                  // ✅ Voltar para a página anterior (ClassesPage)
                   if (Navigator.of(context).canPop()) {
                     Navigator.of(context).pop();
                   }
@@ -506,7 +385,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                 ),
                 child: Column(
                   children: [
-                    // Circular timer with label
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Column(
@@ -523,8 +401,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                         ],
                       ),
                     ),
-
-                    // Student info card
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -615,11 +491,9 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 12),
                     Column(
                       children: [
-                        // Código de 4 dígitos para o aluno confirmar
                         if (_startConfirmationCode != null &&
                             currentClass?.status ==
                                 ClassStatus.PENDING_CONFIRMATION) ...[
@@ -679,8 +553,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
-                        // Aviso de captura de geolocalização
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
@@ -713,9 +585,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-
-                        // Aviso de 45 minutos mínimos
-                        if (!_canCompleteByTime) ...[
+                        if (!canComplete && remainingToCompleteSeconds > 0) ...[
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
@@ -738,7 +608,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Mínimo de 45 minutos',
+                                        'Mínimo de $minCompletionMinutes minutos',
                                         style: TextStyle(
                                           fontFamily: 'Outfit',
                                           fontWeight: FontWeight.w600,
@@ -747,7 +617,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                                         ),
                                       ),
                                       Text(
-                                        'Disponível para finalizar em ${_formatRemainingTime(_remainingToCompleteSeconds)}',
+                                        'Disponível para finalizar em ${formatTimelineCountdown(remainingToCompleteSeconds)}',
                                         style: TextStyle(
                                           fontFamily: 'Fira Sans',
                                           fontSize: 12,
@@ -762,7 +632,6 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -799,13 +668,13 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                     child: ElevatedButton(
                       onPressed:
                           (_isCompleting ||
-                              !_canCompleteByTime ||
+                              !canComplete ||
                               currentClass?.status != ClassStatus.ACTIVE)
                           ? null
                           : _completeClass,
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
-                            _canCompleteByTime &&
+                            canComplete &&
                                 currentClass?.status == ClassStatus.ACTIVE
                             ? AppColors.primaryOrange
                             : Colors.grey.shade400,
@@ -858,35 +727,14 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (_canReportNoShow && 
-                      (currentClass?.status == ClassStatus.SCHEDULED || 
+                  if (canReportNoShow &&
+                      (currentClass?.status == ClassStatus.SCHEDULED ||
                        currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (currentClass == null) return;
-                          
-                          // Buscar timeline do estado se disponível
-                          ClassTimelineDto? tl;
-                          final state = context.read<ClassesBloc>().state;
-                          if (state is ClassesLoaded) {
-                            tl = state.timelines[currentClass.id];
-                          }
-                          
-                          // Fallback para timeline básico
-                          tl ??= ClassTimelineDto(
-                            matchTime: DateTime.now(),
-                            currentTime: DateTime.now(),
-                            classTime: DateTime.now(),
-                            canCancel: false,
-                            canStart: false,
-                            canReportNoShow: true,
-                            canConfirmStart: false,
-                            canReportPersonalNoShow: false,
-                            canComplete: false,
-                            noShowReportDeadline: DateTime.now().toIso8601String(),
-                          );
+                          if (currentClass == null || timeline == null) return;
 
                           showModalBottomSheet(
                             context: context,
@@ -894,8 +742,8 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                             backgroundColor: Colors.transparent,
                             builder: (context) => ReportNoShowModal(
                               classData: currentClass!,
-                              timeline: tl!,
-                              isPersonalNoShow: false, // Personal reportando Aluno
+                              timeline: timeline!,
+                              isPersonalNoShow: false,
                               onReport: (reportData) {
                                 context.read<ClassesBloc>().add(
                                       ClassesReportNoShow(
@@ -972,6 +820,8 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
               ),
             ),
           ),
+        );
+          },
         );
       },
     );

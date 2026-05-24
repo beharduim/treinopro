@@ -50,6 +50,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resourceConfigurations.addAll(listOf("pt", "pt-rBR"))
     }
 
     signingConfigs {

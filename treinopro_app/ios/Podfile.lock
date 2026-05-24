@@ -80,15 +80,82 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - path_provider_foundation (0.0.1):
+  - package_info_plus (0.4.5):
     - Flutter
-    - FlutterMacOS
   - permission_handler_apple (9.3.0):
     - Flutter
   - PromisesObjC (2.4.0)
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - Stripe (25.9.0):
+    - StripeApplePay (= 25.9.0)
+    - StripeCore (= 25.9.0)
+    - StripeIssuing (= 25.9.0)
+    - StripePayments (= 25.9.0)
+    - StripePaymentsUI (= 25.9.0)
+    - StripeUICore (= 25.9.0)
+  - stripe_ios (0.0.1):
+    - Flutter
+    - Stripe (~> 25.9.0)
+    - stripe_ios/stripe_ios (= 0.0.1)
+    - stripe_ios/stripe_objc (= 0.0.1)
+    - StripeApplePay (~> 25.9.0)
+    - StripeFinancialConnections (~> 25.9.0)
+    - StripePayments (~> 25.9.0)
+    - StripePaymentSheet (~> 25.9.0)
+    - StripePaymentsUI (~> 25.9.0)
+  - stripe_ios/stripe_ios (0.0.1):
+    - Flutter
+    - Stripe (~> 25.9.0)
+    - stripe_ios/stripe_objc
+    - StripeApplePay (~> 25.9.0)
+    - StripeFinancialConnections (~> 25.9.0)
+    - StripePayments (~> 25.9.0)
+    - StripePaymentSheet (~> 25.9.0)
+    - StripePaymentsUI (~> 25.9.0)
+  - stripe_ios/stripe_objc (0.0.1):
+    - Flutter
+    - Stripe (~> 25.9.0)
+    - StripeApplePay (~> 25.9.0)
+    - StripeFinancialConnections (~> 25.9.0)
+    - StripePayments (~> 25.9.0)
+    - StripePaymentSheet (~> 25.9.0)
+    - StripePaymentsUI (~> 25.9.0)
+  - StripeApplePay (25.9.0):
+    - StripeCore (= 25.9.0)
+  - StripeConnect (25.9.0):
+    - StripeCore (= 25.9.0)
+    - StripeFinancialConnections (= 25.9.0)
+    - StripeUICore (= 25.9.0)
+  - StripeCore (25.9.0)
+  - StripeFinancialConnections (25.9.0):
+    - StripeCore (= 25.9.0)
+    - StripeUICore (= 25.9.0)
+  - StripeIssuing (25.9.0):
+    - StripeCore (= 25.9.0)
+    - StripePayments (= 25.9.0)
+    - StripePaymentsUI (= 25.9.0)
+  - StripePayments (25.9.0):
+    - StripeCore (= 25.9.0)
+    - StripePayments/Stripe3DS2 (= 25.9.0)
+  - StripePayments/Stripe3DS2 (25.9.0):
+    - StripeCore (= 25.9.0)
+  - StripePaymentSheet (25.9.0):
+    - StripeApplePay (= 25.9.0)
+    - StripeCore (= 25.9.0)
+    - StripePayments (= 25.9.0)
+    - StripePaymentsUI (= 25.9.0)
+  - StripePaymentsUI (25.9.0):
+    - StripeCore (= 25.9.0)
+    - StripePayments (= 25.9.0)
+    - StripeUICore (= 25.9.0)
+  - StripeUICore (25.9.0):
+    - StripeCore (= 25.9.0)
+  - url_launcher_ios (0.0.1):
+    - Flutter
+  - wakelock_plus (0.0.1):
+    - Flutter
   - workmanager (0.0.1):
     - Flutter
 
@@ -103,9 +170,13 @@ DEPENDENCIES:
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
-  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - stripe_ios (from `.symlinks/plugins/stripe_ios/ios`)
+  - StripeConnect
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
+  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
   - workmanager (from `.symlinks/plugins/workmanager/ios`)
 
 SPEC REPOS:
@@ -119,6 +190,16 @@ SPEC REPOS:
     - GoogleUtilities
     - nanopb
     - PromisesObjC
+    - Stripe
+    - StripeApplePay
+    - StripeConnect
+    - StripeCore
+    - StripeFinancialConnections
+    - StripeIssuing
+    - StripePayments
+    - StripePaymentSheet
+    - StripePaymentsUI
+    - StripeUICore
 
 EXTERNAL SOURCES:
   audioplayers_darwin:
@@ -141,17 +222,23 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
-  path_provider_foundation:
-    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  stripe_ios:
+    :path: ".symlinks/plugins/stripe_ios/ios"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
+  wakelock_plus:
+    :path: ".symlinks/plugins/wakelock_plus/ios"
   workmanager:
     :path: ".symlinks/plugins/workmanager/ios"
 
 SPEC CHECKSUMS:
-  audioplayers_darwin: 4f9ca89d92d3d21cec7ec580e78ca888e5fb68bd
+  audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
   device_info_plus: 71ffc6ab7634ade6267c7a93088ed7e4f74e5896
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
@@ -160,21 +247,34 @@ SPEC CHECKSUMS:
   FirebaseCoreInternal: 9afa45b1159304c963da48addb78275ef701c6b4
   FirebaseInstallations: 317270fec08a5d418fdbc8429282238cab3ac843
   FirebaseMessaging: 3b26e2cee503815e01c3701236b020aa9b576f09
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_foreground_task: a159d2c2173b33699ddb3e6c2a067045d7cebb89
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
   flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  Stripe: 604acd978f3ec2921098f477ccaa229e12690373
+  stripe_ios: 1f895b7e517569a02c732967c48042d941e7352e
+  StripeApplePay: 9dabe2d3d897419a7a7663dc3338ff4bc51b9f54
+  StripeConnect: 953c0eddb7fd849d2f6707a9d9dabc78972451ea
+  StripeCore: 87c7dc5c110c1fd6b3de3ecdbc4df54c0ed5968a
+  StripeFinancialConnections: 2ef6995c4b5e4dc4007388c248446d47d13f1799
+  StripeIssuing: 89b08263d6bc0d881fab731f7336ecf664f93fa2
+  StripePayments: d2d00182defa4880b355020d6528a014cbd43170
+  StripePaymentSheet: 0fc945d26c9884ad5781d6c636e1b8adedf9a886
+  StripePaymentsUI: e2f00f9be6fea280d6188b805fdb5199a96e1151
+  StripeUICore: bfe8754c2d78eeb0fc4ce147316a7e5129b58423
+  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
+  wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   workmanager: 01be2de7f184bd15de93a1812936a2b7f42ef07e
 
-PODFILE CHECKSUM: 251cb053df7158f337c0712f2ab29f4e0fa474ce
+PODFILE CHECKSUM: 07799af72b7c55af627b70ff624faade7f235bad
 
 COCOAPODS: 1.16.2

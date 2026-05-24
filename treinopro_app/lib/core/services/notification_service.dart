@@ -138,6 +138,16 @@ Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
       return; // Proposta já processada, sair do handler
     }
 
+    if (notificationType == 'proposal_payment_confirmed' &&
+        message.data.isNotEmpty) {
+      print('💳 [BACKGROUND] Pagamento confirmado — persistindo para processamento');
+      await NotificationService.persistPendingPaymentConfirmed(message.data);
+      if (message.notification == null) {
+        await NotificationService.showFlutterNotification(message);
+      }
+      return;
+    }
+
     // ✅ Para outras notificações (não propostas)
     if (message.notification == null) {
       // Backend enviou apenas data - verificar se há dados válidos antes de criar notificação
@@ -219,6 +229,13 @@ class NotificationService {
   static bool _listenersRegistered = false;
   static const String _pendingLiveActivitiesKey =
       'pending_live_activity_payloads_v1';
+  static const String _pendingPaymentConfirmedKey =
+      'pending_payment_confirmed_v1';
+  static const String _pendingPaymentConfirmedTsKey =
+      'pending_payment_confirmed_ts_v1';
+
+  /// Callback registrado pelo RealtimeDataService após inicialização do aluno.
+  static void Function(Map<String, dynamic> data)? paymentConfirmedHandler;
 
   // ✅ Flag para rastrear se app está em foreground
   static bool _isInForeground = true; // Assume foreground por padrão
@@ -419,6 +436,19 @@ class NotificationService {
             data,
             source: 'onMessage_foreground',
           );
+          return;
+        }
+
+        if (data.isNotEmpty && data['type'] == 'proposal_payment_confirmed') {
+          print('💳 [NOTIF] Pagamento confirmado via FCM (foreground)');
+          await _dispatchPaymentConfirmed(data);
+          await convertAndSaveInAppNotification(message);
+          if (Platform.isIOS && message.notification != null) {
+            return;
+          }
+          if (message.notification == null) {
+            await showFlutterNotification(message);
+          }
           return;
         }
 
@@ -784,6 +814,20 @@ class NotificationService {
           break;
         case 'payment_received':
           if (data['classId'] != null) payloadData['classId'] = data['classId'];
+          break;
+        case 'proposal_payment_confirmed':
+          if (data['proposalId'] != null) {
+            payloadData['proposalId'] = data['proposalId'];
+          }
+          if (data['locationName'] != null) {
+            payloadData['locationName'] = data['locationName'];
+          }
+          if (data['trainingDate'] != null) {
+            payloadData['trainingDate'] = data['trainingDate'];
+          }
+          if (data['trainingTime'] != null) {
+            payloadData['trainingTime'] = data['trainingTime'];
+          }
           break;
         case 'proposal':
         case 'new_proposal':
@@ -1271,6 +1315,9 @@ class NotificationService {
         case 'payment_received':
           inAppNotificationType = 'success';
           break;
+        case 'proposal_payment_confirmed':
+          inAppNotificationType = 'success';
+          break;
         case 'dispute_created':
         case 'dispute_update':
           inAppNotificationType = 'warning';
@@ -1455,6 +1502,35 @@ class NotificationService {
     }
   }
 
+  static Future<void> persistPendingPaymentConfirmed(
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingPaymentConfirmedKey, jsonEncode(data));
+      await prefs.setInt(
+        _pendingPaymentConfirmedTsKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (e) {
+      print('⚠️ [NOTIF] Erro ao persistir confirmação de pagamento: $e');
+    }
+  }
+
+  static Future<void> _dispatchPaymentConfirmed(
+    Map<String, dynamic> data,
+  ) async {
+    if (paymentConfirmedHandler != null) {
+      paymentConfirmedHandler!(data);
+      return;
+    }
+
+    print(
+      '💾 [NOTIF] RealtimeDataService indisponível — persistindo confirmação de pagamento',
+    );
+    await persistPendingPaymentConfirmed(data);
+  }
+
   /// Processa navegação baseada no tipo de notificação
   static Future<void> _handleNotificationNavigation(
     String? notificationType,
@@ -1499,6 +1575,10 @@ class NotificationService {
       case 'payment_received':
         // Apenas marcar como lida (sem navegação específica)
         print('💰 [NOTIF] Notificação de pagamento recebido');
+        break;
+
+      case 'proposal_payment_confirmed':
+        await _dispatchPaymentConfirmed(payloadData);
         break;
 
       case 'proposal':

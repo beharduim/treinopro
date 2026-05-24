@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/config/app_config.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../payment_methods/data/services/stripe_payment_sheet_service.dart';
+import '../utils/payment_status_utils.dart';
 import '../models/create_proposal_dto.dart';
 import '../models/proposal_response_dto.dart';
 
@@ -235,6 +236,29 @@ class ProposalsApiService {
     }
   }
 
+  /// Descarta proposta com pagamento Stripe ainda pendente (ex.: cancelou o sheet).
+  Future<void> abandonPendingStripePayment(String proposalId) async {
+    final token = _apiService.getAccessToken();
+    if (token == null) {
+      throw Exception('Token de acesso não encontrado');
+    }
+
+    final url = Uri.parse('$_baseUrl/proposals/$proposalId/stripe/abandon');
+    final response = await _client.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      print(
+        '⚠️ PROPOSALS API: Falha ao descartar proposta pendente: ${_extractErrorMessage(response)}',
+      );
+    }
+  }
+
   /// Buscar conflitos de horários para uma data específica
   Future<TimeConflictsResponse> getTimeConflicts(String date) async {
     try {
@@ -337,14 +361,66 @@ class ProposalsApiService {
       return response;
     }
 
-    await _stripePaymentSheetService.presentPaymentSheet(
-      clientSecret: payment.clientSecret!,
-      customerId: payment.customerId ?? '',
-      ephemeralKeySecret: payment.customerEphemeralKeySecret ?? '',
-      publishableKey: payment.publishableKey ?? '',
-    );
+    try {
+      await _stripePaymentSheetService.presentPaymentSheet(
+        clientSecret: payment.clientSecret!,
+        customerId: payment.customerId ?? '',
+        ephemeralKeySecret: payment.customerEphemeralKeySecret ?? '',
+        publishableKey: payment.publishableKey ?? '',
+      );
 
-    return confirmStripeProposalPayment(response.id);
+      return _confirmWithRetry(response.id);
+    } catch (e) {
+      final message = e.toString().toLowerCase();
+      if (message.contains('cancel')) {
+        await abandonPendingStripePayment(response.id);
+        throw Exception('Pagamento cancelado');
+      }
+
+      final confirmed = await _pollUntilPaymentConfirmed(response.id);
+      if (confirmed != null) {
+        return confirmed;
+      }
+      rethrow;
+    }
+  }
+
+  Future<ProposalResponseDto> _confirmWithRetry(String proposalId) async {
+    try {
+      return await confirmStripeProposalPayment(proposalId);
+    } catch (e) {
+      final confirmed = await _pollUntilPaymentConfirmed(proposalId);
+      if (confirmed != null) {
+        return confirmed;
+      }
+      rethrow;
+    }
+  }
+
+  Future<ProposalResponseDto?> _pollUntilPaymentConfirmed(
+    String proposalId, {
+    int maxAttempts = 6,
+    Duration interval = const Duration(seconds: 2),
+  }) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(interval);
+      }
+
+      try {
+        final proposal = await getProposalById(proposalId);
+        final status = proposal.paymentStatus ?? proposal.payment?.status;
+        if (isProposalPaymentConfirmed(status)) {
+          print(
+            '✅ PROPOSALS API: Pagamento confirmado via polling (tentativa ${attempt + 1})',
+          );
+          return proposal;
+        }
+      } catch (pollError) {
+        print('⚠️ PROPOSALS API: Erro no polling de pagamento: $pollError');
+      }
+    }
+    return null;
   }
 }
 

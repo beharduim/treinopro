@@ -16,6 +16,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/services/cache_service.dart';
 import '../../../gamification/presentation/utils/level_labels.dart';
 import '../../../users/data/services/users_api_service.dart';
+import '../../../health_questionnaire/data/services/health_questionnaire_api_service.dart';
 
 /// Implementação do repositório da home
 class HomeRepositoryImpl implements HomeRepository {
@@ -27,6 +28,7 @@ class HomeRepositoryImpl implements HomeRepository {
   final SharedPreferences _prefs;
   final CacheService _cacheService;
   final UsersApiService _usersApiService;
+  final HealthQuestionnaireApiService _healthQuestionnaireApiService;
 
   HomeRepositoryImpl({
     required GamificationService gamificationService,
@@ -37,6 +39,7 @@ class HomeRepositoryImpl implements HomeRepository {
     required SharedPreferences prefs,
     required CacheService cacheService,
     required UsersApiService usersApiService,
+    required HealthQuestionnaireApiService healthQuestionnaireApiService,
   }) : _gamificationService = gamificationService,
        _classesService = classesService,
        _proposalsService = proposalsService,
@@ -44,7 +47,8 @@ class HomeRepositoryImpl implements HomeRepository {
        _authService = authService,
        _prefs = prefs,
        _cacheService = cacheService,
-       _usersApiService = usersApiService;
+       _usersApiService = usersApiService,
+       _healthQuestionnaireApiService = healthQuestionnaireApiService;
 
   @override
   Future<HomeState> getHomeState() async {
@@ -205,7 +209,21 @@ class HomeRepositoryImpl implements HomeRepository {
 
       // Processar propostas
       final proposals = proposalsData['proposals'] as List<dynamic>? ?? [];
-      final hasPendingProposals = proposals.isNotEmpty;
+
+      // SSOT: status real do questionário via API (não inferir por propostas pendentes)
+      bool questionnaireCompleted = false;
+      try {
+        questionnaireCompleted =
+            await _healthQuestionnaireApiService.isQuestionnaireCompleted();
+        await _prefs.setBool(
+          'health_questionnaire_completed',
+          questionnaireCompleted,
+        );
+      } catch (e) {
+        print('⚠️ [HOME] Falha ao consultar questionário de saúde: $e');
+        questionnaireCompleted =
+            _prefs.getBool('health_questionnaire_completed') ?? false;
+      }
 
       final homeModel = HomeModel(
         userName: userName.isNotEmpty ? userName : 'Usuário',
@@ -215,7 +233,8 @@ class HomeRepositoryImpl implements HomeRepository {
         weeklyMissionProgress: weeklyMissionProgress,
         weeklyMissionTarget: weeklyMissionTarget,
         weeklyMissionDescription: weeklyMissionDescription,
-        hasHealthQuestionnaire: !hasPendingProposals, // Se tem proposta pendente, já completou o questionário
+        // true = ainda precisa preencher o questionário
+        hasHealthQuestionnaire: !questionnaireCompleted,
         hasWorkouts: hasWorkouts,
         completedWorkouts: completedWorkouts,
         achievements: gamificationProfile.achievements.length,
@@ -245,7 +264,7 @@ class HomeRepositoryImpl implements HomeRepository {
       weeklyMissionProgress: _prefs.getInt('weekly_mission_progress') ?? 0,
       weeklyMissionTarget: _prefs.getInt('weekly_mission_target') ?? 3,
       weeklyMissionDescription: _prefs.getString('weekly_mission_description') ?? '',
-      hasHealthQuestionnaire: _prefs.getBool('has_health_questionnaire') ?? true,
+      hasHealthQuestionnaire: !(_prefs.getBool('health_questionnaire_completed') ?? false),
       hasWorkouts: _prefs.getBool('has_workouts') ?? false,
       completedWorkouts: _prefs.getInt('completed_workouts') ?? 0,
       achievements: _prefs.getInt('achievements') ?? 0,
@@ -265,11 +284,7 @@ class HomeRepositoryImpl implements HomeRepository {
 
   @override
   Future<void> completeHealthQuestionnaire() async {
-    // Marcar questionário como completado localmente
-    await _prefs.setBool('has_health_questionnaire', false);
-    
-    // TODO: Implementar atualização via API quando necessário
-    // Por enquanto, apenas salva localmente
+    await _prefs.setBool('health_questionnaire_completed', true);
   }
 
   @override

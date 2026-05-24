@@ -36,6 +36,9 @@ class PushNotificationService {
       case 'proposal_cancelled':
         _handleProposalCancelled(data);
         break;
+      case 'proposal_payment_confirmed':
+        _handleProposalPaymentConfirmed(data);
+        break;
       case 'class_scheduled':
         _handleClassScheduled(data);
         break;
@@ -85,6 +88,28 @@ class PushNotificationService {
     
     // Atualizar dados
     _homeBloc.add(const LoadWorkoutCardData());
+  }
+
+  /// Pagamento confirmado (PIX webhook) — iniciar busca de personal
+  void _handleProposalPaymentConfirmed(Map<String, dynamic> data) {
+    if (kDebugMode) {
+      print('💳 DEBUG: Pagamento confirmado via push');
+    }
+
+    _homeBloc.add(StartProposalSearch(
+      location: data['locationName']?.toString() ??
+          data['location']?.toString() ??
+          'Local não especificado',
+      trainingDate: _parseTrainingDate(data['trainingDate']),
+      trainingTime: data['trainingTime']?.toString() ?? '00:00',
+    ));
+  }
+
+  DateTime _parseTrainingDate(dynamic raw) {
+    if (raw is String && raw.isNotEmpty) {
+      return DateTime.tryParse(raw) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 
   /// Manipula aula agendada

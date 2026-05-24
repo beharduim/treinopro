@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/constants/service_radius_constants.dart';
 import '../../../../core/utils/geo_utils.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/websocket_service.dart';
@@ -88,7 +89,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     on<ProposalsClear>(_onClear);
     on<ProposalsNextStep>(_onNextStep);
     on<ProposalsPreviousStep>(_onPreviousStep);
-    on<ProposalsClearErrors>(_onClearErrors);
 
     // ===== HANDLERS PARA LISTAGEM DE PROPOSTAS (PERSONAL TRAINER) =====
     on<ProposalsLoadAvailable>(_onLoadAvailable);
@@ -215,7 +215,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       locationLng: event.location.longitude, // ✅ Salvar coordenadas
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Registrar uso do local para popularidade
     await PopularLocationsService.addLocationUsage(event.location);
@@ -240,7 +240,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       currentState.copyWith(
         proposal: updatedProposal,
         availableTimeSlots: [], // Limpar horários antigos
-        clearError: true,
       ),
     );
 
@@ -265,7 +264,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           event.modality.suggestedPrice, // Sugerir preço baseado na modalidade
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -282,7 +281,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       trainingTime: event.time,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -299,7 +298,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       durationMinutes: event.durationMinutes,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -314,7 +313,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     final currentState = state as ProposalsLoaded;
     final updatedProposal = currentState.proposal.copyWith(price: event.price);
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -331,7 +330,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       additionalNotes: event.notes.isEmpty ? null : event.notes,
     );
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
 
     // Salvar automaticamente
     await _saveProposal(updatedProposal);
@@ -532,19 +531,18 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           '❌ [PROPOSALS BLOC] Status de pagamento não reconhecido: ${response.paymentStatus}',
         );
         emit(
-          currentState.copyWith(
-            isSubmitting: false,
-            errorMessage: 'Erro no processamento do pagamento. Tente novamente.',
-            errorDetails: 'Status do pagamento: ${response.paymentStatus}',
+          ProposalsError(
+            message: 'Erro no processamento do pagamento. Tente novamente.',
+            details: 'Status do pagamento: ${response.paymentStatus}',
           ),
         );
       }
     } catch (e) {
+      emit(currentState.copyWith(isSubmitting: false));
       emit(
-        currentState.copyWith(
-          isSubmitting: false,
-          errorMessage: 'Erro ao enviar proposta',
-          errorDetails: e.toString().replaceFirst('Exception: ', '').trim(),
+        ProposalsError(
+          message: 'Erro ao enviar proposta',
+          details: e.toString(),
         ),
       );
     }
@@ -630,7 +628,7 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
     print('  - ID: ${selectedMethod.id}');
     print('  - Type: ${selectedMethod.type}');
 
-    emit(currentState.copyWith(proposal: updatedProposal, clearError: true));
+    emit(currentState.copyWith(proposal: updatedProposal));
   }
 
   Future<void> _onSetSavedCardCvv(
@@ -643,16 +641,6 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
       savedCardCvv: event.cvv,
     );
     emit(currentState.copyWith(proposal: updatedProposal));
-  }
-
-  void _onClearErrors(
-    ProposalsClearErrors event,
-    Emitter<ProposalsState> emit,
-  ) {
-    if (state is ProposalsLoaded) {
-      final currentState = state as ProposalsLoaded;
-      emit(currentState.copyWith(clearError: true));
-    }
   }
 
   Future<void> _onLoadPaymentMethods(
@@ -865,16 +853,16 @@ class ProposalsBloc extends Bloc<ProposalsEvent, ProposalsState> {
           (response['proposals'] as List? ?? <dynamic>[]);
 
       // 1) Recuperar centro/raio preferidos (persistidos na Home) ou usar GPS
-      double radiusKm = 47.0; // mesmo padrão da Home
+      double radiusKm = ServiceRadiusConstants.defaultKm;
       double? centerLat;
       double? centerLng;
       String? preferredCity; // fallback por cidade
 
       try {
         final prefs = sl<SharedPreferences>();
-        radiusKm = (prefs.getDouble('personal_radius_km') ?? 47.0).clamp(
-          0.0,
-          80.0,
+        radiusKm = ServiceRadiusConstants.clamp(
+          prefs.getDouble('personal_radius_km') ??
+              ServiceRadiusConstants.defaultKm,
         );
         centerLat = prefs.getDouble('personal_location_lat');
         centerLng = prefs.getDouble('personal_location_lng');

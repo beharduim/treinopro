@@ -7,6 +7,7 @@ import '../../../../core/widgets/status_bar_wrapper.dart';
 import '../../../../core/widgets/custom_top_bar.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/service_radius_constants.dart';
 import '../../widgets/personal_bottom_navigation.dart';
 import '../../widgets/proposal_modal.dart';
 import '../../../classes/presentation/pages/classes_page.dart';
@@ -64,7 +65,7 @@ class PersonalHomePage extends StatefulWidget {
 class _PersonalHomePageState extends State<PersonalHomePage>
     with WidgetsBindingObserver, NotificationsMixin {
   int _currentBottomNavIndex = 0;
-  double _raioAtendimento = 47.0; // Valor inicial do raio em km
+  double _raioAtendimento = ServiceRadiusConstants.defaultKm;
   bool _isOnline = false; // Estado inicial offline
   late RealtimeDataService _realtimeDataService; // Serviço centralizado
   StreamSubscription<dynamic>?
@@ -100,6 +101,32 @@ class _PersonalHomePageState extends State<PersonalHomePage>
   final Map<String, Completer<Map<String, String>>> _classWaiterByProposalId =
       <String, Completer<Map<String, String>>>{};
   final Set<String> _processedFinancialClassIds = <String>{};
+
+  /// Payload enviado ao backend via personal_online (SSOT de raio/local).
+  Map<String, dynamic> _buildPersonalOnlinePayload() {
+    final centerLat = _selectedLocation?.latitude;
+    final centerLng = _selectedLocation?.longitude;
+    return {
+      'action': 'set_radius',
+      'radiusKm': _raioAtendimento,
+      if (centerLat != null && centerLng != null)
+        'center': {'lat': centerLat, 'lng': centerLng},
+    };
+  }
+
+  void _syncPersonalOnlineStatus({required String reason}) {
+    final ws = sl<WebSocketService>();
+    if (_isOnline) {
+      print('📤 [PERSONAL_HOME] SSOT online ($reason)');
+      ws.configurePersonalOnline(
+        active: true,
+        payload: _buildPersonalOnlinePayload(),
+      );
+    } else {
+      print('📴 [PERSONAL_HOME] SSOT offline ($reason)');
+      ws.configurePersonalOnline(active: false);
+    }
+  }
 
   // ===== Helpers de geolocalização/raio =====
   double _deg2rad(double deg) => deg * (3.141592653589793 / 180.0);
@@ -226,6 +253,40 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     return false;
   }
 
+  DateTime? _extractProposalNotificationTimestamp(
+    Map<String, dynamic> proposal, {
+    Map<String, dynamic>? wrapper,
+  }) {
+    final updatedAt = DateTime.tryParse(
+      (proposal['updatedAt'] ?? '').toString(),
+    );
+    final createdAt = DateTime.tryParse(
+      (proposal['createdAt'] ?? wrapper?['timestamp'] ?? '').toString(),
+    );
+
+    if (updatedAt != null && createdAt != null) {
+      return updatedAt.isAfter(createdAt) ? updatedAt : createdAt;
+    }
+    return updatedAt ?? createdAt;
+  }
+
+  bool _isProposalFreshForNotification(
+    Map<String, dynamic> proposal, {
+    Map<String, dynamic>? wrapper,
+  }) {
+    final timestamp = _extractProposalNotificationTimestamp(
+      proposal,
+      wrapper: wrapper,
+    );
+    if (timestamp == null) {
+      return false;
+    }
+
+    // 30 minutos — alinhado com expiração da proposta no backend.
+    // Usa updatedAt quando pagamento demora (createdAt ficaria "velho" cedo demais).
+    return DateTime.now().difference(timestamp).inMinutes < 30;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -247,7 +308,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       // Restaurar raio (km)
       final savedRadius = prefs.getDouble('personal_radius_km');
       if (savedRadius != null) {
-        _raioAtendimento = savedRadius.clamp(0.0, 80.0);
+        _raioAtendimento = ServiceRadiusConstants.clamp(savedRadius);
       }
       // Restaurar online/offline
       final savedOnline = prefs.getBool(_onlinePrefKey);
@@ -315,17 +376,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
           setState(() => _isOnline = savedOnline);
         }
         if (_isOnline) {
-          // Reenviar raio e tentar recovery imediato
-          final centerLat = _selectedLocation?.latitude;
-          final centerLng = _selectedLocation?.longitude;
-          final payload = <String, dynamic>{
-            'action': 'set_radius',
-            'radiusKm': _raioAtendimento,
-            if (centerLat != null && centerLng != null)
-              'center': {'lat': centerLat, 'lng': centerLng},
-          };
-          print('📤 [PERSONAL_HOME] Emitting personal_online (init): $payload');
-          sl<WebSocketService>().emit('personal_online', payload);
+          _syncPersonalOnlineStatus(reason: 'init');
           _attemptForegroundRecovery();
         }
       } catch (e) {
@@ -360,25 +411,14 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         // Isso garante que o backend saiba o status atual do personal
         if (_isOnline) {
           print(
-            '📤 [PERSONAL_HOME] Personal está online - reemitindo personal_online após reconexão...',
+            '📤 [PERSONAL_HOME] Personal está online - reemitindo após reconexão WS...',
           );
-          final centerLat = _selectedLocation?.latitude;
-          final centerLng = _selectedLocation?.longitude;
-          final payload = <String, dynamic>{
-            'action': 'set_radius',
-            'radiusKm': _raioAtendimento,
-            if (centerLat != null && centerLng != null)
-              'center': {'lat': centerLat, 'lng': centerLng},
-          };
-          print(
-            '📤 [PERSONAL_HOME] Emitting personal_online (reconnect): $payload',
-          );
-          sl<WebSocketService>().emit('personal_online', payload);
+          _syncPersonalOnlineStatus(reason: 'ws_reconnect');
         } else {
           print(
-            '📴 [PERSONAL_HOME] Personal está offline - reemitindo personal_offline após reconexão...',
+            '📴 [PERSONAL_HOME] Personal está offline - confirmando após reconexão WS...',
           );
-          sl<WebSocketService>().emit('personal_offline', {});
+          _syncPersonalOnlineStatus(reason: 'ws_reconnect_offline');
         }
       } else {
         print('⚠️ [PERSONAL_HOME] WebSocket desconectado');
@@ -443,31 +483,10 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
 
-          if (_isOnline) {
-            print(
-              '📤 [PERSONAL_HOME] App voltou ao foreground - reenviando status ONLINE...',
-            );
-            final centerLat = _selectedLocation?.latitude;
-            final centerLng = _selectedLocation?.longitude;
-            final payload = <String, dynamic>{
-              'action': 'set_radius',
-              'radiusKm': _raioAtendimento,
-              if (centerLat != null && centerLng != null)
-                'center': {'lat': centerLat, 'lng': centerLng},
-            };
-            wsService.emit('personal_online', payload);
-            print(
-              '✅ [PERSONAL_HOME] Status ONLINE reenviado após voltar do background',
-            );
-          } else {
-            print(
-              '📴 [PERSONAL_HOME] App voltou ao foreground - reenviando status OFFLINE...',
-            );
-            wsService.emit('personal_offline', {});
-            print(
-              '✅ [PERSONAL_HOME] Status OFFLINE reenviado após voltar do background',
-            );
-          }
+          _syncPersonalOnlineStatus(reason: 'foreground_resume');
+          print(
+            '✅ [PERSONAL_HOME] Status online/offline reenviado após voltar do background',
+          );
         });
       } else {
         print(
@@ -728,6 +747,20 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       }
 
       if (mounted) {
+        final apiRadius = profileData['serviceRadiusKm'];
+        if (apiRadius != null) {
+          final parsed = double.tryParse(apiRadius.toString());
+          if (parsed != null) {
+            _raioAtendimento = ServiceRadiusConstants.clamp(parsed);
+            try {
+              sl<SharedPreferences>().setDouble(
+                'personal_radius_km',
+                _raioAtendimento,
+              );
+            } catch (_) {}
+          }
+        }
+
         setState(() {
           _personalName = fullName.isNotEmpty ? fullName : 'Personal Trainer';
           _balance = 'R\$ ${balance.toStringAsFixed(2).replaceAll('.', ',')}';
@@ -766,6 +799,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         token: token,
         useCurrentLocation: true,
         limit: 8,
+        locationContext: context,
       );
       if (!mounted) return;
       setState(() {
@@ -803,27 +837,12 @@ class _PersonalHomePageState extends State<PersonalHomePage>
 
     // ✅ Se estiver online, atualizar no backend também
     if (_isOnline) {
+      _syncPersonalOnlineStatus(reason: 'location_change');
       final centerLat = location.latitude;
       final centerLng = location.longitude;
       if (centerLat != null && centerLng != null) {
-        // ✅ Tentar atualizar via WebSocket primeiro (mais rápido)
         final wsService = sl<WebSocketService>();
-        if (wsService.isConnected) {
-          final payload = <String, dynamic>{
-            'action': 'set_radius',
-            'radiusKm': _raioAtendimento,
-            'center': {'lat': centerLat, 'lng': centerLng},
-          };
-          print(
-            '📤 [PERSONAL_HOME] Emitting personal_online (location change): $payload',
-          );
-          wsService.emit('personal_online', payload);
-          print('✅ [PERSONAL_HOME] Localização atualizada via WebSocket');
-        } else {
-          // ✅ Se WebSocket não conectado, usar endpoint REST
-          print(
-            '⚠️ [PERSONAL_HOME] WebSocket não conectado, atualizando via REST...',
-          );
+        if (!wsService.isConnected) {
           _updateServiceLocationViaRest(centerLat, centerLng, _raioAtendimento);
         }
       }
@@ -859,6 +878,16 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       print('❌ [PERSONAL_HOME] Erro ao atualizar localização via REST: $e');
       // Não bloquear o fluxo - o WebSocket pode tentar depois
     }
+  }
+
+  Future<void> _persistRadiusViaRestIfPossible() async {
+    try {
+      final prefs = sl<SharedPreferences>();
+      final lat = prefs.getDouble('personal_location_lat');
+      final lng = prefs.getDouble('personal_location_lng');
+      if (lat == null || lng == null) return;
+      await _updateServiceLocationViaRest(lat, lng, _raioAtendimento);
+    } catch (_) {}
   }
 
   void _showTimeoutMessage(String studentName) {
@@ -1269,62 +1298,19 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                     debugPrint(
                       '🔁[PROPOSAL_RT] Toggle online → tentativa de recovery imediata',
                     );
-                    // Enviar preferências de raio/centro ao backend para filtro server-side
-                    final centerLat = _selectedLocation?.latitude;
-                    final centerLng = _selectedLocation?.longitude;
-                    final payload = <String, dynamic>{
-                      'action': 'set_radius',
-                      'radiusKm': _raioAtendimento,
-                      if (centerLat != null && centerLng != null)
-                        'center': {'lat': centerLat, 'lng': centerLng},
-                    };
-                    print(
-                      '📤 [PERSONAL_HOME] Emitting personal_online (toggle): $payload',
-                    );
-
-                    // Verificar se WebSocket está conectado antes de emitir
                     final wsService = sl<WebSocketService>();
-                    if (wsService.isConnected) {
-                      wsService.emit('personal_online', payload);
-                      print(
-                        '✅ [PERSONAL_HOME] personal_online emitido com sucesso',
-                      );
-                    } else {
-                      print(
-                        '⚠️ [PERSONAL_HOME] WebSocket não conectado, tentando conectar antes de emitir personal_online...',
-                      );
-                      // Conectar WebSocket e emitir personal_online após conexão estabelecida
-                      wsService.connect().then((_) {
-                        // O listener _setupConnectionListener emitirá personal_online
-                        // automaticamente quando a conexão for estabelecida (_isOnline == true)
-                        print(
-                          '⏳ [PERSONAL_HOME] Aguardando conexão do WebSocket para emitir personal_online...',
-                        );
-                      }).catchError((e) {
+                    if (!wsService.isConnected) {
+                      wsService.connect().catchError((e) {
                         print(
                           '❌ [PERSONAL_HOME] Falha ao conectar WebSocket: $e',
                         );
                       });
                     }
-
+                    _syncPersonalOnlineStatus(reason: 'toggle_online');
                     _attemptForegroundRecovery();
                   } else {
                     print('📴 [PERSONAL_HOME] Personal foi para offline');
-                    // ✅ Emitir personal_offline para atualizar status no backend
-                    final wsService = sl<WebSocketService>();
-                    if (wsService.isConnected) {
-                      wsService.emit('personal_offline', {});
-                      print(
-                        '✅ [PERSONAL_HOME] personal_offline emitido com sucesso',
-                      );
-                    } else {
-                      print(
-                        '⚠️ [PERSONAL_HOME] WebSocket não conectado, não é possível emitir personal_offline',
-                      );
-                      print(
-                        '⏳ [PERSONAL_HOME] personal_offline será emitido quando WebSocket conectar',
-                      );
-                    }
+                    _syncPersonalOnlineStatus(reason: 'toggle_offline');
                   }
                 },
                 child: Container(
@@ -1468,12 +1454,12 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 ),
                 child: Slider(
                   value: _raioAtendimento,
-                  min: 0.0,
-                  max: 80.0,
-                  divisions: 80,
+                  min: ServiceRadiusConstants.minKm,
+                  max: ServiceRadiusConstants.maxKm,
+                  divisions: ServiceRadiusConstants.maxKm.toInt(),
                   onChanged: (double value) {
                     setState(() {
-                      _raioAtendimento = value;
+                      _raioAtendimento = ServiceRadiusConstants.clamp(value);
                     });
                     // ✅ Persistir raio selecionado
                     try {
@@ -1482,20 +1468,13 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                         _raioAtendimento,
                       );
                     } catch (_) {}
-                    // Atualizar raio server-side quando online
+                    // SSOT: re-sincroniza personal_online via WebSocketService
                     if (_isOnline) {
-                      final centerLat = _selectedLocation?.latitude;
-                      final centerLng = _selectedLocation?.longitude;
-                      final payload = <String, dynamic>{
-                        'action': 'set_radius',
-                        'radiusKm': _raioAtendimento,
-                        if (centerLat != null && centerLng != null)
-                          'center': {'lat': centerLat, 'lng': centerLng},
-                      };
-                      print(
-                        '📤 [PERSONAL_HOME] Emitting personal_online (radius change): $payload',
-                      );
-                      sl<WebSocketService>().emit('personal_online', payload);
+                      _syncPersonalOnlineStatus(reason: 'radius_change');
+                      final wsService = sl<WebSocketService>();
+                      if (!wsService.isConnected) {
+                        _persistRadiusViaRestIfPossible();
+                      }
                     }
                   },
                 ),
@@ -1528,7 +1507,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 ),
               ),
               const Text(
-                '80 km',
+                '${ServiceRadiusConstants.maxKm.toInt()} km',
                 style: TextStyle(
                   fontSize: 12, // Padrão do texto pequeno
                   color: Color(0xFFF3F3F3),
@@ -1675,15 +1654,12 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         final p = Map<String, dynamic>.from(raw as Map);
         final id = p['id']?.toString();
         if (id == null || _handledProposalIds.contains(id)) continue;
-        final createdAt = DateTime.tryParse(
-          (p['createdAt'] ?? p['created_at'] ?? '') as String? ?? '',
-        );
-        if (createdAt == null) continue;
-        if (now.difference(createdAt).inMinutes >= 3) continue;
+        if (!_isProposalFreshForNotification(p)) continue;
         // Filtro por raio a partir do local selecionado
         if (!_isProposalWithinRadius(p)) continue;
+        final ts = _extractProposalNotificationTimestamp(p);
         debugPrint(
-          '🔁[PROPOSAL_RT] Foreground recovery exibindo id=$id age=${now.difference(createdAt).inSeconds}s',
+          '🔁[PROPOSAL_RT] Foreground recovery exibindo id=$id age=${ts != null ? now.difference(ts).inSeconds : '?'}s',
         );
         _handledProposalIds.add(id);
         final student = p['student'] as Map<String, dynamic>? ?? {};
@@ -2028,19 +2004,16 @@ class _PersonalHomePageState extends State<PersonalHomePage>
         return;
       }
 
-      final createdAt = DateTime.tryParse(createdAtIso);
-      if (createdAt == null) {
-        print(
-          '⚠️ [PERSONAL_HOME] Não foi possível parsear createdAt: $createdAtIso',
+      if (!_isProposalFreshForNotification(proposal, wrapper: data)) {
+        final ts = _extractProposalNotificationTimestamp(
+          proposal,
+          wrapper: data,
         );
-        return;
-      }
-
-      final age = DateTime.now().difference(createdAt);
-      print('⏰ [PERSONAL_HOME] Idade da proposta: ${age.inMinutes} minutos');
-      if (age.inMinutes >= 3) {
+        final ageMin = ts != null
+            ? DateTime.now().difference(ts).inMinutes
+            : null;
         print(
-          '⚠️ [PERSONAL_HOME] Proposta muito antiga (${age.inMinutes}min >= 3min), ignorando',
+          '⚠️ [PERSONAL_HOME] Proposta expirada para exibição imediata (${ageMin ?? '?'}min >= 30min), ignorando',
         );
         return;
       }

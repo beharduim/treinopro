@@ -91,62 +91,18 @@ class UploadService {
     }
   }
 
-  /// Upload temporário (público - usado durante cadastro)
-  /// Endpoint: POST /upload/temp
+  /// Upload temporário — em produção usa POST /upload/document (cadastro pré-auth).
   Future<UploadResponse> uploadTemp({
     required File file,
     String? description,
     Function(double)? onProgress,
   }) async {
-    try {
-      print('UploadService: Iniciando upload temporário: ${file.path}');
-
-      final fileName = path.basename(file.path);
-      final metadata = description != null
-          ? {'description': description}
-          : <String, dynamic>{};
-
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(file.path, filename: fileName),
-        'category': 'temp',
-        'metadata': jsonEncode(metadata),
-      });
-
-      final response = await _apiService.dio.post(
-        '/upload/temp',
-        data: formData,
-        onSendProgress: onProgress != null
-            ? (sent, total) {
-                final progress = sent / total;
-                onProgress(progress);
-              }
-            : null,
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print('UploadService: Upload temporário concluído com sucesso');
-        print('UploadService: Tipo da resposta: ${response.data.runtimeType}');
-        try {
-          return UploadResponse.fromJson(response.data);
-        } catch (parseError) {
-          print('UploadService: Erro ao parsear resposta: $parseError');
-          rethrow;
-        }
-      } else {
-        throw Exception('Erro no upload: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('UploadService: Erro no upload temporário: $e');
-      if (e is DioException) {
-        if (e.response?.data != null) {
-          final errorMessage = e.response?.data is Map
-              ? (e.response?.data['message'] ?? e.message)
-              : e.message;
-          throw Exception('Erro no upload: $errorMessage');
-        }
-      }
-      throw Exception('Erro no upload temporário: $e');
-    }
+    return uploadDocument(
+      file: file,
+      documentType: 'registration_temp',
+      description: description ?? 'Upload temporário de cadastro',
+      onProgress: onProgress,
+    );
   }
 
   /// Teste de upload - Debug

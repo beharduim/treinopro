@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -26,72 +25,21 @@ class ClassTrackingPage extends StatefulWidget {
 }
 
 class _ClassTrackingPageState extends State<ClassTrackingPage> {
-  // Controle de 10 minutos para no-show
-  Timer? _noShowCheckTimer;
-  bool _canReportNoShow = false;
-
   @override
   void initState() {
     super.initState();
-    // ✅ GARANTIR que o timer persistente seja carregado antes de exibir a página
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final classesBloc = context.read<ClassesBloc>();
       if (classesBloc.state is ClassesInitial) {
-        // Se o BLoC ainda não foi inicializado, forçar inicialização
         classesBloc.add(const ClassesInitialize());
       }
-    });
-    
-    _initNoShowTimer();
-  }
-
-  void _initNoShowTimer() {
-    _checkNoShowDeadline();
-    _noShowCheckTimer = Timer.periodic(const Duration(seconds: 30), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
+      final classId = widget.aula['id']?.toString() ??
+          widget.aula['classId']?.toString();
+      if (classId != null) {
+        // SSOT: prazos de no-show vêm do backend via timeline
+        classesBloc.add(ClassesUpdateTimeline(classId: classId));
       }
-      _checkNoShowDeadline();
     });
-  }
-
-  void _checkNoShowDeadline() {
-    try {
-      final dateStr = widget.aula['date']?.toString();
-      final timeStr = widget.aula['time']?.toString();
-      if (dateStr == null || timeStr == null) return;
-      
-      // Formato esperado: "dd/MM/yyyy" e "HH:MM"
-      final parts = dateStr.split('/');
-      if (parts.length != 3) return;
-      
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(parts[2]);
-      
-      final timeParts = timeStr.split(':');
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-      
-      final classStart = DateTime(year, month, day, hour, minute);
-      final deadline = classStart.add(const Duration(minutes: 10));
-      
-      final now = DateTime.now();
-      final passed = now.isAfter(deadline);
-      
-      if (passed != _canReportNoShow) {
-        setState(() => _canReportNoShow = passed);
-      }
-    } catch (e) {
-      debugPrint('Error checking no-show deadline: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    _noShowCheckTimer?.cancel();
-    super.dispose();
   }
 
   @override
@@ -130,11 +78,13 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
       child: BlocBuilder<ClassesBloc, ClassesState>(
       builder: (context, state) {
         ClassTimerState? timerState;
-        String displayedRating = '0.0'; // Valor padrão se não houver rating
+        String displayedRating = '0.0';
+        ClassTimelineDto? timeline;
         
         ClassResponseDto? _currentClass;
         if (state is ClassesLoaded) {
           timerState = state.timers[classId];
+          timeline = state.timelines[classId];
           // Buscar aula atual para obter rating real do personal
           try {
             final classData = state.classes.firstWhere((c) => c.id == classId);
@@ -292,6 +242,9 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
           );
         })();
         
+        // SSOT: canReportPersonalNoShow vem da timeline da API
+        final canReportPersonalNoShow =
+            timeline?.canReportPersonalNoShow ?? false;
 
     return WillPopScope(
       onWillPop: () async => false,
@@ -462,35 +415,14 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_canReportNoShow && 
+            if (canReportPersonalNoShow && 
                 (_currentClass?.status == ClassStatus.SCHEDULED || 
                  _currentClass?.status == ClassStatus.PENDING_CONFIRMATION)) ...[
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_currentClass == null) return;
-                    
-                    // Buscar timeline do estado se disponível
-                    ClassTimelineDto? tl;
-                    final state = context.read<ClassesBloc>().state;
-                    if (state is ClassesLoaded) {
-                      tl = state.timelines[_currentClass.id];
-                    }
-                    
-                    // Fallback para timeline básico
-                    tl ??= ClassTimelineDto(
-                      matchTime: DateTime.now(),
-                      currentTime: DateTime.now(),
-                      classTime: DateTime.now(),
-                      canCancel: false,
-                      canStart: false,
-                      canReportNoShow: false,
-                      canConfirmStart: false,
-                      canReportPersonalNoShow: true,
-                      canComplete: false,
-                      noShowReportDeadline: DateTime.now().toIso8601String(),
-                    );
+                    if (_currentClass == null || timeline == null) return;
 
                     showModalBottomSheet(
                       context: context,
@@ -498,8 +430,8 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
                       backgroundColor: Colors.transparent,
                       builder: (context) => ReportNoShowModal(
                         classData: _currentClass!,
-                        timeline: tl!,
-                        isPersonalNoShow: true, // Aluno reportando Personal
+                        timeline: timeline!,
+                        isPersonalNoShow: true,
                         onReport: (reportData) {
                           context.read<ClassesBloc>().add(
                                 ClassesReportPersonalNoShow(

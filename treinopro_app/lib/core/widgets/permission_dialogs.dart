@@ -336,6 +336,89 @@ class OpenSettingsDialog extends StatelessWidget {
   }
 }
 
+/// Diálogo quando a permissão de localização foi negada permanentemente.
+class LocationPermissionDeniedForeverDialog extends StatelessWidget {
+  const LocationPermissionDeniedForeverDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: Row(
+        children: [
+          Icon(
+            Icons.location_off,
+            color: Colors.orange.shade700,
+            size: 28,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Localização bloqueada',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'O TreinoPro precisa da sua localização para definir o raio de atuação e registrar presença nas aulas.',
+            style: TextStyle(fontSize: 15),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Para habilitar:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text('1. Toque em "Abrir Configurações"'),
+          Text('2. Vá em Permissões > Localização'),
+          Text('3. Selecione "Permitir durante o uso" ou "Sempre"'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Agora não',
+            style: TextStyle(
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await openAppSettings();
+          },
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+          child: const Text(
+            'Abrir Configurações',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Helpers para mostrar os diálogos
 class PermissionDialogs {
   /// Mostrar diálogo explicativo antes de solicitar permissão
@@ -354,6 +437,15 @@ class PermissionDialogs {
       context: context,
       barrierDismissible: false,
       builder: (context) => const OpenSettingsDialog(),
+    );
+  }
+
+  /// GPS negado permanentemente — orienta abrir Configurações do app.
+  static Future<void> showLocationDeniedForeverDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const LocationPermissionDeniedForeverDialog(),
     );
   }
 }

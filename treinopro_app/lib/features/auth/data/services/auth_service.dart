@@ -19,9 +19,16 @@ class ForgotPasswordAuthService {
     print('ForgotPasswordAuthService: Código enviado com sucesso');
   }
 
-  /// Verifica código de reset de senha
+  /// Verifica código OTP de recuperação de senha
   Future<void> verifyPasswordResetCode(String email, String code) async {
-    await _authApiDataSource.verifyCode(email, code);
+    final response = await _apiService.dio.post(
+      '/auth/verify-reset-code',
+      data: {'email': email, 'code': code},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Falha na verificação do código de recuperação');
+    }
   }
 
   /// Reseta a senha do usuário

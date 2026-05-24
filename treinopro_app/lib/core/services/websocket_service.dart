@@ -16,11 +16,17 @@ class WebSocketService {
   StreamController<Map<String, dynamic>>? _messageController;
   StreamController<bool>? _connectionController;
   Timer? _reconnectTimer;
+  Timer? _personalHeartbeatTimer;
   bool _isConnected = false;
   bool _shouldReconnect = true;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectDelay = Duration(seconds: 3);
+  static const Duration _personalHeartbeatInterval = Duration(seconds: 60);
+
+  /// Personal marcou-se online no app — backend é SSOT via personal_online/heartbeat.
+  bool _personalOnlineActive = false;
+  Map<String, dynamic>? _personalOnlinePayload;
   
   // Controle de lifecycle do app
   bool _isManuallyDisconnected = false; // Flag para distinguir desconexão manual vs lifecycle
@@ -139,10 +145,9 @@ class WebSocketService {
           debugPrint('🔌 Socket.IO: Namespace: ${nsp ?? '-'}');
           _connectionController ??= StreamController<bool>.broadcast();
           _connectionController!.add(true);
-          
-          // CORREÇÃO: Não precisa restaurar subscriptions manualmente
-          // As subscriptions do RealtimeDataService continuam ativas mesmo quando WebSocket desconecta
-          // Quando o WebSocket reconecta, elas voltam a funcionar automaticamente
+
+          // SSOT online: reemitir status e heartbeat após reconexão
+          _syncPersonalOnlineAfterConnect();
         } catch (e) {
           debugPrint('⚠️ Socket.IO: onConnect handler error: $e');
         }
@@ -287,6 +292,7 @@ class WebSocketService {
     
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _stopPersonalHeartbeat();
     
     // CRÍTICO: Desconectar Socket.IO corretamente antes de dispose
     if (_socket != null) {
@@ -325,8 +331,10 @@ class WebSocketService {
     
     if (state == 'paused' || state == 'inactive') {
       // App está indo para background
-      _isInBackground = true; // CRÍTICO: Marcar que app está em background
+      _isInBackground = true;
       debugPrint('⏸️ [WEBSOCKET] App indo para background - state: $state');
+
+      _stopPersonalHeartbeat();
       
       // Cancelar qualquer reconexão agendada
       _reconnectTimer?.cancel();
@@ -375,8 +383,8 @@ class WebSocketService {
           }
         });
       } else if (_isConnected) {
-        // WebSocket já está conectado - subscriptions já estão ativas e funcionando
         debugPrint('📱 [WEBSOCKET] App em foreground - WebSocket já conectado, subscriptions ativas');
+        _syncPersonalOnlineAfterConnect();
       } else {
         debugPrint('📱 [WEBSOCKET] App em foreground - WebSocket não reconectando (desconexão manual)');
         debugPrint('📱 [WEBSOCKET] _isManuallyDisconnected=$_isManuallyDisconnected');
@@ -384,6 +392,55 @@ class WebSocketService {
     } else {
       debugPrint('ℹ️ [WEBSOCKET] Estado do lifecycle não tratado: $state');
     }
+  }
+
+  /// Configura status online do personal e gerencia heartbeat (SSOT no backend).
+  void configurePersonalOnline({
+    required bool active,
+    Map<String, dynamic>? payload,
+  }) {
+    _personalOnlineActive = active;
+    _personalOnlinePayload = payload;
+
+    if (!active) {
+      _stopPersonalHeartbeat();
+      emit('personal_offline', {});
+      return;
+    }
+
+    if (!_isInBackground && _isConnected) {
+      _emitPersonalOnline();
+      _startPersonalHeartbeat();
+    }
+  }
+
+  void _syncPersonalOnlineAfterConnect() {
+    if (!_personalOnlineActive || _isInBackground || !_isConnected) return;
+    _emitPersonalOnline();
+    _startPersonalHeartbeat();
+  }
+
+  void _emitPersonalOnline() {
+    final payload = _personalOnlinePayload;
+    if (payload == null) return;
+    emit('personal_online', payload);
+    emit('personal_heartbeat', {});
+  }
+
+  void _startPersonalHeartbeat() {
+    _stopPersonalHeartbeat();
+    if (!_personalOnlineActive || _isInBackground) return;
+
+    _personalHeartbeatTimer = Timer.periodic(_personalHeartbeatInterval, (_) {
+      if (_personalOnlineActive && !_isInBackground && _isConnected) {
+        emit('personal_heartbeat', {});
+      }
+    });
+  }
+
+  void _stopPersonalHeartbeat() {
+    _personalHeartbeatTimer?.cancel();
+    _personalHeartbeatTimer = null;
   }
 
   /// Envia uma mensagem
@@ -501,7 +558,8 @@ class WebSocketService {
   /// Dispose do serviço
   void dispose() {
     _shouldReconnect = false;
-    _isManuallyDisconnected = true; // Marcar como desconexão manual no dispose
+    _isManuallyDisconnected = true;
+    _stopPersonalHeartbeat();
     _reconnectTimer?.cancel();
     _messageController?.close();
     _connectionController?.close();

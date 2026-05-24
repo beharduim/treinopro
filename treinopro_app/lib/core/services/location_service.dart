@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:async' as async;
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../widgets/permission_dialogs.dart';
 
 /// Serviço para gerenciar geolocalização do usuário
 class LocationService {
@@ -104,16 +106,21 @@ class LocationService {
     );
   }
   
-  /// Solicita permissão de localização
-  Future<bool> requestLocationPermission() async {
+  /// Solicita permissão de localização.
+  /// Passe [context] para exibir diálogo quando a permissão estiver negada permanentemente.
+  Future<bool> requestLocationPermission({BuildContext? context}) async {
     try {
-      // Verificar se já tem permissão
       LocationPermission permission = await Geolocator.checkPermission()
           .timeout(const Duration(seconds: 5))
           .catchError((error) {
         print('⚠️ [LOCATION] Erro ao verificar permissão: $error');
         return LocationPermission.denied;
       });
+
+      if (permission == LocationPermission.deniedForever) {
+        await _showDeniedForeverDialog(context);
+        return false;
+      }
       
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission()
@@ -123,23 +130,34 @@ class LocationService {
           return LocationPermission.denied;
         });
         
+        if (permission == LocationPermission.deniedForever) {
+          await _showDeniedForeverDialog(context);
+          return false;
+        }
+
         if (permission == LocationPermission.denied) {
           return false;
         }
       }
       
-      if (permission == LocationPermission.deniedForever) {
-        return false;
-      }
-      
       return true;
     } catch (e, stackTrace) {
-      // Captura TODAS as exceções, incluindo RuntimeExecutionException
       print('⚠️ [LOCATION] Google Play Services indisponível: $e');
       print('📍 [LOCATION] Stack trace: $stackTrace');
       print('📍 [LOCATION] Usando modo fallback (permissão negada)');
       return false;
     }
+  }
+
+  Future<void> _showDeniedForeverDialog(BuildContext? context) async {
+    if (context == null || !context.mounted) {
+      print(
+        '📍 [LOCATION] Permissão negada permanentemente — '
+        'informe context para exibir diálogo de configurações',
+      );
+      return;
+    }
+    await PermissionDialogs.showLocationDeniedForeverDialog(context);
   }
   
   /// Obtém a localização atual do usuário
@@ -170,9 +188,9 @@ class LocationService {
     }
   }
   
-  /// Obtém localização atual do usuário (sem fallback para localização padrão)
-  /// Retorna null se não conseguir obter a localização
-  Future<LocationData?> getLocationWithFallback() async {
+  /// Obtém localização atual do usuário (sem fallback para localização padrão).
+  /// Passe [context] para orientar o usuário a abrir Configurações em deniedForever.
+  Future<LocationData?> getLocationWithFallback({BuildContext? context}) async {
     // Retornar null imediatamente se desabilitada
     if (_isLocationDisabled) {
       print('📍 [LOCATION] Localização desabilitada - retornando null');
@@ -195,7 +213,7 @@ class LocationService {
       }
       
       // Solicitar permissão (com timeout)
-      final hasPermission = await requestLocationPermission()
+      final hasPermission = await requestLocationPermission(context: context)
           .timeout(const Duration(seconds: 5))
           .catchError((error) {
         print('⚠️ [LOCATION] Erro ao solicitar permissão: $error');

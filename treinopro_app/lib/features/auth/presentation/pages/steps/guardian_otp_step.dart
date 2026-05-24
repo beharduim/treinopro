@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/constants/app_text_styles.dart';
+import '../../../../../core/widgets/otp_pin_input.dart';
 import '../../bloc/registration_bloc.dart';
 import '../../bloc/registration_event.dart' as registration_events;
 import '../../bloc/registration_state.dart' as registration_states;
@@ -26,11 +26,7 @@ class GuardianOtpStep extends StatefulWidget {
 }
 
 class _GuardianOtpStepState extends State<GuardianOtpStep> {
-  final List<TextEditingController> _controllers = List.generate(
-    6,
-    (index) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
+  final OtpPinInputController _otpController = OtpPinInputController();
 
   Timer? _timer;
   int _remainingTime = 1440; // 24 horas em minutos (1440 minutos)
@@ -41,22 +37,11 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
   void initState() {
     super.initState();
     _startTimer();
-
-    // Adicionar listeners para cada campo
-    for (int i = 0; i < 6; i++) {
-      _controllers[i].addListener(() => _onCodeChanged());
-    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    for (final controller in _controllers) {
-      controller.dispose();
-    }
-    for (final focusNode in _focusNodes) {
-      focusNode.dispose();
-    }
     super.dispose();
   }
 
@@ -73,8 +58,7 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
     });
   }
 
-  void _onCodeChanged() {
-    final code = _controllers.map((c) => c.text).join();
+  void _onCodeChanged(String code) {
     setState(() {
       _isCodeComplete = code.length == 6;
     });
@@ -82,50 +66,17 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
     // Limpar erro anterior quando usuário começar a digitar
     if (code.isNotEmpty) {
       final currentState = context.read<RegistrationBloc>().state;
-      if (currentState is registration_states.RegistrationStep && currentState.guardianOtpError != null) {
+      if (currentState is registration_states.RegistrationStep &&
+          currentState.guardianOtpError != null) {
         context.read<RegistrationBloc>().add(
           const registration_events.ClearGuardianOtpError(),
         );
       }
     }
-
-    // Não verificar automaticamente, deixa o usuário pressionar o botão
-    // if (_isCodeComplete && !_isVerifying) {
-    //   _verifyCode();
-    // }
-  }
-
-  void _onDigitChanged(String value, int index) {
-    if (value.length > 1) {
-      // Usuário colou um código completo ou parcial
-      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').split('');
-      int currIndex = index;
-      for (int i = 0; i < digits.length && currIndex < 6; i++) {
-        _controllers[currIndex].text = digits[i];
-        currIndex++;
-      }
-      if (currIndex < 6) {
-        _focusNodes[currIndex].requestFocus();
-      } else {
-        _focusNodes[5].unfocus();
-      }
-    } else if (value.length == 1) {
-      if (index < 5) {
-        _focusNodes[index + 1].requestFocus();
-      } else {
-        _focusNodes[index].unfocus();
-      }
-    } else if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-    
-    _onCodeChanged();
-    // Forçar reconstrução para atualizar as bordas dos campos
-    setState(() {});
   }
 
   void _verifyCode() {
-    final code = _controllers.map((c) => c.text).join();
+    final code = _otpController.code;
     
     print('GuardianOtpStep: _verifyCode chamado - code=$code, _isVerifying=$_isVerifying');
     
@@ -144,10 +95,7 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
   }
 
   void _clearCode() {
-    for (final controller in _controllers) {
-      controller.clear();
-    }
-    _focusNodes[0].requestFocus();
+    _otpController.clear();
     setState(() {
       _isCodeComplete = false;
     });
@@ -308,49 +256,10 @@ class _GuardianOtpStepState extends State<GuardianOtpStep> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      // Campos do código
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(6, (index) {
-                          return Container(
-                            width: 45,
-                            height: 55,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: _controllers[index].text.isNotEmpty
-                                    ? AppColors.primaryOrange
-                                    : AppColors.secondaryDark.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                width: _controllers[index].text.isNotEmpty
-                                    ? 2
-                                    : 1,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: TextFormField(
-                              controller: _controllers[index],
-                              focusNode: _focusNodes[index],
-                              textAlign: TextAlign.center,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              style: AppTextStyles.h6Semibold.copyWith(
-                                color: AppColors.secondary,
-                              ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                counterText: '',
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onChanged: (value) {
-                                _onDigitChanged(value, index);
-                              },
-                            ),
-                          );
-                        }),
+                      OtpPinInput(
+                        controller: _otpController,
+                        onChanged: _onCodeChanged,
+                        enabled: !_isVerifying,
                       ),
 
                       const SizedBox(height: 32),

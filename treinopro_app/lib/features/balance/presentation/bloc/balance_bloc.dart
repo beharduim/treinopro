@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'balance_event.dart';
 import 'balance_state.dart';
 import '../../../payouts/data/services/payout_methods_api_service.dart';
+import '../../../payouts/data/models/financial_profile_model.dart';
 import '../../../home/data/services/personal_financial_api_service.dart';
 import '../../../home/data/models/payment_models.dart';
 
@@ -17,6 +18,7 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
         super(BalanceInitial()) {
     on<LoadBalance>(_onLoadBalance);
     on<RefreshBalance>(_onRefreshBalance);
+    on<RequestWithdrawal>(_onRequestWithdrawal);
   }
 
   Future<void> _onLoadBalance(
@@ -28,17 +30,25 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
     }
 
     try {
-      // Carregar perfil financeiro (que agora inclui o wallet via getPayoutMethods)
       final profile = await _payoutApi.getFinancialProfile();
-      
-      // Carregar transações separadamente (pois o endpoint de perfil não traz histórico)
-      final transactionsData = await _financialApi.getWalletTransactions(limit: 50);
+      final walletData = await _financialApi.getWalletBalance();
+      final wallet = WalletBalanceModel.fromJson(walletData);
+
+      final enrichedProfile = FinancialProfileModel(
+        preferredMethod: profile.preferredMethod,
+        canReceivePayments: profile.canReceivePayments,
+        stripeAccount: profile.stripeAccount,
+        wallet: wallet,
+      );
+
+      final transactionsData =
+          await _financialApi.getWalletTransactions(limit: 50);
       final transactions = transactionsData
           .map((data) => TransactionModel.fromJson(data))
           .toList();
 
       emit(BalanceLoaded(
-        profile: profile,
+        profile: enrichedProfile,
         transactions: transactions,
       ));
     } catch (e) {
@@ -51,5 +61,40 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
     Emitter<BalanceState> emit,
   ) async {
     add(const LoadBalance(silent: true));
+  }
+
+  Future<void> _onRequestWithdrawal(
+    RequestWithdrawal event,
+    Emitter<BalanceState> emit,
+  ) async {
+    final current = state;
+    if (current is! BalanceLoaded) return;
+
+    try {
+      final amountStr = event.amount.toStringAsFixed(2);
+      final result = await _financialApi.requestWithdrawal(
+        amount: amountStr,
+        method: 'stripe_connect',
+        description: 'Saque solicitado pelo app',
+      );
+
+      final autoProcessed = result['autoProcessed'] == true;
+      final pendingManual = result['pendingManualApproval'] == true;
+
+      String message;
+      if (autoProcessed) {
+        message = 'Saque processado com sucesso!';
+      } else if (pendingManual) {
+        message = 'Solicitação de saque registrada e aguardando processamento.';
+      } else {
+        message = 'Solicitação de saque enviada.';
+      }
+
+      emit(BalanceWithdrawSuccess(message));
+      add(const LoadBalance(silent: true));
+    } catch (e) {
+      emit(BalanceError('Erro ao solicitar saque: $e'));
+      emit(current);
+    }
   }
 }

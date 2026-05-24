@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/config/app_config.dart';
@@ -24,6 +25,7 @@ class LocationsService {
     int? limit,
     String? token,
     bool useCurrentLocation = true,
+    BuildContext? locationContext,
   }) async {
     print('🔍 DEBUG: Buscando locais com query: "$query"');
 
@@ -34,7 +36,7 @@ class LocationsService {
     if (useCurrentLocation && (userLat == null || userLng == null)) {
       try {
         final location = await LocationService.instance
-            .getLocationWithFallback();
+            .getLocationWithFallback(context: locationContext);
         if (location != null) {
           finalUserLat = location.latitude;
           finalUserLng = location.longitude;

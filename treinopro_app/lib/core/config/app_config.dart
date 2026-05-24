@@ -19,10 +19,6 @@ class AppConfig {
   static String get defaultApiBaseUrl =>
       kDebugMode ? _debugApiBaseUrl : _releaseApiBaseUrl;
 
-  static String get jwtSecret => dotenv.env['JWT_SECRET'] ?? '';
-  static String get jwtExpiresIn => dotenv.env['JWT_EXPIRES_IN'] ?? '24h';
-  static String get jwtRefreshExpiresIn =>
-      dotenv.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d';
   static String get stripePublishableKey =>
       dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
 

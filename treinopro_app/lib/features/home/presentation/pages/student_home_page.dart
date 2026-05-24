@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/helpers/status_bar_helper.dart';
@@ -6,6 +8,7 @@ import '../../../../core/widgets/custom_top_bar.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/data_refresh_service.dart';
 import '../../../../core/services/realtime_data_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../gamification/data/services/mission_completion_service.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_event.dart';
@@ -100,6 +103,12 @@ class _StudentHomePageState extends State<StudentHomePage>
           proposalsBloc: context.read<ProposalsBloc>(),
           gamificationBloc: context.read<GamificationBloc>(),
           proposalSearchBloc: context.read<ProposalSearchBloc>(),
+        );
+
+        NotificationService.paymentConfirmedHandler =
+            _realtimeDataService.handlePaymentConfirmedFromNotification;
+        unawaited(
+          _realtimeDataService.processPendingPaymentConfirmedFromStorage(),
         );
 
         // Exibe aviso de gamificação em desenvolvimento (1x por sessão)
