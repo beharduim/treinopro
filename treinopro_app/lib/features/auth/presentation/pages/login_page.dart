@@ -185,6 +185,7 @@ class _LoginPageState extends State<LoginPage> {
             BlocProvider(create: (context) => sl<GamificationBloc>()),
             BlocProvider.value(value: sl<RealtimeDataService>().proposalSearchBloc ?? sl<ProposalSearchBloc>()),
             BlocProvider(create: (context) => sl<ProposalsBloc>()),
+            BlocProvider(create: (context) => sl<BalanceBloc>()..add(const LoadBalance())),
           ],
           child: const PersonalHomePage(),
         );
