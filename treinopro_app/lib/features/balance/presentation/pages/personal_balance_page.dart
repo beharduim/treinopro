@@ -47,8 +47,11 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
         listener: (context, state) {
           if (state is BalanceError) {
             setState(() => _isWithdrawing = false);
+            final message = state.message.contains('Exception:')
+                ? 'Não foi possível carregar sua carteira. Tente novamente.'
+                : state.message;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+              SnackBar(content: Text(message), backgroundColor: Colors.red),
             );
           }
           if (state is BalanceWithdrawSuccess) {

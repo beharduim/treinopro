@@ -30,7 +30,18 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
     }
 
     try {
-      final profile = await _payoutApi.getFinancialProfile();
+      FinancialProfileModel profile;
+      try {
+        profile = await _payoutApi.getFinancialProfile();
+      } catch (_) {
+        profile = const FinancialProfileModel(
+          preferredMethod: 'stripe_connect',
+          canReceivePayments: false,
+          stripeAccount: null,
+          wallet: null,
+        );
+      }
+
       final walletData = await _financialApi.getWalletBalance();
       final wallet = WalletBalanceModel.fromJson(walletData);
 

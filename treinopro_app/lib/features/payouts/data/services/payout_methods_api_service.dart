@@ -119,13 +119,13 @@ class PayoutMethodsApiService {
         final data = json.decode(response.body);
         print('📋 [PAYOUT API] Métodos encontrados: $data');
         return data['data']; // Extrair dados do wrapper de resposta
-      } else if (response.statusCode == 404) {
-        // Fallback: retornar estrutura vazia segura para UI
+      } else if (response.statusCode == 404 || response.statusCode == 400) {
+        // Perfil ainda não criado ou enum/schema em migração — UI segue com defaults
         print(
-          '📋 [PAYOUT API] /payments/profile/financial não encontrado (404). Usando fallback vazio.',
+          '📋 [PAYOUT API] Perfil financeiro indisponível (${response.statusCode}). Usando fallback vazio.',
         );
         return {
-          'preferredMethod': null,
+          'preferredMethod': 'stripe_connect',
           'bankAccount': null,
           'stripeAccount': null,
           'canReceivePayments': false,

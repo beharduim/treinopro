@@ -646,49 +646,74 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
   Widget _buildModalityAndPrice(
     ClassResponseDto classData, {
     required Color accentColor,
-    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.end,
+    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.start,
   }) {
     final modality = classData.proposalModality?.trim();
-    if (modality == null || modality.isEmpty) {
+    final price = classData.proposalPrice;
+    final hasModality = modality != null && modality.isNotEmpty;
+    final hasPrice = price != null && price > 0;
+
+    if (!hasModality && !hasPrice) {
       return const SizedBox.shrink();
     }
 
-    final alignment = crossAxisAlignment == CrossAxisAlignment.start
-        ? WrapAlignment.start
-        : WrapAlignment.end;
-
-    return Wrap(
-      alignment: alignment,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 4,
+    return Column(
+      crossAxisAlignment: crossAxisAlignment,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-          ),
-          child: Text(
-            modality,
-            style: TextStyle(
-              fontFamily: 'Fira Sans',
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: accentColor,
+        if (hasModality)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              modality!,
+              style: TextStyle(
+                fontFamily: 'Fira Sans',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: accentColor,
+              ),
             ),
           ),
-        ),
-        Text(
-          _formatClassPrice(classData.proposalPrice),
-          style: TextStyle(
-            fontFamily: 'Fira Sans',
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: accentColor,
+        if (hasPrice) ...[
+          if (hasModality) const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.payments_outlined, size: 14, color: accentColor),
+                const SizedBox(width: 6),
+                Text(
+                  'Valor ',
+                  style: TextStyle(
+                    fontFamily: 'Fira Sans',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: accentColor.withValues(alpha: 0.75),
+                  ),
+                ),
+                Text(
+                  _formatClassPrice(price),
+                  style: TextStyle(
+                    fontFamily: 'Fira Sans',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: accentColor,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
