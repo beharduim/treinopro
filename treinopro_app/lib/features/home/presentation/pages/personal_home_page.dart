@@ -2389,14 +2389,17 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                       const Text(
                         "Configuração Financeira Pendente",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF2D3748),
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
                       Text(
                         stripe?.statusDescription ?? "Complete seu cadastro para liberar seus recebimentos.",
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        style: const TextStyle(
+                          color: Color(0xFF42464D),
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
