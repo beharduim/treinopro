@@ -30,6 +30,8 @@ import '../../../home/data/services/auth_service.dart';
 import '../../../home/presentation/pages/student_home_page.dart';
 import '../../../home/presentation/pages/personal_home_page.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
+import '../../../balance/presentation/bloc/balance_bloc.dart';
+import '../../../balance/presentation/bloc/balance_event.dart';
 import 'login_initial_page.dart';
 import '../bloc/login_initial_bloc.dart';
 import 'forgot_password_page.dart';
@@ -226,6 +228,7 @@ class _LoginPageState extends State<LoginPage> {
               BlocProvider(create: (context) => sl<GamificationBloc>()),
               BlocProvider.value(value: sl<RealtimeDataService>().proposalSearchBloc ?? sl<ProposalSearchBloc>()),
               BlocProvider(create: (context) => sl<ProposalsBloc>()),
+              BlocProvider(create: (context) => sl<BalanceBloc>()..add(const LoadBalance())),
             ],
             child: const PersonalHomePage(),
           );

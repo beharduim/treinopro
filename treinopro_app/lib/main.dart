@@ -439,7 +439,21 @@ class _TreinoProAppState extends State<TreinoProApp>
         ),
         '/proposals': (context) => const ProposalsPage(),
         // '/training' não existe ainda; redireciona para home por enquanto
-        '/training': (context) => const PersonalHomePage(),
+        '/training': (context) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (context) => di.sl<HomeBloc>()),
+            BlocProvider(create: (context) => di.sl<ClassesBloc>()),
+            BlocProvider(create: (context) => di.sl<GamificationBloc>()),
+            BlocProvider.value(
+              value:
+                  di.sl<RealtimeDataService>().proposalSearchBloc ??
+                  di.sl<ProposalSearchBloc>(),
+            ),
+            BlocProvider(create: (context) => di.sl<ProposalsBloc>()),
+            BlocProvider(create: (context) => di.sl<BalanceBloc>()..add(const LoadBalance())),
+          ],
+          child: const PersonalHomePage(),
+        ),
         '/chat': (context) {
           final args =
               ModalRoute.of(context)?.settings.arguments

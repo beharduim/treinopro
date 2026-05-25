@@ -14,6 +14,8 @@ import '../../../classes/presentation/bloc/classes_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../proposals/presentation/bloc/proposal_search_bloc.dart';
 import '../../../proposals/presentation/bloc/proposals_bloc.dart';
+import '../../../balance/presentation/bloc/balance_bloc.dart';
+import '../../../balance/presentation/bloc/balance_event.dart';
 import '../bloc/splash_bloc.dart';
 import '../bloc/splash_event.dart';
 import '../bloc/splash_state.dart';
@@ -253,6 +255,7 @@ class _SplashPageState extends State<SplashPage> {
           BlocProvider(create: (context) => sl<GamificationBloc>()),
           BlocProvider.value(value: sl<RealtimeDataService>().proposalSearchBloc ?? sl<ProposalSearchBloc>()),
           BlocProvider(create: (context) => sl<ProposalsBloc>()),
+          BlocProvider(create: (context) => sl<BalanceBloc>()..add(const LoadBalance())),
         ],
         child: const PersonalHomePage(),
       );
