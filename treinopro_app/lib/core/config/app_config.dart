@@ -19,6 +19,16 @@ class AppConfig {
   static String get defaultApiBaseUrl =>
       kDebugMode ? _debugApiBaseUrl : _releaseApiBaseUrl;
 
+  /// Produção exige valor mínimo de proposta de R$ 40; sandbox/debug permite valores menores.
+  static bool get isProposalSandbox =>
+      kDebugMode || apiBaseUrl.contains('localhost');
+
+  static double get minProposalPrice => isProposalSandbox ? 1.0 : 40.0;
+
+  static List<double> get proposalPriceSuggestions => isProposalSandbox
+      ? const [5, 10, 40, 60, 80, 100]
+      : const [40, 60, 80, 100, 120, 150];
+
   static String get stripePublishableKey =>
       dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
 

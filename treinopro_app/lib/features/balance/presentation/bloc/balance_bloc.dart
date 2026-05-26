@@ -89,17 +89,8 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
         description: 'Saque solicitado pelo app',
       );
 
-      final autoProcessed = result['autoProcessed'] == true;
-      final pendingManual = result['pendingManualApproval'] == true;
-
-      String message;
-      if (autoProcessed) {
-        message = 'Saque processado com sucesso!';
-      } else if (pendingManual) {
-        message = 'Solicitação de saque registrada e aguardando processamento.';
-      } else {
-        message = 'Solicitação de saque enviada.';
-      }
+      final message =
+          'Solicitação enviada! Aguarde a aprovação da equipe TreinoPro. O valor ficará em processamento até a liberação.';
 
       emit(BalanceWithdrawSuccess(message));
       add(const LoadBalance(silent: true));

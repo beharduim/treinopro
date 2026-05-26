@@ -39,10 +39,9 @@ class CreateProposalPage extends StatelessWidget {
                   repository: context.read(),
                   paymentMethodsRepository: sl<PaymentMethodsRepository>(),
                 )
-                ..add(const ProposalsClear())
                 ..add(
                   const ProposalsInitialize(),
-                ), // Limpa e inicializa para começar na etapa 1
+                ), // Carrega rascunho salvo; não limpa ao voltar
         ),
         BlocProvider.value(
           value:

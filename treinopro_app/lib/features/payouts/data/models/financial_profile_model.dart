@@ -113,7 +113,7 @@ class StripeConnectAccountModel {
       return 'Onboarding pendente';
     }
     if (hasPendingVerification || !payoutsEnabled) {
-      return 'Validação da Stripe em andamento';
+      return 'Em análise';
     }
     return 'Validação da Stripe em andamento';
   }
@@ -130,10 +130,10 @@ class StripeConnectAccountModel {
       return 'Faltam $count requisito${count == 1 ? '' : 's'} para liberar seus saques.';
     }
     if (hasPendingVerification) {
-      return 'Recebemos seus dados e a Stripe está finalizando a análise da sua conta. Você não precisa refazer o cadastro; avisaremos quando os saques forem liberados.';
+      return 'Em análise — você já pode realizar aulas para acumular saldo enquanto aguarda a liberação para retirada.';
     }
     if (!payoutsEnabled) {
-      return 'A Stripe ainda está finalizando a análise da sua conta. Isso pode levar algum tempo, mas você não precisa refazer o cadastro.';
+      return 'Em análise — você já pode realizar aulas para acumular saldo enquanto aguarda a liberação para retirada.';
     }
     return 'Revise seus dados para concluir a configuração financeira.';
   }

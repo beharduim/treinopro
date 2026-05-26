@@ -62,7 +62,7 @@ class _ForgotPasswordOtpStepWidgetState extends State<ForgotPasswordOtpStepWidge
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text(
-          'Novo código enviado!',
+          'Novo código de validação enviado com sucesso!',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: AppColors.primaryOrange,

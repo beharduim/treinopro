@@ -190,6 +190,16 @@ class SendVerificationCode extends RegistrationEvent {
   List<Object?> get props => [email];
 }
 
+/// Reenvio do código sem avançar etapa do cadastro
+class ResendVerificationCode extends RegistrationEvent {
+  final String email;
+
+  const ResendVerificationCode(this.email);
+
+  @override
+  List<Object?> get props => [email];
+}
+
 /// Evento para verificar código
 class VerifyCode extends RegistrationEvent {
   final String email;

@@ -15,42 +15,42 @@ class InitializeQuestionnaire extends HealthQuestionnaireEvent {
 
 /// Evento para atualizar a primeira etapa
 class UpdateStep1 extends HealthQuestionnaireEvent {
-  final String? medicalCondition;
+  final String? chronicInjury;
   final String? regularMedication;
 
   const UpdateStep1({
-    this.medicalCondition,
+    this.chronicInjury,
     this.regularMedication,
   });
 
   @override
-  List<Object?> get props => [medicalCondition, regularMedication];
+  List<Object?> get props => [chronicInjury, regularMedication];
 }
 
 /// Evento para atualizar a segunda etapa
 class UpdateStep2 extends HealthQuestionnaireEvent {
-  final String? chronicInjury;
-  final String? trainingGoal;
+  final String? dietaryRestrictions;
+  final String? medicalCondition;
 
   const UpdateStep2({
-    this.chronicInjury,
-    this.trainingGoal,
+    this.dietaryRestrictions,
+    this.medicalCondition,
   });
 
   @override
-  List<Object?> get props => [chronicInjury, trainingGoal];
+  List<Object?> get props => [dietaryRestrictions, medicalCondition];
 }
 
 /// Evento para atualizar a terceira etapa
 class UpdateStep3 extends HealthQuestionnaireEvent {
-  final String? dietaryRestrictions;
+  final String? trainingGoal;
 
   const UpdateStep3({
-    this.dietaryRestrictions,
+    this.trainingGoal,
   });
 
   @override
-  List<Object?> get props => [dietaryRestrictions];
+  List<Object?> get props => [trainingGoal];
 }
 
 /// Evento para avançar para a próxima etapa

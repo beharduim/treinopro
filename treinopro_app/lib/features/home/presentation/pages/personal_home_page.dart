@@ -2406,13 +2406,14 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 ),
                 TextButton(
                   onPressed: () {
+                    final hostContext = context;
                     showModalBottomSheet(
-                      context: context,
+                      context: hostContext,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (context) => AddPayoutMethodBottomSheet(
+                      builder: (_) => AddPayoutMethodBottomSheet(
                         onSaved: () {
-                          context.read<BalanceBloc>().add(const LoadBalance());
+                          hostContext.read<BalanceBloc>().add(const LoadBalance());
                         },
                       ),
                     );

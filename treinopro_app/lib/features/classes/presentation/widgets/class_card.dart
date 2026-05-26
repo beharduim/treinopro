@@ -107,6 +107,8 @@ class ClassCard extends StatelessWidget {
             children: [
               Text(
                 _getUserName(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Fira Sans',
                   fontSize: 16,
@@ -126,6 +128,8 @@ class ClassCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       classData.location,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 12,
@@ -201,10 +205,10 @@ class ClassCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Fira Sans',
             fontSize: 10,
-            color: Colors.grey.shade600,
+            color: Color(0xFF42464D),
           ),
         ),
         const SizedBox(height: 2),

@@ -280,8 +280,32 @@ class NotificationService {
     if (Platform.isIOS && _isInForeground) {
       unawaited(processPendingLiveActivities());
     }
-    // Nota: badge iOS é gerenciado pelo backend (getUnreadBadgeCount) e atualizado
-    // a cada push via APNs payload. Não há reset client-side para evitar side-effects.
+  }
+
+  /// Atualiza o badge do ícone do app (iOS) conforme notificações não lidas.
+  static Future<void> updateAppBadgeCount(int count) async {
+    if (!Platform.isIOS) return;
+
+    try {
+      const badgeNotificationId = 999998;
+
+      await flutterLocalNotificationsPlugin.show(
+        badgeNotificationId,
+        null,
+        null,
+        NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: false,
+            presentSound: false,
+            presentBadge: true,
+            badgeNumber: count,
+          ),
+        ),
+      );
+      await flutterLocalNotificationsPlugin.cancel(badgeNotificationId);
+    } catch (e) {
+      print('⚠️ [NOTIF] Falha ao atualizar badge do app: $e');
+    }
   }
 
   /// Configura listener para renovação de token FCM

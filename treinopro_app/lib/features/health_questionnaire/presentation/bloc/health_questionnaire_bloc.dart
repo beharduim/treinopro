@@ -55,7 +55,7 @@ class HealthQuestionnaireBloc extends Bloc<HealthQuestionnaireEvent, HealthQuest
     if (state is HealthQuestionnaireLoaded) {
       final currentState = state as HealthQuestionnaireLoaded;
       final updatedQuestionnaire = currentState.questionnaire.copyWith(
-        medicalCondition: event.medicalCondition,
+        chronicInjury: event.chronicInjury,
         regularMedication: event.regularMedication,
       );
       
@@ -70,8 +70,8 @@ class HealthQuestionnaireBloc extends Bloc<HealthQuestionnaireEvent, HealthQuest
     if (state is HealthQuestionnaireLoaded) {
       final currentState = state as HealthQuestionnaireLoaded;
       final updatedQuestionnaire = currentState.questionnaire.copyWith(
-        chronicInjury: event.chronicInjury,
-        trainingGoal: event.trainingGoal,
+        dietaryRestrictions: event.dietaryRestrictions,
+        medicalCondition: event.medicalCondition,
       );
       
       emit(currentState.copyWith(questionnaire: updatedQuestionnaire));
@@ -85,7 +85,7 @@ class HealthQuestionnaireBloc extends Bloc<HealthQuestionnaireEvent, HealthQuest
     if (state is HealthQuestionnaireLoaded) {
       final currentState = state as HealthQuestionnaireLoaded;
       final updatedQuestionnaire = currentState.questionnaire.copyWith(
-        dietaryRestrictions: event.dietaryRestrictions,
+        trainingGoal: event.trainingGoal,
       );
       
       emit(currentState.copyWith(questionnaire: updatedQuestionnaire));

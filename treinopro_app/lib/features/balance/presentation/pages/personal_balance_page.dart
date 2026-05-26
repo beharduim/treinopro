@@ -78,6 +78,10 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildBalanceCard(state.profile),
+                    if ((state.profile.wallet?.pendingBalance ?? 0) > 0) ...[
+                      const SizedBox(height: 12),
+                      _buildPendingWithdrawalBanner(state.profile),
+                    ],
                     const SizedBox(height: 16),
                     _buildStripeStatusCard(state.profile.stripeAccount),
                     const SizedBox(height: 24),
@@ -171,6 +175,38 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     );
   }
 
+  Widget _buildPendingWithdrawalBanner(FinancialProfileModel profile) {
+    final pending = profile.wallet?.pendingBalance ?? 0.0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.hourglass_top, color: Colors.orange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Valor de ${_formatCurrency(pending)} em liberação pela Stripe. '
+              'Assim que sua conta estiver apta, o saldo ficará disponível para saque.',
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.secondary,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStripeStatusCard(StripeConnectAccountModel? stripe) {
     if (stripe == null) return const SizedBox.shrink();
 
@@ -225,6 +261,8 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
   Widget _buildWithdrawButton(FinancialProfileModel profile) {
     final canWithdraw = profile.stripeAccount?.isReadyForPayout ?? false;
     final balance = profile.wallet?.availableBalance ?? 0.0;
+    final pending = profile.wallet?.pendingBalance ?? 0.0;
+    final hasPendingWithdrawal = pending > 0;
 
     return SizedBox(
       width: double.infinity,
@@ -238,32 +276,52 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
         ),
         onPressed: _isWithdrawing
             ? null
-            : (canWithdraw && balance > 0)
-                ? () => _requestWithdrawal(context, profile)
-                : () => _showBlockedWithdrawalDialog(context, profile.stripeAccount, balance),
+            : hasPendingWithdrawal
+                ? () => _showBlockedWithdrawalDialog(
+                      context,
+                      profile.stripeAccount,
+                      balance,
+                      pending,
+                    )
+                : (canWithdraw && balance > 0)
+                    ? () => _requestWithdrawal(context, profile)
+                    : () => _showBlockedWithdrawalDialog(
+                          context,
+                          profile.stripeAccount,
+                          balance,
+                          pending,
+                        ),
         child: _isWithdrawing
             ? const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
-            : const Text(
-                'Solicitar Saque',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            : Text(
+                hasPendingWithdrawal ? 'Saque em análise' : 'Solicitar Saque',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
       ),
     );
   }
 
-  void _showBlockedWithdrawalDialog(BuildContext context, StripeConnectAccountModel? stripe, double balance) {
+  void _showBlockedWithdrawalDialog(
+    BuildContext context,
+    StripeConnectAccountModel? stripe,
+    double balance,
+    double pending,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Saque Indisponível'),
         content: Text(
-          balance <= 0 
-            ? 'Você ainda não possui saldo disponível para saque.' 
-            : 'Sua conta bancária ainda não foi validada pela Stripe. Finalize seu cadastro para liberar os saques.'
+          pending > 0
+              ? 'Você já possui um saque de ${_formatCurrency(pending)} aguardando aprovação. '
+                  'Assim que a equipe TreinoPro liberar, o valor será enviado ao seu banco.'
+              : balance <= 0
+                  ? 'Você ainda não possui saldo disponível para saque.'
+                  : 'Sua conta bancária ainda não foi validada pela Stripe. Finalize seu cadastro para liberar os saques.',
         ),
         actions: [
           TextButton(
@@ -276,8 +334,17 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                 Navigator.pop(context);
                 _handleOnboarding(context);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
-              child: const Text('Finalizar Cadastro'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryOrange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Finalizar Cadastro',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
@@ -381,7 +448,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
       builder: (ctx) => AlertDialog(
         title: const Text('Confirmar saque'),
         content: Text(
-          'Deseja sacar ${_formatCurrency(balance)} para sua conta Stripe Connect?',
+          'Deseja solicitar o saque de ${_formatCurrency(balance)}?\n\nO valor será enviado para análise da equipe TreinoPro. Após a aprovação, cairá na sua conta bancária cadastrada.',
         ),
         actions: [
           TextButton(

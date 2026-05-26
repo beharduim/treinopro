@@ -662,6 +662,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
       children: [
         if (hasModality)
           Container(
+            constraints: const BoxConstraints(maxWidth: double.infinity),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.1),
@@ -670,6 +671,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
             ),
             child: Text(
               modality!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: 'Fira Sans',
                 fontSize: 12,
@@ -680,37 +683,38 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
           ),
         if (hasPrice) ...[
           if (hasModality) const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: accentColor.withValues(alpha: 0.22)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.payments_outlined, size: 14, color: accentColor),
-                const SizedBox(width: 6),
-                Text(
-                  'Valor ',
-                  style: TextStyle(
-                    fontFamily: 'Fira Sans',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: accentColor.withValues(alpha: 0.75),
+          Align(
+            alignment: crossAxisAlignment == CrossAxisAlignment.end
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: double.infinity),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.payments_outlined, size: 14, color: accentColor),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Valor ${_formatClassPrice(price)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Fira Sans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  _formatClassPrice(price),
-                  style: TextStyle(
-                    fontFamily: 'Fira Sans',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: accentColor,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1227,6 +1231,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   children: [
                     Text(
                       _formatName(classData.studentName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -1246,6 +1252,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         Expanded(
                           child: Text(
                             classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Fira Sans',
                               fontSize: 12,
@@ -1384,6 +1392,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   children: [
                     Text(
                       _formatName(classData.studentName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -1403,6 +1413,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         Expanded(
                           child: Text(
                             classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Fira Sans',
                               fontSize: 12,
@@ -1612,6 +1624,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   children: [
                     Text(
                       _formatName(classData.studentName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -1631,6 +1645,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         Expanded(
                           child: Text(
                             classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Fira Sans',
                               fontSize: 12,
@@ -1784,6 +1800,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   children: [
                     Text(
                       _formatName(classData.studentName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -1803,6 +1821,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         Expanded(
                           child: Text(
                             classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Fira Sans',
                               fontSize: 12,
@@ -1962,6 +1982,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   children: [
                     Text(
                       _formatName(classData.studentName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
                         fontSize: 16,
@@ -1981,6 +2003,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         Expanded(
                           child: Text(
                             classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Fira Sans',
                               fontSize: 12,

@@ -162,6 +162,8 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
           _isLoadingNotifications = false;
         });
 
+        await NotificationService.updateAppBadgeCount(unreadCount);
+
         print(
           '📱 [NOTIFICATIONS] Estado atualizado: ${_notifications.length} notificações, $_unreadCount não lidas',
         );
@@ -210,6 +212,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
           }).toList();
           _unreadCount = _unreadCount > 0 ? _unreadCount - 1 : 0;
         });
+        await NotificationService.updateAppBadgeCount(_unreadCount);
       }
     } catch (e) {
       print('❌ [NOTIFICATIONS] Erro ao marcar como lida: $e');
@@ -249,6 +252,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
             _unreadCount = _unreadCount > 0 ? _unreadCount - 1 : 0;
           }
         });
+        await NotificationService.updateAppBadgeCount(_unreadCount);
       }
     } catch (e) {
       print('❌ [NOTIFICATIONS] Erro ao remover notificação: $e');
@@ -286,6 +290,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
           _notifications.clear();
           _unreadCount = 0;
         });
+        await NotificationService.updateAppBadgeCount(0);
         print('📱 [NOTIFICATIONS] Estado visual resetado');
       }
     } catch (e) {
@@ -316,6 +321,7 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
           }).toList();
           _unreadCount = 0;
         });
+        await NotificationService.updateAppBadgeCount(0);
       }
     } catch (e) {
       print('❌ [NOTIFICATIONS] Erro ao marcar todas como lidas: $e');

@@ -380,11 +380,23 @@ class _AddPayoutMethodBottomSheetState
           ),
           const SizedBox(height: 16),
           if (_error != null) ...[
-            Text(
-              _error!,
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontFamily: 'Fira Sans',
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Text(
+                _error!,
+                style: const TextStyle(
+                  color: Color(0xFF991B1B),
+                  fontFamily: 'Fira Sans',
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -472,6 +484,26 @@ class _AddPayoutMethodBottomSheetState
     final data = e.response?.data;
 
     if (data is Map<String, dynamic>) {
+      final pending = data['pendingRequirements'] ?? data['pendingSteps'];
+      if (pending is List && pending.isNotEmpty) {
+        final labels = pending
+            .map((item) {
+              if (item is String) return item;
+              if (item is Map && item['label'] != null) {
+                return item['label'].toString();
+              }
+              if (item is Map && item['code'] != null) {
+                return item['code'].toString();
+              }
+              return item?.toString() ?? '';
+            })
+            .where((label) => label.trim().isNotEmpty)
+            .toList();
+        if (labels.isNotEmpty) {
+          return 'Cadastro incompleto. Pendências:\n${labels.map((l) => '• $l').join('\n')}';
+        }
+      }
+
       final message = data['message'];
       if (message is String && message.trim().isNotEmpty) {
         return message.trim();

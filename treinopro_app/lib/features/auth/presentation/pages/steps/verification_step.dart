@@ -29,12 +29,13 @@ class _VerificationStepState extends State<VerificationStep> {
   final OtpPinInputController _otpController = OtpPinInputController();
 
   Timer? _timer;
-  int _remainingTime = 300; // 5 minutos em segundos
+  int _remainingTime = 600; // 10 minutos (alinhado com API)
   bool _isCodeComplete = false;
   bool _isVerifying = false;
   bool _canResend = false;
   bool _isMinor = false;
   String? _lastErrorShown; // Controla qual foi o último erro mostrado
+  bool _awaitingResendConfirmation = false;
 
   @override
   void initState() {
@@ -51,7 +52,7 @@ class _VerificationStepState extends State<VerificationStep> {
   void _startTimer() {
     _timer?.cancel();
     setState(() {
-      _remainingTime = 300;
+      _remainingTime = 600;
       _canResend = false;
     });
 
@@ -105,12 +106,29 @@ class _VerificationStepState extends State<VerificationStep> {
     if (currentState is registration_states.RegistrationStep) {
       // Disparar evento real de reenvio de código
       context.read<RegistrationBloc>().add(
-        registration_events.SendVerificationCode(currentState.email),
+        registration_events.ResendVerificationCode(currentState.email),
       );
 
       _clearCode();
       _startTimer();
     }
+  }
+
+  void _showResendSuccessSnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Novo código de validação enviado com sucesso!',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: AppColors.primaryOrange,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
   }
 
   String _formatTime(int seconds) {
@@ -127,6 +145,14 @@ class _VerificationStepState extends State<VerificationStep> {
     >(
       listener: (context, state) {
         if (state is registration_states.RegistrationStep) {
+          if (_awaitingResendConfirmation &&
+              state.verificationCodeSent &&
+              state.verificationCodeError == null &&
+              !state.isSendingVerificationCode) {
+            _awaitingResendConfirmation = false;
+            _showResendSuccessSnackBar();
+          }
+
           // Atualizar estado de loading
           if (state.isVerifyingCode != _isVerifying) {
             setState(() {
@@ -308,26 +334,58 @@ class _VerificationStepState extends State<VerificationStep> {
                           ],
                         ),
                       ] else ...[
-                        GestureDetector(
-                          onTap: _resendCode,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.refresh,
-                                color: AppColors.primaryOrange,
-                                size: 18,
+                        BlocBuilder<
+                          RegistrationBloc,
+                          registration_states.RegistrationState
+                        >(
+                          builder: (context, state) {
+                            final isSending = state
+                                    is registration_states.RegistrationStep &&
+                                state.isSendingVerificationCode;
+
+                            return GestureDetector(
+                              onTap: isSending
+                                  ? null
+                                  : () {
+                                      _awaitingResendConfirmation = true;
+                                      _resendCode();
+                                    },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isSending) ...[
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.primaryOrange,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ] else ...[
+                                    const Icon(
+                                      Icons.refresh,
+                                      color: AppColors.primaryOrange,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Text(
+                                    isSending
+                                        ? 'Enviando novo código...'
+                                        : 'Reenviar código',
+                                    style: AppTextStyles.small.copyWith(
+                                      color: isSending
+                                          ? AppColors.secondaryDark
+                                          : AppColors.primaryOrange,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Reenviar código',
-                                style: AppTextStyles.small.copyWith(
-                                  color: AppColors.primaryOrange,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
                       ],
 

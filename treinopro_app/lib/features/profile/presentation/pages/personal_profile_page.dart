@@ -1303,7 +1303,7 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'Seus ganhos',
+                  'Minha carteira',
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 18,

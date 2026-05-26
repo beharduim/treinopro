@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/constants/app_colors.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
@@ -137,7 +137,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
         // Campo de preço inteligente
         SmartPriceField(
           initialValue: state.proposal.price,
-          minValue: 1.0,
+          minValue: AppConfig.minProposalPrice,
           suggestedValue: suggestedPrice,
           onValueChanged: (price) {
             context.read<ProposalsBloc>().add(ProposalsUpdatePrice(price));
@@ -238,7 +238,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
   }
 
   List<double> _getPriceSuggestions(double? suggestedPrice) {
-    final baseSuggestions = [1.0, 5.0, 10.0, 40.0, 60.0, 80.0, 100.0];
+    final baseSuggestions = AppConfig.proposalPriceSuggestions.map((e) => e.toDouble()).toList();
 
     if (suggestedPrice != null && !baseSuggestions.contains(suggestedPrice)) {
       final suggestions = [...baseSuggestions, suggestedPrice];

@@ -57,6 +57,7 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
     on<ValidateEmail>(_onValidateEmail);
     on<CheckDocument>(_onCheckDocument);
     on<SendVerificationCode>(_onSendVerificationCode);
+    on<ResendVerificationCode>(_onResendVerificationCode);
     on<VerifyCode>(_onVerifyCode);
     on<UpdatePassword>(_onUpdatePassword);
     on<CompleteRegistration>(_onCompleteRegistration);
@@ -521,6 +522,44 @@ class RegistrationBloc extends Bloc<RegistrationEvent, RegistrationState> {
         verificationCodeSent: false,
         verificationCodeError: emailError == null ? Nullable(errorMessage) : Nullable(null),
         emailExistsError: emailError != null ? Nullable(emailError) : Nullable(null),
+      ));
+    }
+  }
+
+  void _onResendVerificationCode(
+    ResendVerificationCode event,
+    Emitter<RegistrationState> emit,
+  ) async {
+    if (state is! RegistrationStep) return;
+
+    final currentState = state as RegistrationStep;
+    final normalizedEmail = event.email.trim().toLowerCase();
+
+    emit(currentState.copyWith(
+      isSendingVerificationCode: true,
+      verificationCodeError: Nullable(null),
+    ));
+
+    try {
+      await _sendVerificationCodeUseCase(normalizedEmail);
+
+      final latestState = state;
+      if (latestState is! RegistrationStep) return;
+
+      emit(latestState.copyWith(
+        isSendingVerificationCode: false,
+        verificationCodeSent: true,
+        verificationCodeError: Nullable(null),
+        isCodeSent: true,
+      ));
+    } catch (e) {
+      final latestState = state;
+      if (latestState is! RegistrationStep) return;
+
+      emit(latestState.copyWith(
+        isSendingVerificationCode: false,
+        verificationCodeSent: false,
+        verificationCodeError: Nullable(e.toString()),
       ));
     }
   }

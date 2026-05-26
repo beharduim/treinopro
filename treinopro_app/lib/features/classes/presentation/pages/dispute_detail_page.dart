@@ -109,6 +109,8 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
           dispute: dispute,
           currentUserId: _currentUserId!,
         );
+    final awaitingAdminReview =
+        !dispute.isResolved && dispute.hasAnyDefense && !canDefend;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -160,6 +162,10 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
               ],
             ),
           ],
+          if (!dispute.isResolved) ...[
+            const SizedBox(height: 16),
+            const _DisputeDeadlineInfoBanner(),
+          ],
           if (canDefend && _classData != null) ...[
             const SizedBox(height: 24),
             SizedBox(
@@ -175,6 +181,10 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
                 ),
               ),
             ),
+          ],
+          if (awaitingAdminReview) ...[
+            const SizedBox(height: 24),
+            const _AwaitingAdminBanner(),
           ],
         ],
       ),
@@ -230,6 +240,83 @@ class _StatusCard extends StatelessWidget {
               fontFamily: 'Fira Sans',
               fontSize: 14,
               height: 1.4,
+              color: Color(0xFF42464D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AwaitingAdminBanner extends StatelessWidget {
+  const _AwaitingAdminBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Disputa e defesa registradas. Aguarde a equipe TreinoPro avaliar — '
+              'você será notificado quando houver uma decisão.',
+              style: TextStyle(
+                fontFamily: 'Fira Sans',
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.blue.shade900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisputeDeadlineInfoBanner extends StatelessWidget {
+  const _DisputeDeadlineInfoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCD34D)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.schedule_outlined,
+            color: Color(0xFFB45309),
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'A administradora tem um prazo de até 48h para análise e liberação do valor.',
+              style: const TextStyle(
+                fontFamily: 'Fira Sans',
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF92400E),
+              ),
             ),
           ),
         ],
@@ -263,6 +350,7 @@ class _InfoSection extends StatelessWidget {
               fontFamily: 'Outfit',
               fontWeight: FontWeight.w600,
               fontSize: 15,
+              color: Color(0xFF2D3748),
             ),
           ),
           const SizedBox(height: 12),
@@ -288,10 +376,11 @@ class _InfoRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Fira Sans',
               fontSize: 12,
-              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF42464D),
             ),
           ),
           Text(
@@ -299,6 +388,8 @@ class _InfoRow extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Fira Sans',
               fontSize: 14,
+              height: 1.35,
+              color: Color(0xFF2D3748),
             ),
           ),
         ],

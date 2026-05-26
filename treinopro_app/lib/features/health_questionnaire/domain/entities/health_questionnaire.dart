@@ -1,59 +1,93 @@
 import 'package:equatable/equatable.dart';
 
-/// Entidade principal do questionário de saúde
+/// Entidade principal do questionário de saúde (5 perguntas obrigatórias).
 class HealthQuestionnaire extends Equatable {
-  final String? medicalCondition;
-  final String? regularMedication;
+  /// Lesão ou limitação física?
   final String? chronicInjury;
-  final String? trainingGoal;
+
+  /// Recomendação médica para evitar exercícios?
+  final String? regularMedication;
+
+  /// Dor no peito, falta de ar ou tontura?
   final String? dietaryRestrictions;
+
+  /// Condição de saúde (pressão, diabetes, etc.)?
+  final String? medicalCondition;
+
+  /// Nível de condicionamento físico
+  final String? trainingGoal;
+
   final bool isCompleted;
 
   const HealthQuestionnaire({
-    this.medicalCondition,
-    this.regularMedication,
     this.chronicInjury,
-    this.trainingGoal,
+    this.regularMedication,
     this.dietaryRestrictions,
+    this.medicalCondition,
+    this.trainingGoal,
     this.isCompleted = false,
   });
 
   HealthQuestionnaire copyWith({
-    String? medicalCondition,
-    String? regularMedication,
     String? chronicInjury,
-    String? trainingGoal,
+    String? regularMedication,
     String? dietaryRestrictions,
+    String? medicalCondition,
+    String? trainingGoal,
     bool? isCompleted,
   }) {
     return HealthQuestionnaire(
-      medicalCondition: medicalCondition ?? this.medicalCondition,
-      regularMedication: regularMedication ?? this.regularMedication,
       chronicInjury: chronicInjury ?? this.chronicInjury,
-      trainingGoal: trainingGoal ?? this.trainingGoal,
+      regularMedication: regularMedication ?? this.regularMedication,
       dietaryRestrictions: dietaryRestrictions ?? this.dietaryRestrictions,
+      medicalCondition: medicalCondition ?? this.medicalCondition,
+      trainingGoal: trainingGoal ?? this.trainingGoal,
       isCompleted: isCompleted ?? this.isCompleted,
     );
   }
 
-  bool get isStep1Valid => medicalCondition != null && regularMedication != null;
-  bool get isStep2Valid => chronicInjury != null && trainingGoal != null;
-  bool get isStep3Valid => dietaryRestrictions != null;
+  bool get isStep1Valid =>
+      chronicInjury != null && regularMedication != null;
+  bool get isStep2Valid =>
+      dietaryRestrictions != null && medicalCondition != null;
+  bool get isStep3Valid => trainingGoal != null;
 
   @override
   List<Object?> get props => [
-        medicalCondition,
-        regularMedication,
         chronicInjury,
-        trainingGoal,
+        regularMedication,
         dietaryRestrictions,
+        medicalCondition,
+        trainingGoal,
         isCompleted,
       ];
 }
 
-/// Opções para as perguntas do questionário
 class HealthQuestionnaireOptions {
-  static const List<String> medicalConditions = [
+  static const List<String> physicalLimitationOptions = [
+    'Nenhuma',
+    'Lesão no joelho',
+    'Lesão na coluna',
+    'Lesão no ombro',
+    'Limitação de mobilidade',
+    'Outras',
+  ];
+
+  static const List<String> medicalRecommendationOptions = [
+    'Não',
+    'Sim, evitar exercícios de alto impacto',
+    'Sim, evitar exercícios até liberação médica',
+    'Prefiro não informar',
+  ];
+
+  static const List<String> chestPainSymptomsOptions = [
+    'Não',
+    'Sim, ocasionalmente',
+    'Sim, com frequência',
+    'Prefiro não informar',
+  ];
+
+  static const List<String> healthConditionOptions = [
     'Nenhuma',
     'Hipertensão',
     'Diabetes',
@@ -62,38 +96,9 @@ class HealthQuestionnaireOptions {
     'Outras',
   ];
 
-  static const List<String> medicationOptions = [
-    'Não',
-    'Sim, ocasionalmente',
-    'Sim, regularmente',
-    'Prefiro não informar',
-  ];
-
-  static const List<String> injuryOptions = [
-    'Nenhuma',
-    'Lesão no joelho',
-    'Lesão na coluna',
-    'Lesão no ombro',
-    'Lesão no tornozelo',
-    'Outras',
-  ];
-
-  static const List<String> trainingGoals = [
-    'Perda de peso',
-    'Ganho de massa muscular',
-    'Melhora da condição física',
-    'Reabilitação',
-    'Manutenção da saúde',
-    'Preparação para competições',
-  ];
-
-  static const List<String> dietaryOptions = [
-    'Nenhuma',
-    'Vegetariano',
-    'Vegano',
-    'Sem glúten',
-    'Sem lactose',
-    'Alergias específicas',
-    'Outras restrições',
+  static const List<String> fitnessLevelOptions = [
+    'Iniciante',
+    'Intermediário',
+    'Avançado',
   ];
 }
