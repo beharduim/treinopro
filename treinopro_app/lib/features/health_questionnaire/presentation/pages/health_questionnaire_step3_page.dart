@@ -52,7 +52,9 @@ class _HealthQuestionnaireStep3PageState
                 children: [
                   Text(
                     'Seu condicionamento',
-                    style: AppTextStyles.h2.copyWith(color: AppColors.secondary),
+                    style: AppTextStyles.h6Semibold.copyWith(
+                      color: AppColors.secondary,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   HealthQuestionDropdown(

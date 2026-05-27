@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
@@ -34,7 +35,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
     return BlocBuilder<ProposalsBloc, ProposalsState>(
       builder: (context, state) {
         if (state is! ProposalsLoaded) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(
                 AppColors.primaryOrange,
@@ -102,7 +103,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
                 color: AppColors.primaryOrange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.attach_money,
                 color: AppColors.primaryOrange,
                 size: 20,
@@ -162,7 +163,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
                 color: AppColors.primaryOrange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.note_alt_outlined,
                 color: AppColors.primaryOrange,
                 size: 20,
@@ -275,7 +276,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () => _navigateToPaymentMethods(context),
-            icon: const Icon(
+            icon: Icon(
               Icons.add,
               color: AppColors.primaryOrange,
               size: 20,
@@ -288,7 +289,7 @@ class _ProposalStep3PageState extends State<ProposalStep3Page> {
               ),
             ),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(
+              side: BorderSide(
                 color: AppColors.primaryOrange,
                 width: 1.5,
               ),

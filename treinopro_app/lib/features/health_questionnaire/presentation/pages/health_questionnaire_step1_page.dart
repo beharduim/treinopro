@@ -64,12 +64,14 @@ class _HealthQuestionnaireStep1PageState
                 children: [
                   Text(
                     'Questionário de saúde',
-                    style: AppTextStyles.h2.copyWith(color: AppColors.secondary),
+                    style: AppTextStyles.h6Semibold.copyWith(
+                      color: AppColors.secondary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Responda com atenção. Suas respostas ajudam o personal a conduzir o treino com segurança.',
-                    style: AppTextStyles.bodyMedium.copyWith(
+                    style: AppTextStyles.paragraph.copyWith(
                       color: AppColors.secondaryDark.withValues(alpha: 0.8),
                     ),
                   ),

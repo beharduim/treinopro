@@ -62,7 +62,9 @@ class _HealthQuestionnaireStep2PageState
                 children: [
                   Text(
                     'Saúde cardiovascular',
-                    style: AppTextStyles.h2.copyWith(color: AppColors.secondary),
+                    style: AppTextStyles.h6Semibold.copyWith(
+                      color: AppColors.secondary,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   HealthQuestionDropdown(
