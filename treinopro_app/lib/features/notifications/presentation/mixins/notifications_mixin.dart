@@ -9,6 +9,7 @@ import '../widgets/notifications_modal.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../classes/presentation/pages/classes_page.dart';
 import '../../../classes/presentation/pages/my_disputes_page.dart';
+import '../../../balance/presentation/pages/personal_balance_page.dart';
 import '../../../../core/services/notification_service.dart';
 
 /// Mixin para gerenciar notificações (armazenadas localmente)
@@ -412,6 +413,10 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
         _navigateToDisputesHub(notification);
         break;
 
+      case 'withdrawal_failed':
+        _navigateToWallet(notification);
+        break;
+
       case 'mission_completed':
         // Opcional: navegar para perfil/gamificação
         // Por enquanto, apenas marca como lida
@@ -469,6 +474,13 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
   void _navigateToDisputesHub(NotificationModel notification) {
     markAsRead(notification.id);
     Navigator.of(context).pushNamed('/my-disputes');
+  }
+
+  void _navigateToWallet(NotificationModel notification) {
+    markAsRead(notification.id);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const PersonalBalancePage()),
+    );
   }
 
   /// Recarrega as notificações

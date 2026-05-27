@@ -19,6 +19,7 @@ import '../../features/notifications/data/services/local_notifications_storage.d
 import '../navigation/app_navigator.dart';
 import '../../features/chat/presentation/pages/chat_page.dart';
 import '../../features/classes/presentation/pages/classes_page.dart';
+import '../../features/balance/presentation/pages/personal_balance_page.dart';
 
 // Função top-level para background handler (necessário para Firebase)
 // ✅ CRÍTICO: Esta função DEVE ser top-level e ter @pragma('vm:entry-point')
@@ -1346,6 +1347,9 @@ class NotificationService {
         case 'dispute_update':
           inAppNotificationType = 'warning';
           break;
+        case 'withdrawal_failed':
+          inAppNotificationType = 'warning';
+          break;
         case 'mission_completed':
           inAppNotificationType = 'success';
           break;
@@ -1613,6 +1617,14 @@ class NotificationService {
           final deepLinkService = DeepLinkService();
           await deepLinkService.handleDeepLink(proposalId);
         }
+        break;
+
+      case 'withdrawal_failed':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const PersonalBalancePage(),
+          ),
+        );
         break;
 
       default:
