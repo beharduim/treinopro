@@ -44,6 +44,7 @@ class StudentHomePage extends StatefulWidget {
 class _StudentHomePageState extends State<StudentHomePage>
     with WidgetsBindingObserver, NotificationsMixin {
   int _currentBottomNavIndex = 0;
+  String? _gamificationInitializedForUserId;
   late DataRefreshService _dataRefreshService; // Mantido para compatibilidade
   late RealtimeDataService
   _realtimeDataService; // Serviço centralizado em tempo real
@@ -111,8 +112,11 @@ class _StudentHomePageState extends State<StudentHomePage>
           _realtimeDataService.processPendingPaymentConfirmedFromStorage(),
         );
 
-        // Exibe aviso de gamificação em desenvolvimento (1x por sessão)
-        sl<GamificationDevNoticeCoordinator>().maybeShow(context);
+        // Exibe aviso de gamificação após a home estabilizar (1x por sessão)
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (!mounted) return;
+          sl<GamificationDevNoticeCoordinator>().maybeShow(context);
+        });
       } catch (e) {
         print('❌ [STUDENT_HOME] Erro ao inicializar: $e');
         print('❌ [STUDENT_HOME] Stack trace: ${StackTrace.current}');
@@ -244,14 +248,16 @@ class _StudentHomePageState extends State<StudentHomePage>
                 );
               }
 
-              // Inicializar dados de gamificação quando a home estiver carregada
+              // Inicializar dados de gamificação uma vez por usuário
               if (state is HomeLoaded) {
-                // RealtimeDataService já foi inicializado em initState
-
-                // Inicializar dados de gamificação (perfil, stats, missões)
-                context.read<GamificationBloc>().add(
-                  InitializeGamification(userId: state.homeState.userId ?? ''),
-                );
+                final userId = state.homeState.userId ?? '';
+                if (userId.isNotEmpty &&
+                    _gamificationInitializedForUserId != userId) {
+                  _gamificationInitializedForUserId = userId;
+                  context.read<GamificationBloc>().add(
+                    InitializeGamification(userId: userId),
+                  );
+                }
               }
             },
             child: BlocBuilder<HomeBloc, HomeBlocState>(

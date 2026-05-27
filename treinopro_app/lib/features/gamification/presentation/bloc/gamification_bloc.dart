@@ -40,8 +40,18 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
     Emitter<GamificationState> emit,
   ) async {
     try {
+      if (state is GamificationLoaded &&
+          (state as GamificationLoaded).userProfile.userId == event.userId) {
+        print(
+          '🧭 MISSION CARD: Gamificação já carregada para ${event.userId}, ignorando reinit',
+        );
+        return;
+      }
+
       print('🧭 MISSION CARD: Inicializando gamificação para userId: ${event.userId}');
-      emit(const GamificationLoading());
+      if (state is! GamificationLoaded) {
+        emit(const GamificationLoading());
+      }
       
       // Carregar dados principais em paralelo
       final results = await Future.wait([

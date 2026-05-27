@@ -7,89 +7,36 @@ import '../../../gamification/presentation/bloc/gamification_state.dart';
 import '../../../gamification/presentation/widgets/animated_xp_bar.dart';
 
 /// Widget do card da missão semanal
-class WeeklyMissionCard extends StatelessWidget {
+class WeeklyMissionCard extends StatefulWidget {
   final HomeState homeState;
 
   const WeeklyMissionCard({super.key, required this.homeState});
 
   @override
+  State<WeeklyMissionCard> createState() => _WeeklyMissionCardState();
+}
+
+class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
+  Map<String, dynamic>? _cachedMissionData;
+
+  @override
   Widget build(BuildContext context) {
     return BlocBuilder<GamificationBloc, GamificationState>(
+      buildWhen: (previous, current) =>
+          current is GamificationLoaded ||
+          current is GamificationLoading ||
+          current is GamificationInitial ||
+          current is GamificationError,
       builder: (context, gamificationState) {
-        // Extrair dados da missão ativa
-        final missionData = _getActiveMissionData(gamificationState);
+        final missionData =
+            _getActiveMissionData(gamificationState) ?? _cachedMissionData;
+
+        if (missionData != null) {
+          _cachedMissionData = missionData;
+        }
+
         if (missionData == null) {
-          // Sem missão ativa: mostrar card informativo
-          return Container(
-            width: double.infinity,
-            height: 180,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  AppColors.primaryOrange,
-                  AppColors.primaryOrangeLight,
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  offset: const Offset(0, 4),
-                  blurRadius: 16,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.emoji_events,
-                      size: 20,
-                      color: Colors.white.withValues(alpha: 0.92),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Missão Semanal',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'você ainda não tem uma missão atribuída a você',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.92),
-                    height: 1.3,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(
-                  width: double.infinity,
-                  child: AnimatedXPBar(
-                    currentXP: 0,
-                    maxXP: 1,
-                    height: 8,
-                    trackColor: Colors.white.withValues(alpha: 0.35),
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ],
-            ),
-          );
+          return _buildPlaceholderCard();
         }
         // Logs para depuração de conteúdo
         // ignore: avoid_print
@@ -282,5 +229,78 @@ class WeeklyMissionCard extends StatelessWidget {
     // Sem dados de gamificação: ocultar card
     print('🧭 MISSION CARD [$timestamp]: Estado não carregado, ocultando card');
     return null;
+  }
+
+  Widget _buildPlaceholderCard() {
+    return Container(
+      width: double.infinity,
+      height: 180,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.primaryOrange,
+            AppColors.primaryOrangeLight,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.emoji_events,
+                size: 20,
+                color: Colors.white.withValues(alpha: 0.92),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Missão Semanal',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'você ainda não tem uma missão atribuída a você',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.92),
+              height: 1.3,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: AnimatedXPBar(
+              currentXP: 0,
+              maxXP: 1,
+              height: 8,
+              trackColor: Colors.white.withValues(alpha: 0.35),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

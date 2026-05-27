@@ -4,23 +4,39 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_state.dart';
 
-class PersonalWeeklyMissionCard extends StatelessWidget {
+class PersonalWeeklyMissionCard extends StatefulWidget {
   const PersonalWeeklyMissionCard({super.key});
+
+  @override
+  State<PersonalWeeklyMissionCard> createState() =>
+      _PersonalWeeklyMissionCardState();
+}
+
+class _PersonalWeeklyMissionCardState extends State<PersonalWeeklyMissionCard> {
+  _ActiveMissionData? _cachedMission;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<GamificationBloc, GamificationState>(
+      buildWhen: (previous, current) =>
+          current is GamificationLoaded ||
+          current is GamificationLoading ||
+          current is GamificationInitial ||
+          current is GamificationError,
       builder: (context, state) {
-        final data = _extractActiveMission(state);
+        final data = _extractActiveMission(state) ?? _cachedMission;
         if (data == null) {
           return const SizedBox.shrink();
         }
+
+        _cachedMission = data;
 
         final String title = data.title;
         final String description = data.description;
         final int progress = data.progress;
         final int total = data.totalRequired;
-        final double percent = total > 0 ? (progress / total).clamp(0.0, 1.0) : 0.0;
+        final double percent =
+            total > 0 ? (progress / total).clamp(0.0, 1.0) : 0.0;
 
         return Container(
           width: double.infinity,
@@ -43,14 +59,14 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    data.isCompleted ? Icons.check_circle : Icons.flag, 
-                    size: 29, 
-                    color: AppColors.iconPrimary
+                    data.isCompleted ? Icons.check_circle : Icons.flag,
+                    size: 29,
+                    color: AppColors.iconPrimary,
                   ),
                   const SizedBox(width: 8),
-                  Text(
+                  const Text(
                     'Missão da semana',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF2D3748),
@@ -70,7 +86,7 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                data.isCompleted 
+                data.isCompleted
                     ? 'Completada! $progress de $total'
                     : 'Progresso $progress de $total',
                 style: const TextStyle(
@@ -82,22 +98,21 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _ProgressBar(percent: percent),
-              const SizedBox(height: 12), // Reduzido de 16 para 12
-              // Botão minhas conquistas
+              const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Em breve: suas conquistas estarão disponíveis aqui!'),
+                      content: Text(
+                        'Em breve: suas conquistas estarão disponíveis aqui!',
+                      ),
                       backgroundColor: AppColors.primaryOrange,
                     ),
                   );
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                  ), // Reduzido de 22 para 16
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.primaryOrange, width: 2),
                     borderRadius: BorderRadius.circular(8),
@@ -106,9 +121,9 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
                     'Minhas conquistas',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16, // Padrão dos botões
-                      fontWeight: FontWeight.w600, // semibold
-                      color: Color(0xFFFF6A00), // Laranja principal
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFF6A00),
                       height: 1.2,
                     ),
                   ),
@@ -123,20 +138,19 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
 
   _ActiveMissionData? _extractActiveMission(GamificationState state) {
     if (state is GamificationLoaded) {
-      // Buscar primeira missão ativa OU completada recentemente (últimas 24h)
       final now = DateTime.now();
       final recentMissions = state.userMissions.where((mission) {
         if (mission.isActive) return true;
         if (mission.isCompleted && mission.completedAt != null) {
-          // Mostrar missões completadas nas últimas 24 horas
-          final hoursSinceCompletion = now.difference(mission.completedAt!).inHours;
+          final hoursSinceCompletion =
+              now.difference(mission.completedAt!).inHours;
           return hoursSinceCompletion <= 24;
         }
         return false;
       }).toList();
-      
+
       if (recentMissions.isEmpty) return null;
-      
+
       final m = recentMissions.first;
       return _ActiveMissionData(
         title: m.mission.title,
@@ -146,7 +160,7 @@ class PersonalWeeklyMissionCard extends StatelessWidget {
         isCompleted: m.isCompleted,
       );
     }
-    
+
     return null;
   }
 }
@@ -202,5 +216,3 @@ class _ActiveMissionData {
     required this.isCompleted,
   });
 }
-
-

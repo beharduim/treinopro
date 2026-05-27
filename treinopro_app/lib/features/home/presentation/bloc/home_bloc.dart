@@ -63,8 +63,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
         '🏠 [HOME_BLOC] Estado atual antes de inicializar: ${state.runtimeType}',
       );
 
-      emit(const HomeLoading());
-      print('🏠 [HOME_BLOC] Estado mudado para HomeLoading');
+      final shouldShowLoading = state is! HomeLoaded;
+      if (shouldShowLoading) {
+        emit(const HomeLoading());
+        print('🏠 [HOME_BLOC] Estado mudado para HomeLoading');
+      }
 
       print('🏠 [HOME_BLOC] Chamando getHomeStateUseCase...');
       final homeState = await getHomeStateUseCase();

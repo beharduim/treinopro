@@ -66,7 +66,8 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     with WidgetsBindingObserver, NotificationsMixin {
   int _currentBottomNavIndex = 0;
   double _raioAtendimento = ServiceRadiusConstants.defaultKm;
-  bool _isOnline = false; // Estado inicial offline
+  bool _isOnline = false;
+  bool _hasRunStartupRecovery = false; // Estado inicial offline
   late RealtimeDataService _realtimeDataService; // Serviço centralizado
   StreamSubscription<dynamic>?
   _newProposalSub; // assinatura leve para new_proposal
@@ -1630,10 +1631,13 @@ class _PersonalHomePageState extends State<PersonalHomePage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Tenta recuperação leve pós-build
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _attemptForegroundRecovery(),
-    );
+    if (_hasRunStartupRecovery) return;
+    _hasRunStartupRecovery = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _attemptForegroundRecovery();
+      }
+    });
   }
 
   Future<void> _attemptForegroundRecovery() async {
@@ -1801,7 +1805,10 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       }
 
       // Exibe aviso de gamificação apenas se não houver deep link pendente
-      sl<GamificationDevNoticeCoordinator>().maybeShow(context);
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (!mounted) return;
+        sl<GamificationDevNoticeCoordinator>().maybeShow(context);
+      });
     } catch (e) {
       print('⚠️ [PERSONAL_HOME] Erro ao coordenar deep link/gamificação: $e');
       if (!mounted) return;

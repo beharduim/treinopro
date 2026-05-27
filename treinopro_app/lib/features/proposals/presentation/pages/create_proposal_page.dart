@@ -144,55 +144,65 @@ class _CreateProposalView extends StatelessWidget {
   }
 
   Widget _buildLoadedContent(BuildContext context, ProposalsLoaded state) {
-    return Scaffold(
-      backgroundColor: AppColors.loginBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header com botão voltar e título
-            _buildHeader(context),
+    return PopScope(
+      canPop: state.currentStep == 1,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack(context, state);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.loginBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header com botão voltar e título
+              _buildHeader(context, state),
 
-            // Barra de progresso (oculta na revisão)
-            if (state.currentStep <= 3) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ProposalProgress(
-                  currentStep: state.currentStep,
-                  totalSteps: 3,
-                  stepTitles: const ['Onde & Quando', 'Como será', 'Valor'],
+              // Barra de progresso (oculta na revisão)
+              if (state.currentStep <= 3) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ProposalProgress(
+                    currentStep: state.currentStep,
+                    totalSteps: 3,
+                    stepTitles: const ['Onde & Quando', 'Como será', 'Valor'],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
+              ],
+
+              // Conteúdo da etapa atual
+              Expanded(child: _buildStepContent(state.currentStep)),
+
+              // Botões de navegação
+              _buildNavigationButtons(context, state),
             ],
-
-            // Conteúdo da etapa atual
-            Expanded(child: _buildStepContent(state.currentStep)),
-
-            // Botões de navegação
-            _buildNavigationButtons(context, state),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  void _handleBack(BuildContext context, ProposalsLoaded state) {
+    if (state.canGoToPreviousStep) {
+      context.read<ProposalsBloc>().add(const ProposalsPreviousStep());
+      return;
+    }
+
+    context.read<proposal_search.ProposalSearchBloc>().add(
+      const proposal_search.ResetProposalSearch(),
+    );
+    context.read<ProposalsBloc>().add(const ProposalsClear());
+    Navigator.of(context).pop();
+  }
+
+  Widget _buildHeader(BuildContext context, ProposalsLoaded state) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Row(
         children: [
           IconButton(
-            onPressed: () {
-              // Reset do estado do ProposalSearchBloc antes de voltar
-              context.read<proposal_search.ProposalSearchBloc>().add(
-                const proposal_search.ResetProposalSearch(),
-              );
-
-              // Reset da proposta atual se estiver no meio do processo
-              context.read<ProposalsBloc>().add(const ProposalsClear());
-
-              Navigator.of(context).pop();
-            },
+            onPressed: () => _handleBack(context, state),
             icon: const Icon(
               Icons.chevron_left,
               color: AppColors.secondary,
@@ -276,9 +286,7 @@ class _CreateProposalView extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  context.read<ProposalsBloc>().add(
-                    const ProposalsPreviousStep(),
-                  );
+                  _handleBack(context, state);
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryOrange,

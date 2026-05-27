@@ -108,11 +108,11 @@ class HealthQuestionnaireProgress extends StatelessWidget {
   String _getStepTitle(int step) {
     switch (step) {
       case 1:
-        return 'Informações básicas';
+        return 'Lesões e limitações';
       case 2:
-        return 'Condições físicas';
+        return 'Saúde cardiovascular';
       case 3:
-        return 'Alimentação';
+        return 'Condicionamento físico';
       default:
         return 'Etapa $step';
     }
@@ -121,11 +121,11 @@ class HealthQuestionnaireProgress extends StatelessWidget {
   String _getStepDescription(int step) {
     switch (step) {
       case 1:
-        return 'Conte-nos sobre suas condições médicas e medicamentos';
+        return 'Informe sobre lesões e recomendações médicas';
       case 2:
-        return 'Informe sobre lesões e objetivos de treino';
+        return 'Responda sobre sintomas e condições de saúde';
       case 3:
-        return 'Compartilhe suas restrições alimentares';
+        return 'Informe seu nível de condicionamento físico';
       default:
         return 'Complete esta etapa para continuar';
     }
