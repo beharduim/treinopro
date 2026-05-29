@@ -9,6 +9,7 @@ import '../utils/registration_steps_helper.dart';
 import '../../../onboarding/presentation/pages/personal_onboarding_page.dart';
 import '../../../onboarding/presentation/bloc/onboarding_bloc.dart';
 import '../../../../core/di/dependency_injection.dart';
+import '../../../../core/utils/approval_grace_period.dart';
 import '../../../home/data/services/auth_service.dart';
 import 'personal_approval_pending_page.dart';
 
@@ -119,12 +120,23 @@ class _PersonalRegistrationPageState extends State<PersonalRegistrationPage> {
             print('PersonalRegistrationPage: RegistrationSuccess - verificando approvalStatus...');
             // Ler approvalStatus salvo pelo datasource durante o registro
             final approvalStatus = sl<AuthService>().currentApprovalStatus;
-            // Treat null as not approved — personal sem status explícito vai para tela de análise
-            if (approvalStatus != 'approved') {
-              print('PersonalRegistrationPage: approvalStatus=$approvalStatus → tela de análise');
+            final createdAtRaw = sl<AuthService>().currentUserCreatedAt;
+            final createdAt = createdAtRaw != null && createdAtRaw.isNotEmpty
+                ? DateTime.tryParse(createdAtRaw)
+                : DateTime.now();
+
+            if (shouldBlockPersonalForApproval(
+              approvalStatus: approvalStatus,
+              createdAt: createdAt,
+            )) {
+              print(
+                'PersonalRegistrationPage: approvalStatus=$approvalStatus → tela de análise',
+              );
               _navigateToApprovalPending(approvalStatus ?? 'pending_review');
             } else {
-              print('PersonalRegistrationPage: approvalStatus=approved → onboarding');
+              print(
+                'PersonalRegistrationPage: cadastro em análise — prazo de graça, segue onboarding',
+              );
               _navigateToPersonalOnboarding();
             }
           } else if (state is registration_states.RegistrationError) {

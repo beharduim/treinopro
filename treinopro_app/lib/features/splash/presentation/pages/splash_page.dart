@@ -28,8 +28,7 @@ import 'dart:io';
 import '../../../../core/services/fcm_token_service.dart';
 import '../../../../core/services/live_activity_service.dart';
 import '../../../../core/services/deep_link_service.dart';
-import '../../../home/data/services/auth_service.dart';
-import '../../../auth/presentation/pages/personal_approval_pending_page.dart';
+import '../../../../core/utils/approval_grace_period.dart';
 
 /// Página da splash screen seguindo exatamente o design do Figma
 class SplashPage extends StatefulWidget {
@@ -70,7 +69,12 @@ class _SplashPageState extends State<SplashPage> {
         listener: (context, state) {
           if (state is SplashLoaded) {
             // Navegar para a próxima tela quando a inicialização terminar
-            _navigateToNextScreen(state.isAuthenticated, state.userType, state.approvalStatus);
+            _navigateToNextScreen(
+              state.isAuthenticated,
+              state.userType,
+              state.approvalStatus,
+              state.userCreatedAt,
+            );
           } else if (state is SplashError) {
             // Mostrar erro se algo der errado
             _showErrorDialog(state.message);
@@ -100,15 +104,24 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   /// Navega para a próxima tela baseado no status de autenticação e tipo de usuário
-  void _navigateToNextScreen(bool isAuthenticated, String? userType, String? approvalStatus) {
-    if (!mounted) return; // Verificar se o widget ainda está montado
+  void _navigateToNextScreen(
+    bool isAuthenticated,
+    String? userType,
+    String? approvalStatus,
+    String? userCreatedAt,
+  ) {
+    if (!mounted) return;
 
     if (isAuthenticated) {
-      // Personal trainer com aprovação pendente ou rejeitada → tela de análise
+      final createdAt = userCreatedAt != null && userCreatedAt.isNotEmpty
+          ? DateTime.tryParse(userCreatedAt)
+          : null;
       if (userType == 'personal' &&
-          approvalStatus != null &&
-          approvalStatus != 'approved') {
-        _navigateToApprovalPending(approvalStatus);
+          shouldBlockPersonalForApproval(
+            approvalStatus: approvalStatus,
+            createdAt: createdAt,
+          )) {
+        _navigateToApprovalPending(approvalStatus ?? 'pending_review');
         return;
       }
       // Usuário já está logado, navegar para a home baseada no tipo

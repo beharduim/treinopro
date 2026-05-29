@@ -43,16 +43,27 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       // Obter o tipo de usuário e status de aprovação se autenticado
       String? userType;
       String? approvalStatus;
+      String? userCreatedAt;
       if (isAuthenticated) {
-        userType = sl<AuthService>().currentUserType;
-        approvalStatus = sl<AuthService>().currentApprovalStatus;
-        print('✅ [SPLASH] Usuário autenticado - tipo: $userType approvalStatus: $approvalStatus');
+        final authService = sl<AuthService>();
+        userType = authService.currentUserType;
+        approvalStatus = authService.currentApprovalStatus;
+        userCreatedAt = authService.currentUserCreatedAt;
+        print(
+          '✅ [SPLASH] Usuário autenticado - tipo: $userType approvalStatus: $approvalStatus',
+        );
       } else {
         print('ℹ️ [SPLASH] Usuário não autenticado');
       }
 
-      // Adiciona o evento de aplicação inicializada com status de autenticação e tipo de usuário
-      add(AppInitialized(isAuthenticated: isAuthenticated, userType: userType, approvalStatus: approvalStatus));
+      add(
+        AppInitialized(
+          isAuthenticated: isAuthenticated,
+          userType: userType,
+          approvalStatus: approvalStatus,
+          userCreatedAt: userCreatedAt,
+        ),
+      );
     } catch (e) {
       print('❌ [SPLASH] Erro ao inicializar: $e');
       emit(SplashError(e.toString()));
@@ -68,6 +79,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       isAuthenticated: event.isAuthenticated,
       userType: event.userType,
       approvalStatus: event.approvalStatus,
+      userCreatedAt: event.userCreatedAt,
     ));
   }
 }

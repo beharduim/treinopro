@@ -186,6 +186,7 @@ class ApiService {
     String? lastName,
     String? profileImageUrl,
     String? approvalStatus,
+    String? userCreatedAt,
   }) async {
     print('💾 [API_SERVICE] Salvando tokens...');
     print('💾 [API_SERVICE] userId: $userId');
@@ -222,6 +223,9 @@ class ApiService {
     }
     if (approvalStatus != null) {
       await prefs.setString('approval_status', approvalStatus);
+    }
+    if (userCreatedAt != null) {
+      await prefs.setString('user_created_at', userCreatedAt);
     }
 
     print('✅ [API_SERVICE] Tokens salvos no SharedPreferences');
@@ -329,6 +333,7 @@ class ApiService {
     String? lastName,
     String? profileImageUrl,
     String? approvalStatus,
+    String? userCreatedAt,
   }) async {
     print('🔑 [API_SERVICE] setTokens chamado');
     await _saveTokens(
@@ -340,6 +345,7 @@ class ApiService {
       lastName: lastName,
       profileImageUrl: profileImageUrl,
       approvalStatus: approvalStatus,
+      userCreatedAt: userCreatedAt,
     );
     print('🔑 [API_SERVICE] setTokens concluído');
   }

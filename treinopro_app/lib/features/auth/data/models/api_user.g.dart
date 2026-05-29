@@ -17,6 +17,7 @@ ApiUser _$ApiUserFromJson(Map<String, dynamic> json) => ApiUser(
   rating: (json['rating'] as num?)?.toDouble(),
   totalRatings: (json['totalRatings'] as num?)?.toInt(),
   approvalStatus: json['approvalStatus'] as String?,
+  createdAt: json['createdAt'] as String?,
 );
 
 Map<String, dynamic> _$ApiUserToJson(ApiUser instance) => <String, dynamic>{
@@ -30,4 +31,5 @@ Map<String, dynamic> _$ApiUserToJson(ApiUser instance) => <String, dynamic>{
   'rating': instance.rating,
   'totalRatings': instance.totalRatings,
   'approvalStatus': instance.approvalStatus,
+  'createdAt': instance.createdAt,
 };

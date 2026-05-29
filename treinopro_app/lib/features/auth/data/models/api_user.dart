@@ -14,6 +14,7 @@ class ApiUser {
   final double? rating;
   final int? totalRatings;
   final String? approvalStatus;
+  final String? createdAt;
 
   const ApiUser({
     required this.id,
@@ -26,6 +27,7 @@ class ApiUser {
     this.rating,
     this.totalRatings,
     this.approvalStatus,
+    this.createdAt,
   });
 
   factory ApiUser.fromJson(Map<String, dynamic> json) => _$ApiUserFromJson(json);

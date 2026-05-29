@@ -9,6 +9,7 @@ import '../bloc/payment_methods_state.dart';
 import '../widgets/payment_method_card.dart';
 import '../widgets/add_payment_method_bottom_sheet.dart';
 import '../widgets/saved_cards_list.dart';
+import '../widgets/payment_card_brands_hint.dart';
 
 class PaymentMethodsPage extends StatefulWidget {
   final bool fromStep3;
@@ -208,7 +209,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         // Cartão de Crédito
         PaymentMethodCard(
           title: 'Cartão de Crédito',
-          subtitle: 'Visa, Mastercard, Elo, etc.',
+          subtitle: PaymentCardBrandsCopy.subtitle,
           icon: Icons.credit_card,
           color: const Color(0xFF4F46E5),
           onTap: () => _showAddCardBottomSheet(context, CardType.credit),
@@ -219,11 +220,13 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         // Cartão de Débito
         PaymentMethodCard(
           title: 'Cartão de Débito',
-          subtitle: 'Visa, Mastercard, Elo, etc.',
+          subtitle: PaymentCardBrandsCopy.subtitle,
           icon: Icons.account_balance_wallet,
           color: const Color(0xFF059669),
           onTap: () => _showAddCardBottomSheet(context, CardType.debit),
         ),
+
+        const PaymentCardBrandsHint(),
       ],
     );
   }

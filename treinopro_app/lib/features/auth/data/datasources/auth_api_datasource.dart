@@ -61,6 +61,7 @@ class AuthApiDataSource {
           lastName: authResponse.user.lastName,
           profileImageUrl: authResponse.user.profileImageUrl,
           approvalStatus: authResponse.user.approvalStatus,
+          userCreatedAt: authResponse.user.createdAt,
         );
 
         // ✅ CORREÇÃO: Aguardar um pouco para garantir que tokens foram salvos
@@ -88,6 +89,10 @@ class AuthApiDataSource {
           'Tempo de conexão esgotado. Verifique sua conexão com a internet e tente novamente.',
         );
       } else if (e.response?.statusCode == 401) {
+        final message = e.response?.data?['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          throw Exception(message.trim());
+        }
         throw Exception('Credenciais inválidas');
       } else if (e.response?.statusCode == 400) {
         throw Exception('Dados inválidos');
@@ -136,6 +141,7 @@ class AuthApiDataSource {
           lastName: authResponse.user.lastName,
           profileImageUrl: authResponse.user.profileImageUrl,
           approvalStatus: authResponse.user.approvalStatus,
+          userCreatedAt: authResponse.user.createdAt,
         );
 
         return authResponse;

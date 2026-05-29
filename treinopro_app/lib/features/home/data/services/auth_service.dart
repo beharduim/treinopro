@@ -33,6 +33,9 @@ class AuthService {
   /// Obtém o status de aprovação profissional do personal trainer atual
   String? get currentApprovalStatus => _prefs.getString('approval_status');
 
+  /// Data de cadastro do usuário (ISO 8601) — usada no prazo de graça de 3 dias.
+  String? get currentUserCreatedAt => _prefs.getString('user_created_at');
+
   /// Salva tokens de autenticação
   Future<void> saveTokens({
     required String accessToken,
@@ -80,6 +83,7 @@ class AuthService {
     await _prefs.remove('last_name');
     await _prefs.remove('profile_image_url');
     await _prefs.remove('approval_status');
+    await _prefs.remove('user_created_at');
 
     print('✅ [AUTH_SERVICE] Todos os tokens limpos');
   }

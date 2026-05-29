@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/payment_method.dart';
 import '../bloc/payment_methods_bloc.dart';
 import 'card_form_widget.dart';
+import 'payment_card_brands_hint.dart';
 
 class AddPaymentMethodBottomSheet extends StatefulWidget {
   final CardType? cardType;
@@ -159,7 +160,7 @@ class _AddPaymentMethodBottomSheetState
           // Opções de método
           _buildMethodOption(
             title: 'Cartão de Crédito',
-            subtitle: 'Visa, Mastercard, Elo, etc.',
+            subtitle: PaymentCardBrandsCopy.subtitle,
             icon: Icons.credit_card,
             color: const Color(0xFF4F46E5),
             isSelected: type == PaymentMethodType.creditCard,
@@ -170,12 +171,14 @@ class _AddPaymentMethodBottomSheetState
 
           _buildMethodOption(
             title: 'Cartão de Débito',
-            subtitle: 'Visa, Mastercard, Elo, etc.',
+            subtitle: PaymentCardBrandsCopy.subtitle,
             icon: Icons.account_balance_wallet,
             color: const Color(0xFF059669),
             isSelected: type == PaymentMethodType.debitCard,
             onTap: () => _selectMethod(PaymentMethodType.debitCard),
           ),
+
+          const PaymentCardBrandsHint(),
 
           const SizedBox(height: 12),
 

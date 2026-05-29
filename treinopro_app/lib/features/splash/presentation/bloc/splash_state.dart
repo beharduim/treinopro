@@ -23,15 +23,22 @@ class SplashLoaded extends SplashState {
   final bool isAuthenticated;
   final String? userType;
   final String? approvalStatus;
+  final String? userCreatedAt;
 
   const SplashLoaded({
     this.isAuthenticated = false,
     this.userType,
     this.approvalStatus,
+    this.userCreatedAt,
   });
 
   @override
-  List<Object> get props => [isAuthenticated, userType ?? '', approvalStatus ?? ''];
+  List<Object> get props => [
+    isAuthenticated,
+    userType ?? '',
+    approvalStatus ?? '',
+    userCreatedAt ?? '',
+  ];
 }
 
 /// Estado de erro durante a inicialização

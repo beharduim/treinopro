@@ -49,8 +49,17 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
       emit(LoginSuccess(authResponse.user));
     } catch (e) {
-      emit(LoginError(e.toString()));
+      emit(LoginError(_formatLoginError(e)));
     }
+  }
+
+  String _formatLoginError(Object error) {
+    final raw = error.toString();
+    const prefix = 'Exception: ';
+    if (raw.startsWith(prefix)) {
+      return raw.substring(prefix.length);
+    }
+    return raw;
   }
 
   /// Manipula o evento de login com Google

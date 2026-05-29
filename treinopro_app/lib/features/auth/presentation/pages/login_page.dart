@@ -36,6 +36,7 @@ import 'login_initial_page.dart';
 import '../bloc/login_initial_bloc.dart';
 import 'forgot_password_page.dart';
 import 'personal_approval_pending_page.dart';
+import '../../../../core/utils/approval_grace_period.dart';
 
 /// Página de formulário de login seguindo exatamente o design do Figma
 class LoginPage extends StatefulWidget {
@@ -155,13 +156,14 @@ class _LoginPageState extends State<LoginPage> {
       Widget homePage;
 
       final approvalStatus = state.user.approvalStatus;
-      // Treat null approvalStatus as not approved — a personal without explicit
-      // 'approved' status must not bypass the pending screen.
-      final isPersonalPending = state.user.userType == 'personal' &&
-          approvalStatus != 'approved';
+      final createdAt = _parseCreatedAt(state.user.createdAt);
+      final blockPersonal = state.user.userType == 'personal' &&
+          shouldBlockPersonalForApproval(
+            approvalStatus: approvalStatus,
+            createdAt: createdAt,
+          );
 
-      if (isPersonalPending) {
-        // Personal com cadastro em análise, rejeitado ou sem status definido
+      if (blockPersonal) {
         homePage = PersonalApprovalPendingPage(
           approvalStatus: approvalStatus ?? 'pending_review',
         );
@@ -202,11 +204,15 @@ class _LoginPageState extends State<LoginPage> {
       // Navegar mesmo com erro de otimização
       if (context.mounted) {
         final approvalStatus = state.user.approvalStatus;
-        final isPersonalPending = state.user.userType == 'personal' &&
-            approvalStatus != 'approved';
+        final createdAt = _parseCreatedAt(state.user.createdAt);
+        final blockPersonal = state.user.userType == 'personal' &&
+            shouldBlockPersonalForApproval(
+              approvalStatus: approvalStatus,
+              createdAt: createdAt,
+            );
 
         Widget homePage;
-        if (isPersonalPending) {
+        if (blockPersonal) {
           homePage = PersonalApprovalPendingPage(
             approvalStatus: approvalStatus ?? 'pending_review',
           );
@@ -237,6 +243,11 @@ class _LoginPageState extends State<LoginPage> {
         NavigationHelper.pushReplacementWithFade(context, homePage);
       }
     }
+  }
+
+  DateTime? _parseCreatedAt(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
   }
 
   void _validateAndSubmit(BuildContext context) {
