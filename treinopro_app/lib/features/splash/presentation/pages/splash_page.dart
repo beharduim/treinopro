@@ -29,6 +29,8 @@ import '../../../../core/services/fcm_token_service.dart';
 import '../../../../core/services/live_activity_service.dart';
 import '../../../../core/services/deep_link_service.dart';
 import '../../../../core/utils/approval_grace_period.dart';
+import '../../../home/data/services/auth_service.dart';
+import '../../../auth/presentation/pages/personal_approval_pending_page.dart';
 
 /// Página da splash screen seguindo exatamente o design do Figma
 class SplashPage extends StatefulWidget {
