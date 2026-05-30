@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/errors/account_access_denied_exception.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/utils/account_access_error_parser.dart';
 import '../../../auth/data/services/upload_service.dart';
 
 class ProfileApiService {
@@ -51,12 +53,22 @@ class ProfileApiService {
         final data = json.decode(response.body);
         print('🔍 [PROFILE API] Dados decodificados: $data');
         return data;
-      } else {
-        throw Exception('Erro ao buscar perfil: ${response.statusCode} - ${response.body}');
       }
+
+      if (response.statusCode == 401) {
+        final accountAccess = parseAccountAccessFromResponse(response.body);
+        if (accountAccess != null) throw accountAccess;
+        throw Exception('Sessão expirada. Faça login novamente.');
+      }
+
+      throw Exception('Não foi possível carregar seu perfil. Tente novamente.');
+    } on AccountAccessDeniedException {
+      rethrow;
     } catch (e) {
       print('❌ [PROFILE API] Erro ao buscar perfil: $e');
-      throw Exception('Falha ao conectar com a API de perfil: $e');
+      final accountAccess = parseAccountAccessError(e);
+      if (accountAccess != null) throw accountAccess;
+      throw Exception('Não foi possível carregar seu perfil. Tente novamente.');
     }
   }
 

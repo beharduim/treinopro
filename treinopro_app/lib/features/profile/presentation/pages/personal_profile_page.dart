@@ -25,6 +25,7 @@ import '../../../classes/presentation/bloc/classes_bloc.dart';
 import '../../../../core/services/cache_service.dart';
 import '../../../../core/services/websocket_service.dart';
 import '../../../../core/services/realtime_data_service.dart';
+import '../../../../core/services/account_access_handler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/bloc/login_bloc.dart';
 
@@ -338,11 +339,11 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
     } catch (e) {
       print('❌ [PROFILE] ===== ERRO NO _loadProfileData =====');
       print('❌ [PROFILE] Erro ao carregar dados do perfil: $e');
-      print('❌ [PROFILE] Stack trace: ${e.toString()}');
+      if (await AccountAccessHandler.handle(e)) return;
       setState(() {
         _isLoadingProfile = false;
       });
-      _showErrorSnackBar('Erro ao carregar dados do perfil');
+      _showErrorSnackBar('Não foi possível carregar seus dados. Tente novamente.');
     }
   }
 

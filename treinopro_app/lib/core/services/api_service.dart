@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../utils/account_access_error_parser.dart';
+import 'account_access_handler.dart';
 
 class ApiService {
   static const String _pushNotificationsEnabledKey =
@@ -65,6 +67,20 @@ class ApiService {
               return;
             }
 
+            final accountAccess = parseAccountAccessFromResponse(
+              error.response?.data,
+            );
+            if (accountAccess != null) {
+              print(
+                '🚫 [API_SERVICE] Conta bloqueada/recusada — encerrando sessão',
+              );
+              _resetRefreshState();
+              await _clearTokens();
+              unawaited(AccountAccessHandler.present(accountAccess));
+              handler.next(error);
+              return;
+            }
+
             // Tentar renovar se tiver refresh token E não for rota de refresh
             if (_refreshToken != null && !isRefreshRoute) {
               // Renovação com lock para evitar concorrência
@@ -122,6 +138,16 @@ class ApiService {
                 _refreshCompleter?.completeError(e);
 
                 print('❌ [API_SERVICE] Falha ao renovar token: $e');
+
+                final blockedAfterRefresh = parseAccountAccessError(e) ??
+                    parseAccountAccessFromResponse(error.response?.data);
+                if (blockedAfterRefresh != null) {
+                  _resetRefreshState();
+                  await _clearTokens();
+                  unawaited(AccountAccessHandler.present(blockedAfterRefresh));
+                  handler.next(error);
+                  return;
+                }
 
                 // Só limpar tokens se o refresh endpoint confirmou que o token é inválido (401/403)
                 // Erros de rede, timeout ou outros não devem causar logout
@@ -229,6 +255,14 @@ class ApiService {
     }
 
     print('✅ [API_SERVICE] Tokens salvos no SharedPreferences');
+  }
+
+  void _resetRefreshState() {
+    _isRefreshing = false;
+    if (_refreshCompleter != null && !_refreshCompleter!.isCompleted) {
+      _refreshCompleter!.complete();
+    }
+    _refreshCompleter = null;
   }
 
   Future<void> _clearTokens() async {

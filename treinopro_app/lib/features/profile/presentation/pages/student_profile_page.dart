@@ -28,6 +28,7 @@ import 'dart:async';
 import '../../../../core/services/profile_image_notification_service.dart';
 import '../../../gamification/presentation/utils/level_labels.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/services/account_access_handler.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/utils/image_orientation_fix.dart';
 import '../../../auth/presentation/bloc/login_bloc.dart';
@@ -252,20 +253,17 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       print('❌ [PROFILE] Erro ao carregar dados: $e');
       print('❌ [PROFILE] Stack trace: $stackTrace');
 
+      if (await AccountAccessHandler.handle(e)) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
       setState(() {
-        _error = e.toString();
+        _error = 'Não foi possível carregar seus dados. Tente novamente.';
         _isLoading = false;
       });
-
-      // Mostrar erro para o usuário
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar dados: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/errors/account_access_denied_exception.dart';
 
 /// Estados da splash screen
 abstract class SplashState extends Equatable {
@@ -24,12 +25,14 @@ class SplashLoaded extends SplashState {
   final String? userType;
   final String? approvalStatus;
   final String? userCreatedAt;
+  final AccountAccessDeniedException? pendingAccountAccess;
 
   const SplashLoaded({
     this.isAuthenticated = false,
     this.userType,
     this.approvalStatus,
     this.userCreatedAt,
+    this.pendingAccountAccess,
   });
 
   @override
@@ -38,6 +41,7 @@ class SplashLoaded extends SplashState {
     userType ?? '',
     approvalStatus ?? '',
     userCreatedAt ?? '',
+    pendingAccountAccess?.message ?? '',
   ];
 }
 

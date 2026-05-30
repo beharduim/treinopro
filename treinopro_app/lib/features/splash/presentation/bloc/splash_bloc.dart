@@ -39,6 +39,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       
       final results = await Future.wait(futures);
       final isAuthenticated = results[1] as bool;
+      final pendingAccess = initializeAppUseCase.pendingAccountAccess;
       
       // Obter o tipo de usuário e status de aprovação se autenticado
       String? userType;
@@ -62,6 +63,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
           userType: userType,
           approvalStatus: approvalStatus,
           userCreatedAt: userCreatedAt,
+          pendingAccountAccess: pendingAccess,
         ),
       );
     } catch (e) {
@@ -80,6 +82,7 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
       userType: event.userType,
       approvalStatus: event.approvalStatus,
       userCreatedAt: event.userCreatedAt,
+      pendingAccountAccess: event.pendingAccountAccess,
     ));
   }
 }

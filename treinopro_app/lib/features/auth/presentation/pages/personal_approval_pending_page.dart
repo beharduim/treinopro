@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/support_contact.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../auth/data/datasources/auth_api_datasource.dart';
 import '../../../auth/presentation/pages/login_initial_page.dart';
@@ -46,7 +47,7 @@ class PersonalApprovalPendingPage extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 isRejected
-                    ? 'Infelizmente seu cadastro como Personal Trainer não foi aprovado. Entre em contato com o suporte para mais informações.'
+                    ? SupportContact.pendingRejectedBody
                     : 'Seu cadastro como Personal Trainer está sendo analisado pela nossa equipe. Você será notificado quando a aprovação for concluída.',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),

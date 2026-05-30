@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/errors/account_access_denied_exception.dart';
 
 /// Eventos da splash screen
 abstract class SplashEvent extends Equatable {
@@ -19,12 +20,14 @@ class AppInitialized extends SplashEvent {
   final String? userType;
   final String? approvalStatus;
   final String? userCreatedAt;
+  final AccountAccessDeniedException? pendingAccountAccess;
 
   const AppInitialized({
     this.isAuthenticated = false,
     this.userType,
     this.approvalStatus,
     this.userCreatedAt,
+    this.pendingAccountAccess,
   });
 
   @override
@@ -33,5 +36,6 @@ class AppInitialized extends SplashEvent {
     userType ?? '',
     approvalStatus ?? '',
     userCreatedAt ?? '',
+    pendingAccountAccess?.message ?? '',
   ];
 }
