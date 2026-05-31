@@ -254,7 +254,7 @@ class _SplashPageState extends State<SplashPage> {
       await Future.delayed(const Duration(milliseconds: 1000));
 
       final fcmService = FcmTokenService();
-      final success = await fcmService.sendTokenToServer(userId);
+      final success = await fcmService.ensureRegisteredForUser(userId);
 
       if (!success) {
         Future.delayed(const Duration(seconds: 3), () async {

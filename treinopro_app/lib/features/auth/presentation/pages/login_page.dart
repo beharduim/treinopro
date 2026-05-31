@@ -18,15 +18,16 @@ import '../bloc/login_state.dart';
 import '../widgets/custom_text_field.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/realtime_data_service.dart';
+import 'dart:async';
 import 'dart:io';
 import '../../../../core/services/fcm_token_service.dart';
 import '../../../../core/services/live_activity_service.dart';
+import '../../../home/data/services/auth_service.dart';
 import '../../../classes/presentation/bloc/classes_bloc.dart';
 import '../../../classes/presentation/bloc/classes_event.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../proposals/presentation/bloc/proposal_search_bloc.dart';
 import '../../../proposals/presentation/bloc/proposals_bloc.dart';
-import '../../../home/data/services/auth_service.dart';
 import '../../../home/presentation/pages/student_home_page.dart';
 import '../../../home/presentation/pages/personal_home_page.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
@@ -125,23 +126,25 @@ class _LoginPageState extends State<LoginPage> {
       debugPrint('🔥 [LOGIN] Aguardando inicialização do FCM...');
       await Future.delayed(const Duration(milliseconds: 500));
       
-      debugPrint('🔥 [LOGIN] Enviando token FCM para o servidor...');
+      debugPrint('🔥 [LOGIN] Registrando token FCM no servidor...');
       try {
         final fcmService = FcmTokenService();
-        final success = await fcmService.sendTokenToServer(state.user.id);
+        final success = await fcmService.ensureRegisteredForUser(state.user.id);
         if (success) {
-          debugPrint('✅ [LOGIN] Token FCM enviado com sucesso');
+          debugPrint('✅ [LOGIN] Token FCM registrado com sucesso');
         } else {
-          debugPrint('⚠️ [LOGIN] Token FCM não pôde ser enviado (pode ser que ainda esteja inicializando)');
-          // Tentar novamente após mais tempo
-          Future.delayed(const Duration(seconds: 2), () async {
-            final retrySuccess = await fcmService.sendTokenToServer(state.user.id);
-            if (retrySuccess) {
-              debugPrint('✅ [LOGIN] Token FCM enviado com sucesso na segunda tentativa');
-            } else {
-              debugPrint('⚠️ [LOGIN] Token FCM não pôde ser enviado mesmo após retry');
-            }
-          });
+          debugPrint(
+            '⚠️ [LOGIN] Token FCM não registrado agora — nova tentativa em background',
+          );
+          unawaited(
+            fcmService.ensureRegisteredForUser(state.user.id).then((ok) {
+              debugPrint(
+                ok
+                    ? '✅ [LOGIN] Token FCM registrado na tentativa em background'
+                    : '⚠️ [LOGIN] Token FCM ainda não registrado após retry',
+              );
+            }),
+          );
         }
         // Flush any Live Activity token that arrived before login
         if (Platform.isIOS) {

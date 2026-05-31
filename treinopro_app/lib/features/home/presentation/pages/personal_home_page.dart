@@ -34,6 +34,7 @@ import '../../../classes/data/models/get_classes_dto.dart';
 // (sem fetch) não precisamos destes imports para o fluxo via WebSocket
 import '../../../proposals/data/services/locations_service.dart';
 import '../../data/services/auth_service.dart';
+import '../../../../core/services/fcm_token_service.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_event.dart';
 import '../../../gamification/presentation/bloc/gamification_state.dart';
@@ -456,6 +457,12 @@ class _PersonalHomePageState extends State<PersonalHomePage>
       if (_isOnline) {
         WakelockService.instance.enable();
       }
+
+      final userId = sl<AuthService>().currentUserId;
+      if (userId != null && userId.isNotEmpty) {
+        unawaited(FcmTokenService().ensureRegisteredForUser(userId));
+      }
+
       // ✅ CORREÇÃO CRÍTICA: Recriar listener de propostas quando app volta ao foreground
       // O listener pode ter sido perdido quando o WebSocket desconectou no background
       _recreateProposalListener();

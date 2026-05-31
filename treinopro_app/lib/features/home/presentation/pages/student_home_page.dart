@@ -9,6 +9,8 @@ import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/services/data_refresh_service.dart';
 import '../../../../core/services/realtime_data_service.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/fcm_token_service.dart';
+import '../../../home/data/services/auth_service.dart';
 import '../../../gamification/data/services/mission_completion_service.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_event.dart';
@@ -145,6 +147,12 @@ class _StudentHomePageState extends State<StudentHomePage>
     // Quando o app volta para o foreground, forçar refresh e sincronizar aulas ativas
     if (state == AppLifecycleState.resumed) {
       _dataRefreshService.forceRefresh();
+
+      final authService = sl<AuthService>();
+      final userId = authService.currentUserId;
+      if (userId != null && userId.isNotEmpty) {
+        unawaited(FcmTokenService().ensureRegisteredForUser(userId));
+      }
 
       // ✅ CORREÇÃO CRÍTICA: Reinicializar HomeBloc se estiver em HomeInitial
       // Quando o app volta do background, o HomeBloc pode estar em HomeInitial

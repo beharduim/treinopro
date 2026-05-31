@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
 /// Serviço para gerenciar envio de token FCM ao backend
 class FcmTokenService {
@@ -266,10 +267,36 @@ class FcmTokenService {
     }
   }
 
-  /// Remove o token FCM do backend, invalida o token no Firebase e limpa todo o estado local (logout).
-  /// Após isso, a próxima chamada a sendTokenToServer gerará um token completamente novo.
+  /// Garante que push está habilitado e o token FCM está registrado no backend.
+  Future<bool> ensureRegisteredForUser(String userId) async {
+    await NotificationService.setPushNotificationsEnabled(true);
+    _lastSentUserId = userId;
+
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    for (var attempt = 1; attempt <= 6; attempt++) {
+      if (await sendTokenToServer(userId)) {
+        return true;
+      }
+
+      if (kDebugMode) {
+        print(
+          '🔄 [FCM_TOKEN] Tentativa $attempt/6 falhou — aguardando token FCM...',
+        );
+      }
+
+      await Future.delayed(Duration(milliseconds: attempt * 500));
+      await refreshToken();
+    }
+
+    return false;
+  }
+
+  /// Remove o token FCM do backend e limpa vínculo local (logout).
+  /// Mantém o token do Firebase no dispositivo para re-registro rápido no próximo login.
   Future<void> removeTokenFromServer(String userId) async {
-    // Tentar obter token fresh do Firebase antes de deletar.
     String? token = _currentToken;
     if (token == null || token.isEmpty) {
       token = await _loadPersistedToken();
@@ -280,11 +307,8 @@ class FcmTokenService {
           await _firebaseMessaging.getAPNSToken();
         }
         token = await _firebaseMessaging.getToken();
-        await _persistToken(token);
-        if (kDebugMode) {
-          print(
-            '🔄 [FCM_TOKEN] Token obtido fresh para logout: ${token?.substring(0, 20)}...',
-          );
+        if (token != null && token.isNotEmpty) {
+          await _persistToken(token);
         }
       } catch (e) {
         if (kDebugMode) {
@@ -295,13 +319,8 @@ class FcmTokenService {
       }
     }
 
-    // Limpar estado local imediatamente — independente do resultado das chamadas abaixo
     _lastSentUserId = null;
-    _currentToken = null;
-    _isInitialized = false;
-    await _persistToken(null);
 
-    // 1. Remover token do backend
     if (token != null && token.isNotEmpty) {
       try {
         final apiService = GetIt.instance<ApiService>();
@@ -331,19 +350,6 @@ class FcmTokenService {
     } else {
       if (kDebugMode) {
         print('ℹ️ [FCM_TOKEN] Sem token para remover do backend no logout');
-      }
-    }
-
-    // 2. Invalidar o token no Firebase — garante que nenhuma notificação será entregue
-    // ao dispositivo com o token antigo. O próximo login gerará um token novo.
-    try {
-      await _firebaseMessaging.deleteToken();
-      if (kDebugMode) {
-        print('✅ [FCM_TOKEN] Token FCM invalidado no Firebase (logout)');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('⚠️ [FCM_TOKEN] Erro ao invalidar token no Firebase: $e');
       }
     }
   }
