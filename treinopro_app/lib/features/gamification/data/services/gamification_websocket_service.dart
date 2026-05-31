@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/services/websocket_service.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
@@ -20,6 +21,8 @@ class GamificationWebSocketService {
   
   HomeBloc? _homeBloc;
   GamificationBloc? _gamificationBloc;
+  Timer? _gamificationRefreshDebounce;
+  String? _pendingGamificationUserId;
 
   /// Inicializa o serviço
   void initialize({
@@ -70,6 +73,17 @@ class GamificationWebSocketService {
     }
   }
 
+  /// Agenda um refresh único de gamificação para evitar trocas rápidas no card.
+  void _scheduleGamificationRefresh(String userId) {
+    _pendingGamificationUserId = userId;
+    _gamificationRefreshDebounce?.cancel();
+    _gamificationRefreshDebounce = Timer(const Duration(milliseconds: 500), () {
+      final pendingUserId = _pendingGamificationUserId;
+      if (pendingUserId == null || pendingUserId.isEmpty) return;
+      _gamificationBloc?.add(RefreshGamificationData(userId: pendingUserId));
+    });
+  }
+
   /// Trata evento de missão completada
   void _handleMissionCompleted(Map<String, dynamic> message) {
     final data = message['data'] as Map<String, dynamic>?;
@@ -79,9 +93,8 @@ class GamificationWebSocketService {
     debugPrint('🎯 [GAMIFICATION_WS] Missão completada - ${mission?['title']} (${mission?['id']})');
     
     if (userId != null && userId.isNotEmpty) {
-      // Recarregar dados de gamificação para atualizar missões
-      _gamificationBloc?.add(RefreshGamificationData(userId: userId));
-      debugPrint('🎯 [GAMIFICATION_WS] Dados de gamificação atualizados para userId: $userId');
+      _scheduleGamificationRefresh(userId);
+      debugPrint('🎯 [GAMIFICATION_WS] Refresh de gamificação agendado para userId: $userId');
     }
   }
 
@@ -94,9 +107,8 @@ class GamificationWebSocketService {
     debugPrint('🎯 [GAMIFICATION_WS] Missão atribuída - ${mission?['title']} (${mission?['id']})');
     
     if (userId != null && userId.isNotEmpty) {
-      // Recarregar dados de gamificação para atualizar missões
-      _gamificationBloc?.add(RefreshGamificationData(userId: userId));
-      debugPrint('🎯 [GAMIFICATION_WS] Dados de gamificação atualizados para userId: $userId');
+      _scheduleGamificationRefresh(userId);
+      debugPrint('🎯 [GAMIFICATION_WS] Refresh de gamificação agendado para userId: $userId');
     }
   }
 
@@ -131,17 +143,7 @@ class GamificationWebSocketService {
     
     // Atualiza dados de gamificação se tivermos userId
     if (userId != null && userId.isNotEmpty) {
-      // Refresh seletivo por tipo de ação
-      if (action == 'mission_assigned' || action == 'mission_completed' || action == 'mission_progressed') {
-        _gamificationBloc?.add(LoadUserMissions(userId: userId));
-      } else if (action == 'xp_gained' || action == 'level_up') {
-        _gamificationBloc?.add(LoadUserProfile(userId: userId));
-        _gamificationBloc?.add(LoadGamificationStats(userId: userId));
-        // Além de perfil/estatísticas, pode haver progresso de missão não-completada
-        _gamificationBloc?.add(LoadUserMissions(userId: userId));
-      } else {
-        _gamificationBloc?.add(RefreshGamificationData(userId: userId));
-      }
+      _scheduleGamificationRefresh(userId);
     }
     
     // Atualiza card de workout se necessário
@@ -186,10 +188,7 @@ class GamificationWebSocketService {
       final userId = data?['class']?['studentId'] as String?;
       if (userId != null && userId.isNotEmpty) {
         debugPrint('🎮 GamificationWebSocket: Atualizando missões para userId: $userId');
-        _gamificationBloc?.add(LoadUserMissions(userId: userId));
-        // Também atualizar perfil e estatísticas para garantir sincronização completa
-        _gamificationBloc?.add(LoadUserProfile(userId: userId));
-        _gamificationBloc?.add(LoadGamificationStats(userId: userId));
+        _scheduleGamificationRefresh(userId);
       }
 
       // Atualiza card de workout
@@ -210,11 +209,8 @@ class GamificationWebSocketService {
     debugPrint('🎯 [GAMIFICATION_WS] Missões atualizadas: ${missionsUpdated?.length ?? 0}');
     
     if (userId != null && userId.isNotEmpty) {
-      // Recarregar dados de gamificação para refletir progresso atualizado
-      _gamificationBloc?.add(LoadUserMissions(userId: userId));
-      _gamificationBloc?.add(LoadUserProfile(userId: userId));
-      _gamificationBloc?.add(LoadGamificationStats(userId: userId));
-      debugPrint('🎯 [GAMIFICATION_WS] Dados de gamificação atualizados após processamento consolidado');
+      _scheduleGamificationRefresh(userId);
+      debugPrint('🎯 [GAMIFICATION_WS] Refresh agendado após processamento consolidado');
     }
     
     // Atualiza card de workout
@@ -279,6 +275,7 @@ class GamificationWebSocketService {
 
   /// Dispose do serviço
   void dispose() {
+    _gamificationRefreshDebounce?.cancel();
     _messageSubscription?.cancel();
     _webSocketService.dispose();
   }

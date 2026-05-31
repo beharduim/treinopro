@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../gamification/domain/entities/gamification_entity.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_state.dart';
 
@@ -14,15 +15,13 @@ class PersonalWeeklyMissionCard extends StatefulWidget {
 
 class _PersonalWeeklyMissionCardState extends State<PersonalWeeklyMissionCard> {
   _ActiveMissionData? _cachedMission;
+  String? _pinnedMissionId;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<GamificationBloc, GamificationState>(
       buildWhen: (previous, current) =>
-          current is GamificationLoaded ||
-          current is GamificationLoading ||
-          current is GamificationInitial ||
-          current is GamificationError,
+          _displaySignature(previous) != _displaySignature(current),
       builder: (context, state) {
         final data = _extractActiveMission(state) ?? _cachedMission;
         if (data == null) {
@@ -136,29 +135,45 @@ class _PersonalWeeklyMissionCardState extends State<PersonalWeeklyMissionCard> {
     );
   }
 
-  _ActiveMissionData? _extractActiveMission(GamificationState state) {
+  String _displaySignature(GamificationState state) {
     if (state is GamificationLoaded) {
-      final now = DateTime.now();
-      final recentMissions = state.userMissions.where((mission) {
-        if (mission.isActive) return true;
-        if (mission.isCompleted && mission.completedAt != null) {
-          final hoursSinceCompletion =
-              now.difference(mission.completedAt!).inHours;
-          return hoursSinceCompletion <= 24;
+      final mission = _pickMission(state.userMissions);
+      if (mission == null) return 'loaded:none';
+      return 'loaded:${mission.id}:${mission.status.name}:${mission.progress}';
+    }
+    return state.runtimeType.toString();
+  }
+
+  _ActiveMissionData? _extractActiveMission(GamificationState state) {
+    if (state is! GamificationLoaded) return null;
+
+    final mission = _pickMission(state.userMissions);
+    if (mission == null) return null;
+
+    return _ActiveMissionData(
+      title: mission.mission.title,
+      description: mission.mission.description,
+      progress: mission.progress,
+      totalRequired: mission.totalRequired,
+      isCompleted: mission.isCompleted,
+    );
+  }
+
+  UserMission? _pickMission(List<UserMission> missions) {
+    final actives = missions.where((mission) => mission.isActive).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (actives.isNotEmpty) {
+      _pinnedMissionId = actives.first.id;
+      return actives.first;
+    }
+
+    if (_pinnedMissionId != null) {
+      for (final mission in missions) {
+        if (mission.id == _pinnedMissionId) {
+          return mission;
         }
-        return false;
-      }).toList();
-
-      if (recentMissions.isEmpty) return null;
-
-      final m = recentMissions.first;
-      return _ActiveMissionData(
-        title: m.mission.title,
-        description: m.mission.description,
-        progress: m.progress,
-        totalRequired: m.totalRequired,
-        isCompleted: m.isCompleted,
-      );
+      }
     }
 
     return null;

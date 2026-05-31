@@ -16,27 +16,35 @@ class BalanceLoading extends BalanceState {}
 class BalanceLoaded extends BalanceState {
   final FinancialProfileModel profile;
   final List<TransactionModel> transactions;
+  final String? successMessage;
 
   const BalanceLoaded({
     required this.profile,
     required this.transactions,
+    this.successMessage,
   });
 
+  BalanceLoaded copyWith({
+    FinancialProfileModel? profile,
+    List<TransactionModel>? transactions,
+    String? successMessage,
+    bool clearSuccessMessage = false,
+  }) {
+    return BalanceLoaded(
+      profile: profile ?? this.profile,
+      transactions: transactions ?? this.transactions,
+      successMessage:
+          clearSuccessMessage ? null : (successMessage ?? this.successMessage),
+    );
+  }
+
   @override
-  List<Object?> get props => [profile, transactions];
+  List<Object?> get props => [profile, transactions, successMessage];
 }
 
 class BalanceError extends BalanceState {
   final String message;
   const BalanceError(this.message);
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class BalanceWithdrawSuccess extends BalanceState {
-  final String message;
-  const BalanceWithdrawSuccess(this.message);
 
   @override
   List<Object?> get props => [message];

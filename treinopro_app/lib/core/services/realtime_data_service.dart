@@ -1141,10 +1141,9 @@ class RealtimeDataService with WidgetsBindingObserver {
     if (data == null) return;
     debugPrint('🎯 RealtimeDataService: Missão atribuída');
     
-    // Notificar GamificationBloc
     final userId = data['userId'] as String?;
     if (userId != null) {
-      _safeAddToBloc(_gamificationBloc, LoadUserMissions(userId: userId), 'GamificationBloc');
+      _safeAddToBloc(_gamificationBloc, RefreshGamificationData(userId: userId), 'GamificationBloc');
     }
   }
 

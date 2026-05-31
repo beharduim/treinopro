@@ -9,6 +9,7 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
   final GamificationRepository _gamificationRepository;
   bool _isAutoAssigning = false;
   bool _isRefreshing = false;
+  int _refreshGeneration = 0;
 
   GamificationBloc({
     required GamificationRepository gamificationRepository,
@@ -171,7 +172,12 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
       
       if (currentState is GamificationLoaded) {
         print('🧭 MISSION CARD: Atualizando missões no estado carregado');
-        emit(currentState.copyWith(userMissions: userMissions));
+        emit(currentState.copyWith(
+          userMissions: _mergeUserMissions(
+            currentState.userMissions,
+            userMissions,
+          ),
+        ));
       } else {
         print('🧭 MISSION CARD: Estado não é GamificationLoaded, criando novo estado');
         // Se não há estado carregado, criar um novo
@@ -563,7 +569,12 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
     RefreshGamificationData event,
     Emitter<GamificationState> emit,
   ) async {
-    // Evitar chamadas simultâneas
+    final generation = ++_refreshGeneration;
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    if (isClosed || generation != _refreshGeneration) {
+      return;
+    }
+
     if (_isRefreshing) {
       print('🧭 MISSION CARD: Refresh já em andamento, ignorando chamada');
       return;
@@ -572,8 +583,7 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
     try {
       _isRefreshing = true;
       print('🧭 MISSION CARD: Refresh automático de dados de gamificação');
-      
-      // Recarregar todos os dados
+
       final results = await Future.wait([
         _gamificationRepository.getUserProfile(event.userId),
         _gamificationRepository.getGamificationStats(event.userId),
@@ -586,17 +596,21 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
 
       final currentState = state;
       print('🧭 MISSION CARD: Estado atual: ${currentState.runtimeType}');
-      
+
       if (currentState is GamificationLoaded) {
         print('🧭 MISSION CARD: Atualizando dados via refresh');
         emit(currentState.copyWith(
           userProfile: userProfile,
           stats: stats,
-          userMissions: userMissions,
+          userMissions: _mergeUserMissions(
+            currentState.userMissions,
+            userMissions,
+          ),
         ));
       } else {
         print('🧭 MISSION CARD: Estado não é GamificationLoaded, criando novo estado');
-        final xpHistory = await _gamificationRepository.getXPHistory(event.userId, limit: 10);
+        final xpHistory =
+            await _gamificationRepository.getXPHistory(event.userId, limit: 10);
         emit(GamificationLoaded(
           userProfile: userProfile,
           stats: stats,
@@ -606,10 +620,27 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
       }
     } catch (e) {
       print('❌ DEBUG: Erro no refresh automático: $e');
-      // Não emitir erro para refresh automático, apenas logar
     } finally {
       _isRefreshing = false;
     }
+  }
+
+  List<UserMission> _mergeUserMissions(
+    List<UserMission> existing,
+    List<UserMission> incoming,
+  ) {
+    if (incoming.isEmpty) {
+      return existing;
+    }
+
+    final byId = {for (final mission in existing) mission.id: mission};
+    for (final mission in incoming) {
+      byId[mission.id] = mission;
+    }
+
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
   }
 
   Future<void> _onResetGamificationState(

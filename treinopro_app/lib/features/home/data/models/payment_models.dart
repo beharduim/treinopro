@@ -123,6 +123,8 @@ class WalletBalanceModel {
   final String userId;
   final double availableBalance;
   final double pendingBalance;
+  final double pendingWithdrawalAmount;
+  final bool hasOpenWithdrawal;
   final double totalEarned;
   final double totalWithdrawn;
   final bool isActive;
@@ -134,6 +136,8 @@ class WalletBalanceModel {
     required this.userId,
     required this.availableBalance,
     required this.pendingBalance,
+    this.pendingWithdrawalAmount = 0,
+    this.hasOpenWithdrawal = false,
     required this.totalEarned,
     required this.totalWithdrawn,
     required this.isActive,
@@ -142,11 +146,16 @@ class WalletBalanceModel {
   });
 
   factory WalletBalanceModel.fromJson(Map<String, dynamic> json) {
+    final pendingWithdrawalAmount =
+        (json['pendingWithdrawalAmount'] ?? 0.0).toDouble();
     return WalletBalanceModel(
       id: json['id'] ?? '',
       userId: json['userId'] ?? '',
       availableBalance: (json['availableBalance'] ?? 0.0).toDouble(),
       pendingBalance: (json['pendingBalance'] ?? 0.0).toDouble(),
+      pendingWithdrawalAmount: pendingWithdrawalAmount,
+      hasOpenWithdrawal: json['hasOpenWithdrawal'] == true ||
+          pendingWithdrawalAmount > 0,
       totalEarned: (json['totalEarned'] ?? 0.0).toDouble(),
       totalWithdrawn: (json['totalWithdrawn'] ?? 0.0).toDouble(),
       isActive: _parseBool(json['isActive']),

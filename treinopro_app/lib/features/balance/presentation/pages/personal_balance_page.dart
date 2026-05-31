@@ -54,9 +54,12 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
               SnackBar(content: Text(message), backgroundColor: Colors.red),
             );
           }
-          if (state is BalanceWithdrawSuccess) {
+          if (state is BalanceLoaded && state.successMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+              SnackBar(
+                content: Text(state.successMessage!),
+                backgroundColor: Colors.green,
+              ),
             );
             setState(() => _isWithdrawing = false);
           }
@@ -78,7 +81,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildBalanceCard(state.profile),
-                    if ((state.profile.wallet?.pendingBalance ?? 0) > 0) ...[
+                    if ((state.profile.wallet?.pendingWithdrawalAmount ?? 0) > 0) ...[
                       const SizedBox(height: 12),
                       _buildPendingWithdrawalBanner(state.profile),
                     ],
@@ -176,7 +179,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
   }
 
   Widget _buildPendingWithdrawalBanner(FinancialProfileModel profile) {
-    final pending = profile.wallet?.pendingBalance ?? 0.0;
+    final pendingWithdrawal = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
 
     return Container(
       width: double.infinity,
@@ -193,8 +196,8 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Valor de ${_formatCurrency(pending)} em liberação pela Stripe. '
-              'Assim que sua conta estiver apta, o saldo ficará disponível para saque.',
+              'Saque de ${_formatCurrency(pendingWithdrawal)} aguardando aprovação da equipe TreinoPro. '
+              'Assim que for liberado, o valor será enviado ao seu banco.',
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.secondary,
@@ -261,8 +264,9 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
   Widget _buildWithdrawButton(FinancialProfileModel profile) {
     final canWithdraw = profile.stripeAccount?.isReadyForPayout ?? false;
     final balance = profile.wallet?.availableBalance ?? 0.0;
-    final pending = profile.wallet?.pendingBalance ?? 0.0;
-    final hasPendingWithdrawal = pending > 0;
+    final pendingWithdrawal = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
+    final hasPendingWithdrawal =
+        profile.wallet?.hasOpenWithdrawal == true || pendingWithdrawal > 0;
 
     return SizedBox(
       width: double.infinity,
@@ -281,7 +285,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                       context,
                       profile.stripeAccount,
                       balance,
-                      pending,
+                      pendingWithdrawal,
                     )
                 : (canWithdraw && balance > 0)
                     ? () => _requestWithdrawal(context, profile)
@@ -289,7 +293,7 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                           context,
                           profile.stripeAccount,
                           balance,
-                          pending,
+                          pendingWithdrawal,
                         ),
         child: _isWithdrawing
             ? const SizedBox(
@@ -309,15 +313,15 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     BuildContext context,
     StripeConnectAccountModel? stripe,
     double balance,
-    double pending,
+    double pendingWithdrawal,
   ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Saque Indisponível'),
         content: Text(
-          pending > 0
-              ? 'Você já possui um saque de ${_formatCurrency(pending)} aguardando aprovação. '
+          pendingWithdrawal > 0
+              ? 'Você já possui um saque de ${_formatCurrency(pendingWithdrawal)} aguardando aprovação. '
                   'Assim que a equipe TreinoPro liberar, o valor será enviado ao seu banco.'
               : balance <= 0
                   ? 'Você ainda não possui saldo disponível para saque.'

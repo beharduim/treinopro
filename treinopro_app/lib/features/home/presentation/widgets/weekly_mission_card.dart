@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/home_state.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../gamification/domain/entities/gamification_entity.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_state.dart';
 import '../../../gamification/presentation/widgets/animated_xp_bar.dart';
@@ -17,218 +18,172 @@ class WeeklyMissionCard extends StatefulWidget {
 }
 
 class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
-  Map<String, dynamic>? _cachedMissionData;
+  _MissionDisplayData? _cachedMission;
+  String? _pinnedMissionId;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<GamificationBloc, GamificationState>(
       buildWhen: (previous, current) =>
-          current is GamificationLoaded ||
-          current is GamificationLoading ||
-          current is GamificationInitial ||
-          current is GamificationError,
+          _displaySignature(previous) != _displaySignature(current),
       builder: (context, gamificationState) {
-        final missionData =
-            _getActiveMissionData(gamificationState) ?? _cachedMissionData;
+        final missionData = _resolveMissionDisplay(gamificationState);
 
         if (missionData != null) {
-          _cachedMissionData = missionData;
+          _cachedMission = missionData;
+        } else if (_cachedMission != null &&
+            gamificationState is! GamificationLoaded) {
+          return _buildMissionCard(_cachedMission!);
         }
 
         if (missionData == null) {
           return _buildPlaceholderCard();
         }
-        // Logs para depuração de conteúdo
-        // ignore: avoid_print
-        print('🧭 MISSION CARD: estado=${gamificationState.runtimeType}');
-        if (gamificationState is GamificationLoaded) {
-          final actives = gamificationState.userMissions.where((m) => m.isActive).length;
-          // ignore: avoid_print
-          print('🧭 MISSION CARD: missoes=${gamificationState.userMissions.length}, ativas=$actives');
-        } else {
-          // ignore: avoid_print
-          print('🧭 MISSION CARD: usando fallback');
-        }
-        
-        return Container(
-          width: double.infinity,
-          height: 180, // Altura fixa de 180px
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                AppColors.primaryOrange, // Laranja principal
-                AppColors.primaryOrangeLight, // Laranja secundário
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                offset: const Offset(0, 4),
-                blurRadius: 16,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribui o espaço uniformemente
-            children: [
-              // Título com ícone de troféu
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    missionData['isCompleted'] ? Icons.check_circle : Icons.emoji_events,
-                    size: 20,
-                    color: Colors.white.withValues(alpha: 0.92),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    missionData['title'],
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700, // bold
-                      color: Colors.white,
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ),
 
-              // Descrição da missão
-              Text(
-                missionData['description'],
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.92),
-                  height: 1.3,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              // Barra de progresso
-              Column(
-                children: [
-                  // Texto de progresso
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Progresso',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.85),
-                          height: 1.3,
-                        ),
-                      ),
-                      Text(
-                        missionData['progressText'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700, // bold
-                          color: Colors.white,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12), // Aumentado para melhor espaçamento
-
-        // Barra de progresso animada - largura total
-        SizedBox(
-          width: double.infinity,
-          child: AnimatedXPBar(
-            currentXP: missionData['progress'] as double,
-            maxXP: missionData['totalRequired'] as double,
-            height: 8,
-            // CSS antigo
-            trackColor: Colors.white.withValues(alpha: 0.35),
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-                ],
-              ),
-            ],
-          ),
-        );
+        return _buildMissionCard(missionData);
       },
     );
   }
 
-  /// Extrai dados da missão ativa ou completada para exibição. Retorna null se não houver missão.
-  Map<String, dynamic>? _getActiveMissionData(GamificationState gamificationState) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    print('🧭 MISSION CARD [$timestamp]: Estado recebido: ${gamificationState.runtimeType}');
-    
-    if (gamificationState is GamificationLoaded) {
-      // Regra: mostrar missão ATIVA; se não houver ativa, mostrar a última COMPLETADA nos últimos 7 dias
-      final nowLocal = DateTime.now().toLocal();
-      final sevenDaysAgo = nowLocal.subtract(const Duration(days: 7));
+  String _displaySignature(GamificationState state) {
+    if (state is GamificationLoaded) {
+      final mission = _pickMission(state.userMissions);
+      if (mission == null) return 'loaded:none';
+      return 'loaded:${mission.id}:${mission.status.name}:${mission.progress}';
+    }
+    return state.runtimeType.toString();
+  }
 
-      // 1) Tentar missão ativa
-      dynamic activeMission;
-      for (final m in gamificationState.userMissions) {
-        if (m.isActive == true) {
-          activeMission = m;
-          break;
+  _MissionDisplayData? _resolveMissionDisplay(GamificationState state) {
+    if (state is GamificationLoaded) {
+      final mission = _pickMission(state.userMissions);
+      if (mission == null) return null;
+      return _MissionDisplayData.fromMission(mission);
+    }
+    return null;
+  }
+
+  UserMission? _pickMission(List<UserMission> missions) {
+    final actives = missions.where((m) => m.isActive).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (actives.isNotEmpty) {
+      _pinnedMissionId = actives.first.id;
+      return actives.first;
+    }
+
+    if (_pinnedMissionId != null) {
+      for (final mission in missions) {
+        if (mission.id == _pinnedMissionId) {
+          return mission;
         }
-      }
-      
-      // 2) Se não houver ativa, pegar última completada dentro da janela de 7 dias
-      final weeklyCompleted = gamificationState.userMissions
-          .where((m) => (m.isCompleted == true) && (m.completedAt != null))
-          .where((m) {
-            final c = m.completedAt!.toLocal();
-            return c.isAfter(sevenDaysAgo) && c.isBefore(nowLocal.add(const Duration(seconds: 1)));
-          })
-          .toList()
-        ..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
-
-      final chosen = activeMission != null ? activeMission : (weeklyCompleted.isNotEmpty ? weeklyCompleted.first : null);
-
-      print('🧭 MISSION CARD [$timestamp]: Total de missões: ${gamificationState.userMissions.length}, ativa=${activeMission != null}, completada7dias=${weeklyCompleted.isNotEmpty}');
-      
-      // Debug detalhado de todas as missões
-      for (int i = 0; i < gamificationState.userMissions.length; i++) {
-        final mission = gamificationState.userMissions[i];
-        print('🧭 MISSION CARD [$timestamp]: Missão $i: ${mission.mission.title} - Status: ${mission.status} - Ativa: ${mission.isActive} - Completada: ${mission.isCompleted}');
-      }
-
-      if (chosen != null) {
-        final mission = chosen;
-        
-        print('🧭 MISSION CARD [$timestamp]: ✅ USANDO MISSÃO REAL -> ${mission.mission.title}');
-        print('🧭 MISSION CARD [$timestamp]: Progresso missão: ${mission.progress}/${mission.totalRequired}');
-        
-        return {
-          'title': mission.mission.title,
-          'description': mission.mission.description,
-          'progressText': mission.isCompleted 
-              ? 'Completada! ${mission.progress}/${mission.totalRequired}'
-              : '${mission.progress} de ${mission.totalRequired}',
-          'progressPercentage': mission.totalRequired > 0 
-              ? mission.progress / mission.totalRequired 
-              : 0.0,
-          'progress': mission.progress.toDouble(),
-          'totalRequired': mission.totalRequired.toDouble(),
-          'isCompleted': mission.isCompleted,
-          'isFallback': false,
-        };
-      } else {
-        print('🧭 MISSION CARD [$timestamp]: ⚠️ Nenhuma missão ativa/recente encontrada, ocultando card');
-        return null;
       }
     }
 
-    // Sem dados de gamificação: ocultar card
-    print('🧭 MISSION CARD [$timestamp]: Estado não carregado, ocultando card');
     return null;
+  }
+
+  Widget _buildMissionCard(_MissionDisplayData missionData) {
+    return Container(
+      width: double.infinity,
+      height: 180,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.primaryOrange,
+            AppColors.primaryOrangeLight,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                missionData.isCompleted
+                    ? Icons.check_circle
+                    : Icons.emoji_events,
+                size: 20,
+                color: Colors.white.withValues(alpha: 0.92),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                missionData.title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            missionData.description,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.92),
+              height: 1.3,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Progresso',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      height: 1.3,
+                    ),
+                  ),
+                  Text(
+                    missionData.progressText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: AnimatedXPBar(
+                  key: ValueKey(missionData.missionId),
+                  currentXP: missionData.progress,
+                  maxXP: missionData.totalRequired,
+                  height: 8,
+                  trackColor: Colors.white.withValues(alpha: 0.35),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPlaceholderCard() {
@@ -238,7 +193,7 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
@@ -301,6 +256,40 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MissionDisplayData {
+  final String missionId;
+  final String title;
+  final String description;
+  final String progressText;
+  final double progress;
+  final double totalRequired;
+  final bool isCompleted;
+
+  const _MissionDisplayData({
+    required this.missionId,
+    required this.title,
+    required this.description,
+    required this.progressText,
+    required this.progress,
+    required this.totalRequired,
+    required this.isCompleted,
+  });
+
+  factory _MissionDisplayData.fromMission(UserMission mission) {
+    return _MissionDisplayData(
+      missionId: mission.id,
+      title: mission.mission.title,
+      description: mission.mission.description,
+      progressText: mission.isCompleted
+          ? 'Completada! ${mission.progress}/${mission.totalRequired}'
+          : '${mission.progress} de ${mission.totalRequired}',
+      progress: mission.progress.toDouble(),
+      totalRequired: mission.totalRequired.toDouble(),
+      isCompleted: mission.isCompleted,
     );
   }
 }

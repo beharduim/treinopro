@@ -56,6 +56,12 @@ Future<void> firebaseBackgroundMessageHandler(RemoteMessage message) async {
       return;
     }
 
+    if (await NotificationService.shouldIgnoreIncomingMessageNotification(
+      message.data,
+    )) {
+      return;
+    }
+
     // ✅ CRÍTICO: Firebase DEVE ser inicializado no background isolate
     print('🔄 [BACKGROUND] Inicializando Firebase...');
     await Firebase.initializeApp(
@@ -257,6 +263,35 @@ class NotificationService {
     return pushEnabled && accessToken != null && accessToken.isNotEmpty;
   }
 
+  /// Evita tocar notificação de chat no aparelho de quem enviou a mensagem.
+  static Future<bool> shouldIgnoreIncomingMessageNotification(
+    Map<String, dynamic> data,
+  ) async {
+    if (data['type'] != 'new_message') return false;
+
+    final senderId = data['senderId']?.toString();
+    if (senderId == null || senderId.isEmpty) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final currentUserId = prefs.getString('user_id');
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+
+    if (senderId == currentUserId) {
+      print(
+        '🚫 [NOTIF] Ignorando push de mensagem enviada pelo próprio usuário ($currentUserId)',
+      );
+      return true;
+    }
+
+    return false;
+  }
+
+  static Future<bool> _shouldIgnoreIncomingMessageNotification(
+    Map<String, dynamic> data,
+  ) {
+    return shouldIgnoreIncomingMessageNotification(data);
+  }
+
   static Future<void> setPushNotificationsEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_pushNotificationsEnabledKey, enabled);
@@ -441,6 +476,10 @@ class NotificationService {
         final pushEnabled = await arePushNotificationsEnabled();
         if (!pushEnabled) {
           print('⚠️ [NOTIF] Push desabilitado - ignorando onMessage');
+          return;
+        }
+
+        if (await shouldIgnoreIncomingMessageNotification(message.data)) {
           return;
         }
 
@@ -706,6 +745,10 @@ class NotificationService {
   static Future<void> showFlutterNotification(RemoteMessage message) async {
     final data = message.data;
     final notificationType = data['type'] as String?;
+
+    if (await _shouldIgnoreIncomingMessageNotification(data)) {
+      return;
+    }
 
     print('📱 [NOTIF] ===== CRIANDO NOTIFICAÇÃO LOCAL =====');
     print('📱 [NOTIF] Tipo: $notificationType');
