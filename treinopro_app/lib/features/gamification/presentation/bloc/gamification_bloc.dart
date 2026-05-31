@@ -50,7 +50,8 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
       }
 
       print('🧭 MISSION CARD: Inicializando gamificação para userId: ${event.userId}');
-      if (state is! GamificationLoaded) {
+      final hadLoadedState = state is GamificationLoaded;
+      if (!hadLoadedState) {
         emit(const GamificationLoading());
       }
       
