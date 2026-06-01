@@ -65,8 +65,30 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
 
       final userProfile = results[0] as UserProfile;
       final stats = results[1] as GamificationStats;
-      final userMissions = results[2] as List<UserMission>;
+      var userMissions = results[2] as List<UserMission>;
       final xpHistory = results[3] as List<XPHistory>;
+
+      final hasActive = userMissions.any((m) => m.isActive && !m.isCompleted);
+      if (!hasActive) {
+        print(
+          '🧭 MISSION CARD: Sem missão ativa — aguardando API (auto-assign) antes de exibir card',
+        );
+        try {
+          _isAutoAssigning = true;
+          final assigned =
+              await _gamificationRepository.autoAssignNextMission(event.userId);
+          if (assigned != null) {
+            userMissions = _mergeUserMissions(userMissions, [assigned]);
+          } else {
+            userMissions =
+                await _gamificationRepository.getUserMissions(event.userId);
+          }
+        } catch (e) {
+          print('⚠️ MISSION CARD: auto-assign na init falhou: $e');
+        } finally {
+          _isAutoAssigning = false;
+        }
+      }
 
       emit(GamificationLoaded(
         userProfile: userProfile,
@@ -75,14 +97,11 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
         xpHistory: xpHistory,
       ));
 
-      print('🧭 MISSION CARD: Gamificação inicializada - Level: ${userProfile.level}, Missões: ${userMissions.length}');
-
-      // Se não houver missões ativas, tentar atribuir automaticamente (mas apenas uma vez)
-      final hasActive = userMissions.any((m) => m.isActive);
-      if (!hasActive && !_isAutoAssigning) {
-        print('🧭 MISSION CARD: Nenhuma missão ativa encontrada. Disparando auto-assign...');
-        add(AutoAssignNextMission(userId: event.userId));
-      }
+      print(
+        '🧭 MISSION CARD: Gamificação inicializada - Level: ${userProfile.level}, '
+        'Missões: ${userMissions.length}, ativas: '
+        '${userMissions.where((m) => m.isActive && !m.isCompleted).length}',
+      );
     } catch (e) {
       print('❌ DEBUG: Erro ao inicializar gamificação: $e');
       emit(GamificationError(message: 'Erro ao carregar dados de gamificação: $e'));
