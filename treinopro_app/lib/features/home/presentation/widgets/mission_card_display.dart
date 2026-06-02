@@ -32,7 +32,9 @@ class MissionCardDisplay {
     return mission.mission.title.toLowerCase().contains('primeira aula');
   }
 
-  /// Só missões ativas e incompletas — nunca completada como primeira exibição.
+  /// Seleção inicial estável.
+  /// Prioriza ativa/incompleta; se não existir, usa incompleta recente;
+  /// depois completada recente para não sumir o card.
   static UserMission? pickInitialMission(List<UserMission> missions) {
     final active = missions.where((m) => m.isActive && !m.isCompleted).toList()
       ..sort((a, b) {
@@ -41,8 +43,24 @@ class MissionCardDisplay {
         if (aPrimeira != bPrimeira) return aPrimeira.compareTo(bPrimeira);
         return b.createdAt.compareTo(a.createdAt);
       });
-    if (active.isEmpty) return null;
-    return active.first;
+    if (active.isNotEmpty) return active.first;
+
+    final incomplete = missions
+        .where((m) => !m.isCompleted && m.progress < m.totalRequired)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (incomplete.isNotEmpty) return incomplete.first;
+
+    final completed = missions.where((m) => m.isCompleted).toList()
+      ..sort((a, b) {
+        final aDate = a.completedAt ?? a.updatedAt;
+        final bDate = b.completedAt ?? b.updatedAt;
+        return bDate.compareTo(aDate);
+      });
+    if (completed.isNotEmpty) return completed.first;
+
+    if (missions.isEmpty) return null;
+    return missions.first;
   }
 
   static UserMission? findMissionById(List<UserMission> missions, String? id) {

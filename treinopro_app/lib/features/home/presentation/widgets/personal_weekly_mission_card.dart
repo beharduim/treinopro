@@ -34,7 +34,7 @@ class _PersonalWeeklyMissionCardState extends State<PersonalWeeklyMissionCard> {
       listenWhen: _shouldListen,
       listener: (context, state) => _applyGamificationState(state),
       child: _display == null
-          ? const SizedBox.shrink()
+          ? const SizedBox(height: 120)
           : _buildCard(_display!),
     );
   }
