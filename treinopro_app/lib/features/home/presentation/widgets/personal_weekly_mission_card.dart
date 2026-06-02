@@ -4,7 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../gamification/domain/entities/gamification_entity.dart';
 import '../../../gamification/presentation/bloc/gamification_bloc.dart';
 import '../../../gamification/presentation/bloc/gamification_state.dart';
-import 'mission_card_settlement.dart';
+import 'mission_card_display.dart';
 
 class PersonalWeeklyMissionCard extends StatefulWidget {
   const PersonalWeeklyMissionCard({super.key});
@@ -15,236 +15,185 @@ class PersonalWeeklyMissionCard extends StatefulWidget {
 }
 
 class _PersonalWeeklyMissionCardState extends State<PersonalWeeklyMissionCard> {
-  _ActiveMissionData? _committedDisplay;
-  late final MissionCardSettlement _settlement;
+  _ActiveMissionData? _display;
+  String? _lockedMissionId;
+  bool _initialPickDone = false;
 
   @override
   void initState() {
     super.initState();
-    _settlement = MissionCardSettlement(
-      readBloc: () => context.read<GamificationBloc>(),
-      onCommit: () {
-        final missions = _settlement.extractMissions(
-          context.read<GamificationBloc>().state,
-        );
-        if (missions != null) {
-          _syncCommittedFromMissions(missions);
-        }
-        if (mounted) setState(() {});
-      },
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final missions = _settlement.extractMissions(
-        context.read<GamificationBloc>().state,
-      );
-      if (missions != null) {
-        _settlement.scheduleSettlement(missions);
-      }
+      _applyGamificationState(context.read<GamificationBloc>().state);
     });
-  }
-
-  @override
-  void dispose() {
-    _settlement.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<GamificationBloc, GamificationState>(
-      listenWhen: (previous, current) =>
-          current is GamificationLoaded ||
-          current is GamificationMissionCompleted,
-      listener: (context, state) {
-        final missions = _settlement.extractMissions(state);
-        if (missions == null) return;
-        if (_settlement.hasCommitted) {
-          _syncCommittedFromMissions(missions);
-          if (mounted) setState(() {});
-        } else {
-          _settlement.scheduleSettlement(missions);
-        }
-      },
-      child: BlocBuilder<GamificationBloc, GamificationState>(
-        buildWhen: (previous, current) {
-          if (_committedDisplay == null) {
-            return current is GamificationLoaded ||
-                current is GamificationMissionCompleted;
-          }
-          return _shouldRefreshCommittedDisplay(current);
-        },
-        builder: (context, state) {
-          final missions = _settlement.extractMissions(state);
-          if (missions != null) {
-            if (_settlement.hasCommitted) {
-              _syncCommittedFromMissions(missions);
-            } else {
-              _settlement.scheduleSettlement(missions);
-            }
-          }
-
-          if (_committedDisplay == null) {
-            if (state is GamificationLoading || state is GamificationInitial) {
-              return const SizedBox(
-                height: 120,
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }
-
-          final data = _committedDisplay!;
-          final percent = data.totalRequired > 0
-              ? (data.progress / data.totalRequired).clamp(0.0, 1.0)
-              : 0.0;
-
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  offset: const Offset(0, 4),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      data.isCompleted ? Icons.check_circle : Icons.flag,
-                      size: 29,
-                      color: AppColors.iconPrimary,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Missão da semana',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2D3748),
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  data.title.isNotEmpty ? data.title : data.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF2D3748),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  data.isCompleted
-                      ? 'Completada! ${data.progress} de ${data.totalRequired}'
-                      : 'Progresso ${data.progress} de ${data.totalRequired}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2D3748),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _ProgressBar(percent: percent),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Em breve: suas conquistas estarão disponíveis aqui!',
-                        ),
-                        backgroundColor: AppColors.primaryOrange,
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      border:
-                          Border.all(color: AppColors.primaryOrange, width: 2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Minhas conquistas',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFFF6A00),
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      listenWhen: _shouldListen,
+      listener: (context, state) => _applyGamificationState(state),
+      child: _display == null
+          ? const SizedBox.shrink()
+          : _buildCard(_display!),
     );
   }
 
-  void _syncCommittedFromMissions(List<UserMission> missions) {
-    final lockedId = _settlement.lockedUserMissionId;
-    if (lockedId != null) {
-      final locked = MissionCardSettlement.findMissionById(missions, lockedId);
-      if (locked != null) {
-        _committedDisplay = _ActiveMissionData.fromMission(locked);
+  bool _shouldListen(GamificationState previous, GamificationState current) {
+    if (current is! GamificationLoaded &&
+        current is! GamificationMissionCompleted) {
+      return false;
+    }
+    if (previous is GamificationLoaded && current is GamificationLoaded) {
+      return !MissionCardDisplay.missionsSnapshotEqual(
+        previous.userMissions,
+        current.userMissions,
+      );
+    }
+    return true;
+  }
 
+  void _applyGamificationState(GamificationState state) {
+    final missions = MissionCardDisplay.extractMissions(state);
+    if (missions == null || missions.isEmpty) return;
+
+    _ActiveMissionData? next;
+
+    if (_lockedMissionId != null) {
+      final locked =
+          MissionCardDisplay.findMissionById(missions, _lockedMissionId);
+      if (locked != null) {
         if (locked.isCompleted) {
-          final successor = MissionCardSettlement.selectActiveMission(
+          final successor = MissionCardDisplay.selectActiveMission(
             missions,
             excludeUserMissionId: locked.id,
           );
           if (successor != null) {
-            _settlement.lockedUserMissionId = successor.id;
-            _committedDisplay = _ActiveMissionData.fromMission(successor);
+            _lockedMissionId = successor.id;
+            next = _ActiveMissionData.fromMission(successor);
+          } else {
+            next = _ActiveMissionData.fromMission(locked);
           }
+        } else {
+          next = _ActiveMissionData.fromMission(locked);
         }
-        return;
       }
     }
 
-    final pick = MissionCardSettlement.pickDisplayMission(missions);
-    if (pick != null) {
-      _settlement.lockedUserMissionId = pick.id;
-      _committedDisplay = _ActiveMissionData.fromMission(pick);
+    if (next == null && !_initialPickDone) {
+      final pick = MissionCardDisplay.pickInitialMission(missions);
+      if (pick != null) {
+        _lockedMissionId = pick.id;
+        _initialPickDone = true;
+        next = _ActiveMissionData.fromMission(pick);
+      }
     }
+
+    if (next == null) return;
+    if (_display?.sameAs(next) ?? false) return;
+
+    setState(() => _display = next);
   }
 
-  bool _shouldRefreshCommittedDisplay(GamificationState state) {
-    final missions = _settlement.extractMissions(state);
-    if (missions == null || _committedDisplay == null) return false;
+  Widget _buildCard(_ActiveMissionData data) {
+    final percent = data.totalRequired > 0
+        ? (data.progress / data.totalRequired).clamp(0.0, 1.0)
+        : 0.0;
 
-    final locked = MissionCardSettlement.findMissionById(
-      missions,
-      _settlement.lockedUserMissionId,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                data.isCompleted ? Icons.check_circle : Icons.flag,
+                size: 29,
+                color: AppColors.iconPrimary,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Missão da semana',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2D3748),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.title.isNotEmpty ? data.title : data.description,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF2D3748),
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            data.isCompleted
+                ? 'Completada! ${data.progress} de ${data.totalRequired}'
+                : 'Progresso ${data.progress} de ${data.totalRequired}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF2D3748),
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ProgressBar(percent: percent),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Em breve: suas conquistas estarão disponíveis aqui!',
+                  ),
+                  backgroundColor: AppColors.primaryOrange,
+                ),
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.primaryOrange, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Minhas conquistas',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFFF6A00),
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-    if (locked == null) return true;
-
-    return locked.progress != _committedDisplay!.progress ||
-        locked.isCompleted != _committedDisplay!.isCompleted;
   }
 }
 
@@ -307,5 +256,12 @@ class _ActiveMissionData {
       totalRequired: mission.totalRequired,
       isCompleted: mission.isCompleted,
     );
+  }
+
+  bool sameAs(_ActiveMissionData other) {
+    return title == other.title &&
+        progress == other.progress &&
+        isCompleted == other.isCompleted &&
+        totalRequired == other.totalRequired;
   }
 }

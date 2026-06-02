@@ -118,7 +118,8 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
 
   Widget _buildBalanceCard(FinancialProfileModel profile) {
     final available = profile.wallet?.availableBalance ?? 0.0;
-    final pending = profile.wallet?.pendingBalance ?? 0.0;
+    final withdrawalInReview = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
+    final stripePending = profile.wallet?.pendingBalance ?? 0.0;
 
     return Container(
       width: double.infinity,
@@ -150,31 +151,60 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
             _formatCurrency(available),
             style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 24),
-          Container(height: 1, color: Colors.white10),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Em liberação (Stripe)',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatCurrency(pending),
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ],
+          if (withdrawalInReview > 0 || stripePending > 0) ...[
+            const SizedBox(height: 24),
+            Container(height: 1, color: Colors.white10),
+            const SizedBox(height: 16),
+            if (withdrawalInReview > 0)
+              _buildBalanceSubRow(
+                label: 'Saque em análise (TreinoPro)',
+                value: withdrawalInReview,
+                icon: Icons.hourglass_top_outlined,
               ),
-              const Icon(Icons.timer_outlined, color: Colors.white30, size: 24),
-            ],
-          ),
+            if (withdrawalInReview > 0 && stripePending > 0)
+              const SizedBox(height: 12),
+            if (stripePending > 0)
+              _buildBalanceSubRow(
+                label: 'Ganhos aguardando Stripe',
+                value: stripePending,
+                icon: Icons.timer_outlined,
+              ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildBalanceSubRow({
+    required String label,
+    required double value,
+    required IconData icon,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _formatCurrency(value),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Icon(icon, color: Colors.white30, size: 24),
+      ],
     );
   }
 

@@ -618,14 +618,21 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
       print('🧭 MISSION CARD: Estado atual: ${currentState.runtimeType}');
 
       if (currentState is GamificationLoaded) {
+        final mergedMissions = _mergeUserMissions(
+          currentState.userMissions,
+          userMissions,
+        );
+        if (_missionsSnapshotEqual(
+          currentState.userMissions,
+          mergedMissions,
+        )) {
+          return;
+        }
         print('🧭 MISSION CARD: Atualizando dados via refresh');
         emit(currentState.copyWith(
           userProfile: userProfile,
           stats: stats,
-          userMissions: _mergeUserMissions(
-            currentState.userMissions,
-            userMissions,
-          ),
+          userMissions: mergedMissions,
         ));
       } else {
         print('🧭 MISSION CARD: Estado não é GamificationLoaded, criando novo estado');
@@ -661,6 +668,24 @@ class GamificationBloc extends Bloc<GamificationEvent, GamificationState> {
     final merged = byId.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return merged;
+  }
+
+  bool _missionsSnapshotEqual(
+    List<UserMission> a,
+    List<UserMission> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.progress != right.progress ||
+          left.isCompleted != right.isCompleted ||
+          left.isActive != right.isActive) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _onResetGamificationState(

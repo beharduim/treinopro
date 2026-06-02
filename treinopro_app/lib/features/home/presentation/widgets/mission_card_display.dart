@@ -1,0 +1,72 @@
+import '../../../gamification/domain/entities/gamification_entity.dart';
+import '../../../gamification/presentation/bloc/gamification_state.dart';
+
+/// Lógica pura de seleção/exibição da missão no card — sem timers nem side effects.
+class MissionCardDisplay {
+  static List<UserMission>? extractMissions(GamificationState state) {
+    if (state is GamificationLoaded) return state.userMissions;
+    if (state is GamificationMissionCompleted) return state.updatedMissions;
+    return null;
+  }
+
+  static bool missionsSnapshotEqual(
+    List<UserMission> a,
+    List<UserMission> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.progress != right.progress ||
+          left.isCompleted != right.isCompleted ||
+          left.isActive != right.isActive) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool isPrimeiraAulaMission(UserMission mission) {
+    if (mission.mission.action == 'attend_class') return true;
+    return mission.mission.title.toLowerCase().contains('primeira aula');
+  }
+
+  /// Só missões ativas e incompletas — nunca completada como primeira exibição.
+  static UserMission? pickInitialMission(List<UserMission> missions) {
+    final active = missions.where((m) => m.isActive && !m.isCompleted).toList()
+      ..sort((a, b) {
+        final aPrimeira = isPrimeiraAulaMission(a) ? 0 : 1;
+        final bPrimeira = isPrimeiraAulaMission(b) ? 0 : 1;
+        if (aPrimeira != bPrimeira) return aPrimeira.compareTo(bPrimeira);
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    if (active.isEmpty) return null;
+    return active.first;
+  }
+
+  static UserMission? findMissionById(List<UserMission> missions, String? id) {
+    if (id == null) return null;
+    for (final mission in missions) {
+      if (mission.id == id) return mission;
+    }
+    return null;
+  }
+
+  static UserMission? selectActiveMission(
+    List<UserMission> missions, {
+    String? excludeUserMissionId,
+  }) {
+    final actives = missions
+        .where(
+          (m) =>
+              m.isActive &&
+              !m.isCompleted &&
+              m.id != excludeUserMissionId,
+        )
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (actives.isEmpty) return null;
+    return actives.first;
+  }
+}
