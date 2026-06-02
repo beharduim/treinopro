@@ -2134,10 +2134,8 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
         ),
         content: const Text(
           'Tem certeza que deseja excluir sua conta?\n\n'
-          '⚠️ Esta ação é irreversível!\n\n'
-          'Sua conta será excluída permanentemente, mas:\n'
-          '• Seu histórico de aulas será mantido\n'
-          '• Você não poderá fazer login novamente\n'
+          'Sua solicitação passará por análise da equipe TreinoPro e, em até '
+          '3 dias, a conta será excluída. Enquanto isso, ela continua ativa.\n\n'
           '• Não é possível excluir se houver aulas agendadas',
           style: TextStyle(fontFamily: 'Outfit', color: Color(0xFF64748B)),
         ),
@@ -2172,31 +2170,54 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
 
     if (shouldDelete == true) {
       try {
-        print('🗑️ [PROFILE] Iniciando exclusão da conta...');
+        print('🗑️ [PROFILE] Solicitando exclusão da conta...');
 
-        await _profileApiService.deleteAccount();
+        final result = await _profileApiService.requestAccountDeletion();
+        if (!mounted) return;
 
-        print('✅ [PROFILE] Conta excluída com sucesso');
+        final message = result['message']?.toString() ??
+            'Sua solicitação de exclusão está em análise. Em até 3 dias a '
+                'conta será excluída.';
 
-        final authDataSource = sl<AuthApiDataSource>();
-        await authDataSource.logout();
-
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-            (route) => false,
-          );
-        }
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Exclusão em análise',
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+            content: Text(
+              message,
+              style: const TextStyle(
+                fontFamily: 'Fira Sans',
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primaryOrange,
+                ),
+                child: const Text('Entendi'),
+              ),
+            ],
+          ),
+        );
       } catch (e) {
-        print('❌ [PROFILE] Erro ao excluir conta: $e');
+        print('❌ [PROFILE] Erro ao solicitar exclusão: $e');
         if (mounted) {
-          // Extrair apenas a mensagem limpa do erro
-          String errorMessage = e.toString();
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(errorMessage),
+              content: Text(e.toString()),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 5),
             ),

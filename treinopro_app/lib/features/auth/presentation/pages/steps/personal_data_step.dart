@@ -312,7 +312,7 @@ class _PersonalDataStepState extends State<PersonalDataStep> {
                               const SizedBox(height: 8),
                               CustomTextField(
                                 controller: _firstNameController,
-                                placeholder: 'João',
+                                placeholder: '',
                               ),
                             ],
                           ),
@@ -331,7 +331,7 @@ class _PersonalDataStepState extends State<PersonalDataStep> {
                               const SizedBox(height: 8),
                               CustomTextField(
                                 controller: _lastNameController,
-                                placeholder: 'Silva',
+                                placeholder: '',
                               ),
                             ],
                           ),

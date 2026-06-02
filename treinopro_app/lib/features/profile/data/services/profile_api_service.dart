@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/errors/account_access_denied_exception.dart';
 import '../../../../core/services/api_service.dart';
@@ -296,22 +295,13 @@ class ProfileApiService {
     }
   }
 
-  /// Exclui a conta do usuário
-  Future<void> deleteAccount() async {
+  /// Solicita a exclusão da conta. Por segurança, a exclusão NÃO é imediata:
+  /// entra como pendente e só é efetivada após aprovação de um administrador.
+  /// Retorna o status da solicitação ({ status, alreadyRequested, message }).
+  Future<Map<String, dynamic>> requestAccountDeletion() async {
     try {
-      print('🗑️ [PROFILE API] Excluindo conta do usuário...');
-      
-      // Pegar o ID do usuário do SharedPreferences (já salvo no login)
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      
-      if (userId == null) {
-        throw Exception('ID do usuário não encontrado. Faça login novamente.');
-      }
-      
-      print('🗑️ [PROFILE API] ID do usuário: $userId');
-      
-      // Usar o endpoint correto: DELETE /users/account/me
+      print('🗑️ [PROFILE API] Solicitando exclusão de conta...');
+
       final response = await _httpClient.delete(
         Uri.parse('$_baseUrl/users/account/me'),
         headers: _headers,
@@ -320,28 +310,42 @@ class ProfileApiService {
       print('🗑️ [PROFILE API] Status da resposta: ${response.statusCode}');
       print('🗑️ [PROFILE API] Corpo da resposta: ${response.body}');
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        print('✅ [PROFILE API] Conta excluída com sucesso');
-        return;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data is Map<String, dynamic> ? data : <String, dynamic>{};
       } else if (response.statusCode == 400) {
-        // Erro de validação (ex: aulas agendadas)
         final responseData = json.decode(response.body);
-        final message = responseData['message'] ?? 'Não é possível excluir a conta';
-        // Lançar apenas a mensagem limpa, sem "Exception:"
+        final message =
+            responseData['message'] ?? 'Não foi possível solicitar a exclusão';
         throw message;
       } else {
         final responseData = json.decode(response.body);
         final message = responseData['message'] ?? 'Erro desconhecido';
-        throw 'Erro ao excluir conta: $message';
+        throw 'Erro ao solicitar exclusão: $message';
       }
     } catch (e) {
-      print('❌ [PROFILE API] Erro ao excluir conta: $e');
-      // Se já é uma string (nossa mensagem), relançar como está
+      print('❌ [PROFILE API] Erro ao solicitar exclusão: $e');
       if (e is String) {
         rethrow;
       }
-      // Se é outro tipo de erro, mostrar mensagem genérica
       throw 'Não foi possível conectar com o servidor. Tente novamente.';
     }
+  }
+
+  /// Consulta se há uma solicitação de exclusão pendente para o usuário.
+  Future<bool> hasPendingDeletionRequest() async {
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/users/account/me/deletion-request'),
+        headers: _headers,
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data is Map<String, dynamic> && data['pending'] == true;
+      }
+    } catch (e) {
+      print('❌ [PROFILE API] Erro ao consultar exclusão pendente: $e');
+    }
+    return false;
   }
 }
