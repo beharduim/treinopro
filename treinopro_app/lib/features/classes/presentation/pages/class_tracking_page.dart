@@ -14,7 +14,6 @@ import '../bloc/classes_bloc.dart';
 import '../bloc/classes_state.dart';
 import '../bloc/classes_event.dart';
 import '../../data/models/class_timer_state.dart';
-import '../../../evaluation/presentation/pages/personal_evaluation_page.dart';
 
 class ClassTrackingPage extends StatefulWidget {
   final Map<String, dynamic> aula;
@@ -56,24 +55,9 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
 
     return BlocListener<ClassesBloc, ClassesState>(
       listener: (context, state) {
-        if (state is ClassesCompleteSuccess) {
-          // Verificar se é a aula correta
-          if (state.completedClass.id == classId) {
-            // Redirecionar para avaliação do personal quando aula for finalizada
-            final classData = state.completedClass;
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PersonalEvaluationPage(
-                      trainerName: classData.personalName,
-                      classId: classData.id,
-                    ),
-                  ),
-                );
-          } else {
-            print('🔔 [STUDENT_TRACKING] Aula não corresponde - ignorando');
-          }
-        }
+        // A navegação para a avaliação ao concluir a aula é tratada de forma
+        // única em StudentClassesPage (que está sempre montada no IndexedStack).
+        // Navegar aqui também causava dupla navegação e tela preta ao fechar.
       },
       child: BlocBuilder<ClassesBloc, ClassesState>(
       builder: (context, state) {

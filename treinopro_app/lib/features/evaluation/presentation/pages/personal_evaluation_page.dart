@@ -191,7 +191,11 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop(); // Fecha o modal
-                      Navigator.of(context).pop(); // Volta para StudentClassesPage na pilha
+                      // Volta para a base (home/lista de aulas) sem esvaziar a
+                      // pilha de navegação — evita a tela preta.
+                      Navigator.of(
+                        context,
+                      ).popUntil((route) => route.isFirst);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryOrange,

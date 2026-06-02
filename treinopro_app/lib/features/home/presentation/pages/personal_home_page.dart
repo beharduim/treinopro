@@ -951,9 +951,63 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     // Refresh leve ao voltar para Home, sem polling e sem flicker
     if (index == 0) {
       _refreshIfHomeTab();
+    } else if (index == 1) {
+      // Aba de aulas: exibe (uma única vez) o aviso de como ver o
+      // questionário de saúde do aluno.
+      _maybeShowHealthHintModal();
     } else if (index == 3) {
       // Perfil: recarregar dados do perfil de forma leve
       _refreshProfileIfNeeded();
+    }
+  }
+
+  /// Aviso único: como visualizar o questionário de saúde do aluno.
+  /// Exibido apenas quando o personal acessa a aba de aulas (não no boot do app).
+  static const String _healthHintPrefsKey = 'health_questionnaire_hint_shown';
+  bool _healthHintHandled = false;
+
+  Future<void> _maybeShowHealthHintModal() async {
+    if (_healthHintHandled) return;
+    _healthHintHandled = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_healthHintPrefsKey) == true) return;
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: const [
+              Icon(Icons.favorite, color: AppColors.primaryOrange),
+              SizedBox(width: 8),
+              Expanded(child: Text('Questionário de saúde')),
+            ],
+          ),
+          content: const Text(
+            'Para visualizar o questionário de saúde do aluno, basta tocar na '
+            'foto dele no card da aula.',
+            style: TextStyle(fontFamily: 'Fira Sans', height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryOrange,
+              ),
+              child: const Text('Entendi'),
+            ),
+          ],
+        ),
+      );
+
+      await prefs.setBool(_healthHintPrefsKey, true);
+    } catch (_) {
+      // Falha ao exibir/persistir o aviso não deve quebrar a tela.
     }
   }
 

@@ -53,6 +53,8 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
   String? _selectedStatus;
   // ✅ Proteção contra navegação múltipla para tracking
   bool _hasNavigatedToTracking = false;
+  // ✅ Proteção contra navegação múltipla para a avaliação ao concluir a aula
+  bool _hasNavigatedToEvaluation = false;
 
   // Valores para os filtros de aulas
   final List<String> _dates = [
@@ -421,9 +423,15 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
             ),
           );
         } else if (state is ClassesCompleteSuccess) {
-          // Redirecionar para avaliação do personal quando aula for finalizada
+          // ✅ Prevenir navegação múltipla (evita dupla navegação/tela preta)
+          if (_hasNavigatedToEvaluation) return;
+          _hasNavigatedToEvaluation = true;
+
+          // Redirecionar para avaliação do personal quando aula for finalizada.
+          // Usar push (não pushReplacement) para nunca substituir a rota base
+          // (home), garantindo que dá pra voltar sem esvaziar a pilha.
           final classData = state.completedClass;
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => PersonalEvaluationPage(
@@ -433,8 +441,9 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
             ),
           );
         } else if (state is ClassesLoaded) {
-          // ✅ Resetar flag quando estado voltar para ClassesLoaded (após navegação)
+          // ✅ Resetar flags quando estado voltar para ClassesLoaded (após navegação)
           _hasNavigatedToTracking = false;
+          _hasNavigatedToEvaluation = false;
           // ✅ Agendar snapshots de geolocalização para aulas agendadas
           _schedulePresenceSnapshots(context, state.classes);
         } else if (state is ClassesOperationSuccess) {

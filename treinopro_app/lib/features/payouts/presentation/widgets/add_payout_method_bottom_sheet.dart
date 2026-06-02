@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../service_locator.dart';
 import '../../data/models/financial_profile_model.dart';
 import '../../data/services/payout_methods_api_service.dart';
+import '../pages/stripe_onboarding_guide_page.dart';
 import '../services/stripe_connect_onboarding_service.dart';
 
 enum PayoutMethodType { stripeConnect }
@@ -74,6 +75,13 @@ class _AddPayoutMethodBottomSheetState
     }
     await _loadExistingData();
     widget.onSaved();
+  }
+
+  Future<void> _openStripeOnboardingGuide() async {
+    final shouldContinue = await StripeOnboardingGuidePage.open(context);
+    if (shouldContinue == true && mounted) {
+      await _startStripeOnboarding();
+    }
   }
 
   Future<void> _startStripeOnboarding() async {
@@ -407,7 +415,7 @@ class _AddPayoutMethodBottomSheetState
               onPressed: _submitting
                   ? null
                   : shouldOpenOnboarding
-                  ? _startStripeOnboarding
+                  ? _openStripeOnboardingGuide
                   : _refreshStatus,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryOrange,
