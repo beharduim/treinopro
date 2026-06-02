@@ -106,6 +106,38 @@ class _CardFormWidgetState extends State<CardFormWidget> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF0D88A)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: Color(0xFFB7791F),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Aceitamos apenas cartões Visa e Mastercard. '
+                    'Elo e American Express (Amex) ainda não são aceitos.',
+                    style: TextStyle(
+                      fontFamily: 'Fira Sans',
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Color(0xFF7A5B12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _isLoading ? null : _saveCard,

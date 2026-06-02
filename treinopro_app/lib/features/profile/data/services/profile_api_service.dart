@@ -103,6 +103,71 @@ class ProfileApiService {
     }
   }
 
+  /// Extrai a mensagem de erro do backend (campo `message`/`error`).
+  String _extractApiMessage(String body, String fallback) {
+    try {
+      final data = json.decode(body);
+      if (data is Map<String, dynamic>) {
+        final msg = data['message'] ?? data['error'];
+        if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+        if (msg is List && msg.isNotEmpty) return msg.first.toString();
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
+  /// Envia um código de verificação para o NOVO e-mail (troca de e-mail).
+  /// O backend rejeita caso o e-mail já esteja em uso.
+  Future<void> sendEmailChangeCode(String newEmail) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/auth/send-verification-code'),
+      headers: _headers,
+      body: json.encode({'email': newEmail}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) return;
+    throw Exception(
+      _extractApiMessage(response.body, 'Não foi possível enviar o código.'),
+    );
+  }
+
+  /// Confirma o código recebido no novo e-mail (marca como verificado).
+  Future<void> verifyEmailChangeCode(String newEmail, String code) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/auth/verify-code'),
+      headers: _headers,
+      body: json.encode({
+        'email': newEmail,
+        'code': code,
+        'purpose': 'registration',
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) return;
+    throw Exception(
+      _extractApiMessage(response.body, 'Código inválido ou expirado.'),
+    );
+  }
+
+  /// Efetiva a troca de e-mail após o código ter sido verificado.
+  Future<Map<String, dynamic>> changeEmail(
+    String newEmail,
+    String code,
+  ) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/users/profile/me/change-email'),
+      headers: _headers,
+      body: json.encode({'newEmail': newEmail, 'code': code}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception(
+      _extractApiMessage(response.body, 'Não foi possível alterar o e-mail.'),
+    );
+  }
+
   /// Atualiza localização de atendimento do personal trainer
   Future<Map<String, dynamic>> updateServiceLocation({
     required double lat,

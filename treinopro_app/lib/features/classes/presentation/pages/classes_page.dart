@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../auth/domain/usecases/upload_usecase.dart';
@@ -52,6 +53,8 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
   String? _selectedStatus;
   // ✅ Proteção contra navegação múltipla para tracking
   bool _hasNavigatedToTracking = false;
+  // ✅ Garante que o aviso do questionário de saúde só seja avaliado uma vez por sessão
+  bool _healthHintHandled = false;
 
   // Valores para os filtros de aulas
   final List<String> _dates = [
@@ -545,6 +548,55 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
     );
   }
 
+  /// Exibe uma única vez (persistido) um aviso explicando que o questionário
+  /// de saúde do aluno é aberto ao tocar na foto dele no card da aula.
+  static const String _healthHintPrefsKey = 'health_questionnaire_hint_shown';
+
+  Future<void> _maybeShowHealthHintModal() async {
+    if (_healthHintHandled) return;
+    _healthHintHandled = true; // evita reentrância dentro da sessão
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_healthHintPrefsKey) == true) return;
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: const [
+              Icon(Icons.favorite, color: AppColors.primaryOrange),
+              SizedBox(width: 8),
+              Expanded(child: Text('Questionário de saúde')),
+            ],
+          ),
+          content: const Text(
+            'Para visualizar o questionário de saúde do aluno, basta tocar na '
+            'foto dele no card da aula.',
+            style: TextStyle(fontFamily: 'Fira Sans', height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryOrange,
+              ),
+              child: const Text('Entendi'),
+            ),
+          ],
+        ),
+      );
+
+      await prefs.setBool(_healthHintPrefsKey, true);
+    } catch (_) {
+      // Falha ao exibir/persistir o aviso não deve quebrar a tela.
+    }
+  }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -840,6 +892,10 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
           _hasNavigatedToTracking = false;
           // ✅ Agendar snapshots de geolocalização para aulas agendadas
           _schedulePresenceSnapshots(context, state.classes);
+          // ✅ Aviso único: como visualizar o questionário de saúde do aluno
+          if (state.classes.isNotEmpty) {
+            _maybeShowHealthHintModal();
+          }
         } else if (state is ClassesOperationFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.error), backgroundColor: Colors.red),

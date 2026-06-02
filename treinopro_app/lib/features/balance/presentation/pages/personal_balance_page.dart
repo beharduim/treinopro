@@ -118,8 +118,10 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
 
   Widget _buildBalanceCard(FinancialProfileModel profile) {
     final available = profile.wallet?.availableBalance ?? 0.0;
+    // Valor em liberação = saque solicitado aguardando aprovação/transferência.
+    // (pendingWithdrawalAmount é derivado dos saques abertos e equivale ao
+    // pendingBalance da carteira, então exibimos apenas uma linha.)
     final withdrawalInReview = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
-    final stripePending = profile.wallet?.pendingBalance ?? 0.0;
 
     return Container(
       width: double.infinity,
@@ -151,24 +153,15 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
             _formatCurrency(available),
             style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
           ),
-          if (withdrawalInReview > 0 || stripePending > 0) ...[
+          if (withdrawalInReview > 0) ...[
             const SizedBox(height: 24),
             Container(height: 1, color: Colors.white10),
             const SizedBox(height: 16),
-            if (withdrawalInReview > 0)
-              _buildBalanceSubRow(
-                label: 'Saque em análise (TreinoPro)',
-                value: withdrawalInReview,
-                icon: Icons.hourglass_top_outlined,
-              ),
-            if (withdrawalInReview > 0 && stripePending > 0)
-              const SizedBox(height: 12),
-            if (stripePending > 0)
-              _buildBalanceSubRow(
-                label: 'Ganhos aguardando Stripe',
-                value: stripePending,
-                icon: Icons.timer_outlined,
-              ),
+            _buildBalanceSubRow(
+              label: 'Em liberação (saque solicitado)',
+              value: withdrawalInReview,
+              icon: Icons.hourglass_top_outlined,
+            ),
           ],
         ],
       ),

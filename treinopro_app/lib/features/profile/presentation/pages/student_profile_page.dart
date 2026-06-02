@@ -1214,69 +1214,15 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () async {
-                          print(
-                            '🔍 [STUDENT_PROFILE] Iniciando atualização de dados pessoais...',
+                        onPressed: () {
+                          // Fechar modal e delegar. A troca de e-mail exige
+                          // confirmação por código (não troca direto).
+                          Navigator.pop(context);
+                          _savePersonalData(
+                            firstNameController.text.trim(),
+                            lastNameController.text.trim(),
+                            emailController.text.trim(),
                           );
-                          print(
-                            '🔍 [STUDENT_PROFILE] Nome: ${firstNameController.text}',
-                          );
-                          print(
-                            '🔍 [STUDENT_PROFILE] Sobrenome: ${lastNameController.text}',
-                          );
-                          print(
-                            '🔍 [STUDENT_PROFILE] Email: ${emailController.text}',
-                          );
-
-                          try {
-                            // Salvar alterações na API
-                            print(
-                              '🔍 [STUDENT_PROFILE] Chamando _profileApiService.updateUserProfile...',
-                            );
-                            final result = await _profileApiService
-                                .updateUserProfile({
-                                  'firstName': firstNameController.text,
-                                  'lastName': lastNameController.text,
-                                  'email': emailController.text,
-                                });
-                            print('✅ [STUDENT_PROFILE] API retornou: $result');
-
-                            // Recarregar dados do usuário
-                            print(
-                              '🔍 [STUDENT_PROFILE] Recarregando dados do usuário...',
-                            );
-                            await _loadUserData();
-
-                            // Notificar Home imediatamente sobre o novo nome
-                            final fullName =
-                                '${firstNameController.text} ${lastNameController.text}'
-                                    .trim();
-                            sl<ProfileImageNotificationService>()
-                                .notifyProfileNameUpdated(fullName: fullName);
-
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Dados atualizados com sucesso!'),
-                                backgroundColor: Color(
-                                  0xFFFF6A00,
-                                ), // Laranja principal
-                              ),
-                            );
-                            print(
-                              '✅ [STUDENT_PROFILE] Dados atualizados com sucesso!',
-                            );
-                          } catch (e) {
-                            print(
-                              '❌ [STUDENT_PROFILE] Erro ao atualizar dados: $e',
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Erro ao atualizar dados: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryOrange,
@@ -1305,6 +1251,188 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         );
       },
     );
+  }
+
+  /// Salva nome/sobrenome imediatamente. Se o e-mail mudou, dispara o fluxo
+  /// de troca com confirmação por código.
+  Future<void> _savePersonalData(
+    String newFirstName,
+    String newLastName,
+    String newEmail,
+  ) async {
+    final currentEmail = (_userProfile?.email ?? '').toLowerCase();
+    final emailChanged =
+        newEmail.isNotEmpty && newEmail.toLowerCase() != currentEmail;
+
+    try {
+      await _profileApiService.updateUserProfile({
+        'firstName': newFirstName,
+        'lastName': newLastName,
+      });
+      await _loadUserData();
+
+      final fullName = '$newFirstName $newLastName'.trim();
+      sl<ProfileImageNotificationService>()
+          .notifyProfileNameUpdated(fullName: fullName);
+    } catch (e) {
+      print('❌ [STUDENT_PROFILE] Erro ao atualizar dados: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aviso: erro ao salvar no servidor. Tente novamente.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+
+    if (!emailChanged) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dados atualizados com sucesso!'),
+            backgroundColor: Color(0xFFFF6A00),
+          ),
+        );
+      }
+      return;
+    }
+
+    await _startEmailChangeFlow(newEmail);
+  }
+
+  /// Fluxo de troca de e-mail: envia código ao novo e-mail, pede confirmação
+  /// e só então efetiva a alteração.
+  Future<void> _startEmailChangeFlow(String newEmail) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await _profileApiService.sendEmailChangeCode(newEmail);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(e)),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Enviamos um código de confirmação para $newEmail.'),
+        backgroundColor: const Color(0xFFFF6A00),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    final code = await _promptVerificationCode(newEmail);
+    if (code == null || code.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Troca de e-mail cancelada.'),
+          backgroundColor: Colors.grey,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _profileApiService.verifyEmailChangeCode(newEmail, code.trim());
+      await _profileApiService.changeEmail(newEmail, code.trim());
+      await _loadUserData();
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('E-mail alterado com sucesso!'),
+          backgroundColor: Color(0xFFFF6A00),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(e)),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  /// Diálogo para o usuário digitar o código de 6 dígitos.
+  Future<String?> _promptVerificationCode(String newEmail) {
+    final codeController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Confirmar novo e-mail',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Digite o código de 6 dígitos enviado para $newEmail.',
+                style: const TextStyle(fontFamily: 'Fira Sans', height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: codeController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '000000',
+                  counterText: '',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Color(0xFF2D3748)),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryOrange,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(codeController.text.trim()),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Remove o prefixo "Exception: " das mensagens de erro.
+  String _cleanError(Object error) {
+    final raw = error.toString();
+    const prefix = 'Exception: ';
+    return raw.startsWith(prefix) ? raw.substring(prefix.length) : raw;
   }
 
   Widget _buildEditField(

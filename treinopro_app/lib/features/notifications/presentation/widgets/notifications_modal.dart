@@ -469,7 +469,10 @@ class _NotificationsModalState extends State<NotificationsModal> {
       case 'dispute_update':
         return const Color(0xFFF59E0B); // Laranja/Amarelo para disputas
       case 'withdrawal_failed':
+      case 'withdrawal_payout_failed':
         return const Color(0xFFEF4444);
+      case 'withdrawal_paid':
+        return const Color(0xFF10B981); // Verde para saque depositado
       case 'mission_completed':
         return const Color(0xFF10B981); // Verde para missões
       case 'success':
@@ -496,7 +499,10 @@ class _NotificationsModalState extends State<NotificationsModal> {
       case 'dispute_update':
         return [const Color(0xFFF59E0B), const Color(0xFFD97706)];
       case 'withdrawal_failed':
+      case 'withdrawal_payout_failed':
         return [const Color(0xFFEF4444), const Color(0xFFDC2626)];
+      case 'withdrawal_paid':
+        return [const Color(0xFF10B981), const Color(0xFF059669)];
       case 'mission_completed':
         return [const Color(0xFF10B981), const Color(0xFF059669)];
       case 'success':
@@ -523,7 +529,10 @@ class _NotificationsModalState extends State<NotificationsModal> {
       case 'dispute_update':
         return Icons.gavel_rounded;
       case 'withdrawal_failed':
+      case 'withdrawal_payout_failed':
         return Icons.account_balance_wallet_outlined;
+      case 'withdrawal_paid':
+        return Icons.account_balance_rounded;
       case 'mission_completed':
         return Icons.emoji_events_rounded;
       case 'success':

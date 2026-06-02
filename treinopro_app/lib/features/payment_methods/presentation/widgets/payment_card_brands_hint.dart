@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 class PaymentCardBrandsCopy {
   static const subtitle = 'Visa e Mastercard';
   static const note =
-      'Elo pode funcionar dependendo do emissor do cartão.';
+      'Aceitamos apenas cartões Visa e Mastercard. Elo e American Express '
+      '(Amex) ainda não são aceitos.';
 }
 
 class PaymentCardBrandsHint extends StatelessWidget {

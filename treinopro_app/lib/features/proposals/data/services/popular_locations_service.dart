@@ -6,27 +6,40 @@ import '../../domain/entities/training_location.dart';
 class PopularLocationsService {
   static const String _popularLocationsKey = 'popular_locations';
   static const String _locationUsageKey = 'location_usage';
+  // Objeto completo de cada local usado (inclui locais reais vindos da API).
+  static const String _locationObjectsKey = 'location_objects';
+  // Ordem de recência: ids do mais recente para o mais antigo.
+  static const String _locationRecencyKey = 'location_recency';
   static const int _maxPopularLocations = 10;
 
   /// Adicionar um local aos populares quando selecionado
   static Future<void> addLocationUsage(TrainingLocation location) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final locationId = location.id;
 
-      // Obter uso atual dos locais
+      // Incrementar contador de uso (mantido para estatísticas)
       final usageJson = prefs.getString(_locationUsageKey) ?? '{}';
       final Map<String, dynamic> usage = json.decode(usageJson);
-
-      // Incrementar contador de uso
-      final locationId = location.id;
-      final currentCount = usage[locationId] ?? 0;
-      usage[locationId] = currentCount + 1;
-
-      // Salvar uso atualizado
+      usage[locationId] = (usage[locationId] ?? 0) + 1;
       await prefs.setString(_locationUsageKey, json.encode(usage));
 
-      // Atualizar lista de populares
-      await _updatePopularLocations(usage);
+      // Persistir o objeto completo do local (assim locais reais da API
+      // também voltam a aparecer na próxima proposta).
+      final objectsJson = prefs.getString(_locationObjectsKey) ?? '{}';
+      final Map<String, dynamic> objects = json.decode(objectsJson);
+      objects[locationId] = location.toJson();
+      await prefs.setString(_locationObjectsKey, json.encode(objects));
+
+      // Atualizar ordem de recência: o último selecionado vai para o topo.
+      final recencyJson = prefs.getString(_locationRecencyKey) ?? '[]';
+      final List<dynamic> recency = json.decode(recencyJson);
+      recency.removeWhere((id) => id == locationId);
+      recency.insert(0, locationId);
+      await prefs.setString(_locationRecencyKey, json.encode(recency));
+
+      // Reconstruir lista de populares (último usado primeiro)
+      await _rebuildPopularLocations();
     } catch (e) {
       print('Erro ao adicionar uso do local: $e');
     }
@@ -65,33 +78,47 @@ class PopularLocationsService {
     }
   }
 
-  /// Atualizar lista de locais populares baseado no uso
-  static Future<void> _updatePopularLocations(
-    Map<String, dynamic> usage,
-  ) async {
+  /// Reconstruir a lista de locais populares priorizando a recência:
+  /// o último local selecionado fica em primeiro.
+  static Future<void> _rebuildPopularLocations() async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Converter uso em lista ordenada
-      final sortedUsage = usage.entries.toList()
-        ..sort((a, b) => (b.value as int).compareTo(a.value as int));
+      final recencyJson = prefs.getString(_locationRecencyKey) ?? '[]';
+      final List<String> recency = (json.decode(recencyJson) as List)
+          .map((e) => e as String)
+          .toList();
 
-      // Obter locais correspondentes
+      final objectsJson = prefs.getString(_locationObjectsKey) ?? '{}';
+      final Map<String, dynamic> objects = json.decode(objectsJson);
+
       final List<TrainingLocation> popularLocations = [];
+      final Set<String> addedIds = {};
 
-      for (final entry in sortedUsage.take(_maxPopularLocations)) {
-        final locationId = entry.key;
-        final location = _getLocationById(locationId);
-        if (location != null) {
+      // 1) Locais já usados, na ordem do mais recente para o mais antigo
+      for (final id in recency) {
+        if (id == 'casa_cliente') continue;
+
+        TrainingLocation? location;
+        final stored = objects[id];
+        if (stored != null) {
+          location = TrainingLocation.fromJson(
+            Map<String, dynamic>.from(stored as Map),
+          );
+        } else {
+          location = _getLocationById(id);
+        }
+
+        if (location != null && addedIds.add(location.id)) {
           popularLocations.add(location);
         }
+        if (popularLocations.length >= _maxPopularLocations) break;
       }
 
-      // Se não há locais populares suficientes, adicionar padrões
+      // 2) Completar com padrões se ainda houver poucos locais
       if (popularLocations.length < 5) {
-        final defaultLocations = _getDefaultPopularLocations();
-        for (final location in defaultLocations) {
-          if (!popularLocations.any((l) => l.id == location.id)) {
+        for (final location in _getDefaultPopularLocations()) {
+          if (addedIds.add(location.id)) {
             popularLocations.add(location);
           }
         }
@@ -179,9 +206,11 @@ class PopularLocationsService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_popularLocationsKey);
       await prefs.remove(_locationUsageKey);
+      await prefs.remove(_locationObjectsKey);
+      await prefs.remove(_locationRecencyKey);
 
       // Forçar atualização imediata com locais padrão limpos
-      await _updatePopularLocations({});
+      await _rebuildPopularLocations();
     } catch (e) {
       print('Erro ao limpar histórico de locais: $e');
     }
@@ -198,6 +227,18 @@ class PopularLocationsService {
       usage.remove(locationId);
       await prefs.setString(_locationUsageKey, json.encode(usage));
 
+      // Remover do objeto persistido
+      final objectsJson = prefs.getString(_locationObjectsKey) ?? '{}';
+      final Map<String, dynamic> objects = json.decode(objectsJson);
+      objects.remove(locationId);
+      await prefs.setString(_locationObjectsKey, json.encode(objects));
+
+      // Remover da ordem de recência
+      final recencyJson = prefs.getString(_locationRecencyKey) ?? '[]';
+      final List<dynamic> recency = json.decode(recencyJson);
+      recency.removeWhere((id) => id == locationId);
+      await prefs.setString(_locationRecencyKey, json.encode(recency));
+
       // Remover dos populares
       final popularJson = prefs.getString(_popularLocationsKey);
       if (popularJson != null) {
@@ -207,7 +248,7 @@ class PopularLocationsService {
       }
 
       // Atualizar lista
-      await _updatePopularLocations(usage);
+      await _rebuildPopularLocations();
     } catch (e) {
       print('Erro ao remover local do histórico: $e');
     }

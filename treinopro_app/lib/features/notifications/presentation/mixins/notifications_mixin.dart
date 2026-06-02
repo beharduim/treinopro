@@ -414,6 +414,8 @@ mixin NotificationsMixin<T extends StatefulWidget> on State<T> {
         break;
 
       case 'withdrawal_failed':
+      case 'withdrawal_paid':
+      case 'withdrawal_payout_failed':
         _navigateToWallet(notification);
         break;
 

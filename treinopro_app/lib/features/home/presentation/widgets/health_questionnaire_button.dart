@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/health_questionnaire/presentation/presentation.dart';
 import '../../../../features/health_questionnaire/domain/domain.dart';
@@ -20,31 +21,76 @@ class HealthQuestionnaireButton extends StatefulWidget {
 }
 
 class _HealthQuestionnaireButtonState extends State<HealthQuestionnaireButton> {
-  bool _isQuestionnaireCompleted = false;
+  /// Chave de persistência do último status conhecido do questionário.
+  static const String _completedPrefsKey = 'health_questionnaire_completed';
+
+  /// Cache em memória para a sessão atual — evita reconstrução piscando o card
+  /// toda vez que a home é reconstruída.
+  static bool? _sessionCache;
+
+  /// `null` enquanto o status ainda não foi resolvido. Nesse estado mostramos
+  /// um placeholder de altura fixa em vez de "chutar" um card e depois trocar.
+  bool? _isQuestionnaireCompleted;
 
   @override
   void initState() {
     super.initState();
+    // 1) Se já resolvemos nesta sessão, usa direto (sem flicker).
+    if (_sessionCache != null) {
+      _isQuestionnaireCompleted = _sessionCache;
+    } else {
+      // 2) Caso contrário, tenta o último valor persistido para exibir o card
+      //    correto imediatamente no cold start.
+      _loadCachedStatus();
+    }
+    // 3) Sempre revalida com a API em segundo plano.
     _checkQuestionnaireStatus();
+  }
+
+  Future<void> _loadCachedStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getBool(_completedPrefsKey);
+      if (cached != null && mounted && _isQuestionnaireCompleted == null) {
+        setState(() {
+          _isQuestionnaireCompleted = cached;
+        });
+      }
+    } catch (_) {
+      // Cache indisponível — segue aguardando a API.
+    }
   }
 
   Future<void> _checkQuestionnaireStatus() async {
     try {
       final repository = GetIt.instance<HealthQuestionnaireRepository>();
       final isCompleted = await repository.isQuestionnaireCompleted();
-      
+
+      _sessionCache = isCompleted;
+      _persistStatus(isCompleted);
+
       if (mounted) {
         setState(() {
           _isQuestionnaireCompleted = isCompleted;
         });
       }
     } catch (e) {
-      // Em caso de erro, assume que não foi completado
-      if (mounted) {
+      // Em caso de erro, mantém o último valor conhecido se houver; só assume
+      // "não completado" se ainda não tínhamos nenhuma informação.
+      if (mounted && _isQuestionnaireCompleted == null) {
         setState(() {
           _isQuestionnaireCompleted = false;
         });
       }
+    }
+  }
+
+  Future<void> _persistStatus(bool isCompleted) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_completedPrefsKey, isCompleted);
+    } catch (_) {
+      // Falha de persistência não é crítica.
     }
   }
 
@@ -67,7 +113,13 @@ class _HealthQuestionnaireButtonState extends State<HealthQuestionnaireButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isQuestionnaireCompleted) {
+    // Status ainda desconhecido: reserva o espaço (altura fixa 56) sem renderizar
+    // um card que precisaria ser trocado depois — evita o flicker.
+    if (_isQuestionnaireCompleted == null) {
+      return const SizedBox(height: 56);
+    }
+
+    if (_isQuestionnaireCompleted!) {
       // Botão "Criar proposta" quando o questionário foi completado
       return CreateProposalButton(
         onTap: widget.onTap,

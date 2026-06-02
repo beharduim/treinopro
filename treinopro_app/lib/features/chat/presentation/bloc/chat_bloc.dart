@@ -479,14 +479,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         return;
       }
 
-      // Verificar se é uma nova mensagem usando múltiplos critérios para evitar duplicação
-      final isDuplicate = _messages.any(
-        (msg) =>
-            msg.id == message.id ||
-            (msg.messageText == message.messageText &&
-                msg.senderId == message.senderId &&
-                msg.sentAt.difference(message.sentAt).abs().inSeconds < 5),
-      );
+      // Deduplicação apenas por ID (o backend garante IDs únicos).
+      // A heurística antiga (mesmo texto + remetente em janela de 5s)
+      // descartava mensagens legítimas quando o usuário enviava textos
+      // repetidos em sequência (ex.: "ok", "sim"), causando perda de mensagens.
+      final isDuplicate = _messages.any((msg) => msg.id == message.id);
 
       if (!isDuplicate) {
         debugPrint('💬 [CHAT BLOC] Nova mensagem detectada, adicionando...');
