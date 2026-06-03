@@ -7,6 +7,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/utils/image_orientation_fix.dart';
 import '../../../balance/presentation/pages/personal_balance_page.dart';
+import '../../../payouts/presentation/widgets/add_payout_method_bottom_sheet.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:image_picker/image_picker.dart';
@@ -72,6 +73,7 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
   int _xpLevel = 0;
   int _totalXp = 0;
   double _totalEarned = 0.0;
+  double _walletAvailable = 0.0;
   double _stars = 0.0;
   int _totalClasses = 0;
   int _completedClasses = 0;
@@ -369,6 +371,7 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
         _xpLevel = stats['xpLevel'] ?? _xpLevel;
         _totalXp = stats['totalXp'] ?? _totalXp;
         _totalEarned = stats['totalEarned'] ?? _totalEarned;
+        _walletAvailable = stats['walletBalance'] ?? _walletAvailable;
         _stars = stats['stars'] ?? _stars;
         _totalClasses = stats['totalClasses'] ?? _totalClasses;
         _completedClasses = stats['completedClasses'] ?? _completedClasses;
@@ -1343,6 +1346,18 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
                     'Ganhos totais',
                     'R\$ ${_totalEarned.toStringAsFixed(2)}',
                   ),
+                  if (_walletAvailable > 0 &&
+                      (_walletAvailable - _totalEarned).abs() > 0.009) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Disponível para saque: R\$ ${_walletAvailable.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontFamily: 'Fira Sans',
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.75),
+                      ),
+                    ),
+                  ],
                 ],
               ),
           ],
@@ -1517,8 +1532,59 @@ class _PersonalProfilePageState extends State<PersonalProfilePage> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Conta bancária',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Fira Sans',
+                      fontSize: 16,
+                      color: Color(0xFFF9F9F9),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _openBankAccountSetup,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFF9F9F9)),
+                      borderRadius: BorderRadius.circular(160),
+                    ),
+                    child: const Text(
+                      'Alterar',
+                      style: TextStyle(
+                        fontFamily: 'Fira Sans',
+                        fontSize: 16,
+                        color: Color(0xFFFAF9F6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openBankAccountSetup() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddPayoutMethodBottomSheet(
+        onSaved: () {},
       ),
     );
   }

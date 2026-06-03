@@ -99,14 +99,19 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
   Future<BalanceLoaded> _loadBalanceData() async {
     FinancialProfileModel profile;
     try {
+      await _payoutApi.ensureStripeConnectedAccount();
       profile = await _payoutApi.getFinancialProfile();
     } catch (_) {
-      profile = const FinancialProfileModel(
-        preferredMethod: 'stripe_connect',
-        canReceivePayments: false,
-        stripeAccount: null,
-        wallet: null,
-      );
+      try {
+        profile = await _payoutApi.getFinancialProfile();
+      } catch (__) {
+        profile = const FinancialProfileModel(
+          preferredMethod: 'stripe_connect',
+          canReceivePayments: false,
+          stripeAccount: null,
+          wallet: null,
+        );
+      }
     }
 
     final walletData = await _financialApi.getWalletBalance();

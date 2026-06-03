@@ -59,6 +59,7 @@ class ProfileStatsService {
         'totalXp': gamificationData['totalXP'] ?? 0, // totalXP conforme backend
         'totalEarned': paymentData['totalEarned'] ?? 0.0,
         'walletBalance': paymentData['walletBalance'] ?? 0.0,
+        'walletPending': paymentData['walletPending'] ?? 0.0,
         'stars': ratingData['averageRating'] ?? 0.0,
         'totalRatings': ratingData['totalRatings'] ?? 0,
         'totalClasses': classData['totalClasses'] ?? 0,
@@ -130,6 +131,7 @@ class ProfileStatsService {
         return {
           'totalEarned': statsData['totalEarnings']?.toDouble() ?? 0.0,
           'walletBalance': statsData['wallet']['availableBalance']?.toDouble() ?? 0.0,
+          'walletPending': statsData['wallet']['pendingBalance']?.toDouble() ?? 0.0,
         };
       }
 

@@ -247,39 +247,43 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
           color: (isReady ? Colors.green : Colors.orange).withOpacity(0.2),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            isReady ? Icons.check_circle : Icons.error_outline,
-            color: isReady ? Colors.green : Colors.orange,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  stripe.statusTitle,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: isReady ? Colors.green : Colors.orange,
+      child: InkWell(
+        onTap: () => _handleOnboarding(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            Icon(
+              isReady ? Icons.check_circle : Icons.error_outline,
+              color: isReady ? Colors.green : Colors.orange,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stripe.statusTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isReady ? Colors.green : Colors.orange,
+                    ),
                   ),
-                ),
-                Text(
-                  stripe.statusDescription,
-                  style: const TextStyle(fontSize: 12, color: AppColors.secondary),
-                ),
-              ],
+                  Text(
+                    stripe.statusDescription,
+                    style: const TextStyle(fontSize: 12, color: AppColors.secondary),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (!isReady)
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange),
-              onPressed: () => _handleOnboarding(context),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: isReady ? Colors.green : Colors.orange,
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -480,12 +484,24 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.secondary,
+            ),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryOrange),
-            child: const Text('Confirmar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryOrange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text(
+              'Confirmar',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
