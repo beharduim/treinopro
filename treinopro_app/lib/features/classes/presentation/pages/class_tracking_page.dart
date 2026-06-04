@@ -14,6 +14,7 @@ import '../bloc/classes_bloc.dart';
 import '../bloc/classes_state.dart';
 import '../bloc/classes_event.dart';
 import '../../data/models/class_timer_state.dart';
+import '../../../chat/presentation/pages/chat_page.dart';
 
 class ClassTrackingPage extends StatefulWidget {
   final Map<String, dynamic> aula;
@@ -256,6 +257,31 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (classId != 'unknown_class' && _currentClass != null)
+            IconButton(
+              tooltip: 'Chat com o personal',
+              icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF2D3748)),
+              onPressed: () {
+                final cls = _currentClass!;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatPage(
+                      classId: cls.id,
+                      receiverId: cls.personalId,
+                      receiverName: cls.personalName,
+                      location: cls.location,
+                      date: '${cls.date.day.toString().padLeft(2, '0')}/${cls.date.month.toString().padLeft(2, '0')}/${cls.date.year}',
+                      time: cls.time,
+                      duration: '${cls.duration}min',
+                      currentUserIsStudent: true,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: Padding(

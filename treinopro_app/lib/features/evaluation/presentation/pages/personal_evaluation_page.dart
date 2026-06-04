@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/dependency_injection.dart';
 // Imports de recontratação desativados temporariamente
@@ -54,6 +55,56 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastEvaluationDraft();
+    _checkExistingRating();
+  }
+
+  Future<void> _checkExistingRating() async {
+    try {
+      final evaluationService = sl<EvaluationApiService>();
+      final exists = await evaluationService.hasExistingRating(
+        classId: widget.classId,
+        type: 'student_to_personal',
+      );
+      if (exists && mounted) {
+        setState(() => _hasEvaluated = true);
+      }
+    } catch (_) {
+      // Ignora falha de verificação
+    }
+  }
+
+  Future<void> _loadLastEvaluationDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = widget.personalId != null
+          ? 'last_eval_comment_${widget.personalId}'
+          : 'last_eval_comment_global';
+      final draft = prefs.getString(key);
+      if (draft != null && draft.isNotEmpty && mounted) {
+        _commentController.text = draft;
+      }
+    } catch (_) {
+      // Ignora falha de cache local
+    }
+  }
+
+  Future<void> _persistLastEvaluationDraft(String comment) async {
+    if (comment.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = widget.personalId != null
+          ? 'last_eval_comment_${widget.personalId}'
+          : 'last_eval_comment_global';
+      await prefs.setString(key, comment);
+    } catch (_) {
+      // Ignora falha de cache local
+    }
+  }
+
+  @override
   void dispose() {
     _commentController.dispose();
     super.dispose();
@@ -100,10 +151,12 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
       // ✅ Debug: Verificar valor antes de enviar
       print('⭐ [PERSONAL_EVAL] Enviando avaliação - rating: $_selectedRating');
       
+      final comment = _commentController.text.trim();
+
       await evaluationService.createPersonalRating(
         classId: widget.classId,
         rating: _selectedRating,
-        comment: _commentController.text.trim().isNotEmpty ? _commentController.text.trim() : null,
+        comment: comment.isNotEmpty ? comment : null,
         // Para simplificar, usamos a mesma nota para todos os critérios
         punctuality: _selectedRating,
         communication: _selectedRating,
@@ -114,6 +167,8 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
       
       print('✅ [PERSONAL_EVAL] Avaliação enviada com sucesso - rating: $_selectedRating');
 
+      await _persistLastEvaluationDraft(comment);
+
       // Estado será atualizado automaticamente via WebSocket
 
       setState(() {
@@ -123,6 +178,20 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
 
       _showEvaluationSentModal();
     } catch (e) {
+      final message = e.toString();
+      final alreadyRated = message.contains('já existe') ||
+          message.contains('ja existe') ||
+          message.contains('already');
+
+      if (alreadyRated) {
+        setState(() {
+          _hasEvaluated = true;
+          _isLoading = false;
+        });
+        if (mounted) _showEvaluationSentModal();
+        return;
+      }
+
       setState(() {
         _isLoading = false;
       });
@@ -130,7 +199,7 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao enviar avaliação: $e'),
+            content: Text('Erro ao enviar avaliação: $message'),
             backgroundColor: Colors.red,
           ),
         );
@@ -190,12 +259,11 @@ class _PersonalEvaluationPageState extends State<PersonalEvaluationPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pop(); // Fecha o modal
-                      // Volta para a base (home/lista de aulas) sem esvaziar a
-                      // pilha de navegação — evita a tela preta.
-                      Navigator.of(
-                        context,
-                      ).popUntil((route) => route.isFirst);
+                      final rootNav = Navigator.of(context);
+                      rootNav.pop(); // Fecha o modal
+                      if (rootNav.canPop()) {
+                        rootNav.pop(); // Fecha só a tela de avaliação
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryOrange,

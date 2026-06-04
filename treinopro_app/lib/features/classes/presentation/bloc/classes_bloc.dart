@@ -841,9 +841,13 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       }
     }
 
+    final justCompleted =
+        merged.status == ClassStatus.COMPLETED &&
+        current.status != ClassStatus.COMPLETED;
+
     if ((event.action == 'class_completed' ||
             event.action == 'class_completed_by_timer') &&
-        merged.status == ClassStatus.COMPLETED) {
+        justCompleted) {
       add(ClassesStopTimer(classId: event.classData.id));
 
       emit(
@@ -1021,6 +1025,36 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       );
       if (!ok) return;
       final result = await _classesApi.completeClass(event.classId, event.dto);
+
+      final idx = _classes.indexWhere((c) => c.id == event.classId);
+      final wasAlreadyCompleted = idx >= 0 &&
+          _classes[idx].status == ClassStatus.COMPLETED;
+      if (idx >= 0) {
+        _classes[idx] = result;
+      }
+
+      if (_currentUserId == null) {
+        _currentUserId = await _getUserId();
+      }
+
+      if (!wasAlreadyCompleted &&
+          _currentUserId != null &&
+          result.studentId == _currentUserId) {
+        emit(
+          ClassesCompleteSuccess(
+            classes: List<ClassResponseDto>.from(_classes),
+            timelines: Map<String, ClassTimelineDto>.from(_timelines),
+            timers: Map<String, ClassTimerState>.from(_timers),
+            completedClass: result,
+            selectedDate: _selectedDate,
+            selectedTime: _selectedTime,
+            selectedStatus: _selectedStatus,
+            isWebSocketConnected: _ws.isConnected,
+          ),
+        );
+        _processClassCompletionForGamification(result);
+      }
+
       add(const ClassesRefresh());
       if (result.settlementStatus == 'failed') {
         emit(
@@ -1436,7 +1470,8 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         '⏰ [TIMER_EXPIRATION] Chamando API para finalizar aula automaticamente...',
       );
 
-      await _classesApi.completeClassByTimerExpiration(classId);
+      final completedClass =
+          await _classesApi.completeClassByTimerExpiration(classId);
 
       // Limpar timer persistente
       await _persistentTimer.clearTimer();
@@ -1444,6 +1479,37 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       print(
         '✅ [TIMER_EXPIRATION] Aula finalizada automaticamente por expiração do timer',
       );
+
+      final idx = _classes.indexWhere((c) => c.id == classId);
+      final wasAlreadyCompleted = idx >= 0 &&
+          _classes[idx].status == ClassStatus.COMPLETED;
+      if (idx >= 0) {
+        _classes[idx] = completedClass;
+      }
+
+      if (_currentUserId == null) {
+        _currentUserId = await _getUserId();
+      }
+
+      // Aluno precisa ir para avaliação mesmo sem evento WebSocket (só na 1ª conclusão)
+      if (!isClosed &&
+          !wasAlreadyCompleted &&
+          _currentUserId != null &&
+          completedClass.studentId == _currentUserId) {
+        emit(
+          ClassesCompleteSuccess(
+            classes: List<ClassResponseDto>.from(_classes),
+            timelines: Map<String, ClassTimelineDto>.from(_timelines),
+            timers: Map<String, ClassTimerState>.from(_timers),
+            completedClass: completedClass,
+            selectedDate: _selectedDate,
+            selectedTime: _selectedTime,
+            selectedStatus: _selectedStatus,
+            isWebSocketConnected: _ws.isConnected,
+          ),
+        );
+        _processClassCompletionForGamification(completedClass);
+      }
 
       // Recarregar dados para atualizar status da aula
       if (!isClosed) {

@@ -8,7 +8,9 @@ import '../../../gamification/presentation/bloc/gamification_state.dart';
 import '../../../gamification/presentation/widgets/animated_xp_bar.dart';
 import 'mission_card_display.dart';
 
-/// Card da missão semanal — trava na missão correta, sem flicker ou loading.
+/// Card da missão semanal — nunca fica em branco nem em loading infinito.
+/// Mostra imediatamente os dados do [HomeState] e atualiza quando a
+/// gamificação em tempo real chegar.
 class WeeklyMissionCard extends StatefulWidget {
   final HomeState homeState;
 
@@ -28,6 +30,7 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
   @override
   void initState() {
     super.initState();
+    _display = _MissionDisplayData.fromHomeState(widget.homeState);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _applyGamificationState(context.read<GamificationBloc>().state);
@@ -35,13 +38,24 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
   }
 
   @override
+  void didUpdateWidget(covariant WeeklyMissionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_display == null ||
+        _display!.missionId.startsWith('home-state-') ||
+        _display!.missionId == 'fallback-primeira-aula') {
+      final fromHome = _MissionDisplayData.fromHomeState(widget.homeState);
+      if (!(_display?.sameAs(fromHome) ?? false)) {
+        setState(() => _display = fromHome);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocListener<GamificationBloc, GamificationState>(
       listenWhen: _shouldListen,
       listener: (context, state) => _applyGamificationState(state),
-      child: _display != null
-          ? _buildMissionCard(_display!)
-          : const SizedBox(height: _cardHeight),
+      child: _buildMissionCard(_display ?? _MissionDisplayData.fromHomeState(widget.homeState)),
     );
   }
 
@@ -61,7 +75,15 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
 
   void _applyGamificationState(GamificationState state) {
     final missions = MissionCardDisplay.extractMissions(state);
-    if (missions == null || missions.isEmpty) return;
+    if (missions == null) return;
+
+    if (missions.isEmpty) {
+      final fallback = _MissionDisplayData.fallback();
+      if (!(_display?.sameAs(fallback) ?? false)) {
+        setState(() => _display = fallback);
+      }
+      return;
+    }
 
     _MissionDisplayData? next;
 
@@ -95,7 +117,13 @@ class _WeeklyMissionCardState extends State<WeeklyMissionCard> {
       }
     }
 
-    if (next == null) return;
+    if (next == null) {
+      final pick = MissionCardDisplay.pickInitialMission(missions);
+      next = pick != null
+          ? _MissionDisplayData.fromMission(pick)
+          : _MissionDisplayData.fallback();
+    }
+
     if (_display?.sameAs(next) ?? false) return;
 
     setState(() => _display = next);
@@ -243,11 +271,48 @@ class _MissionDisplayData {
     );
   }
 
+  /// Dados já carregados pelo HomeBloc na abertura — evita tela vazia.
+  factory _MissionDisplayData.fromHomeState(HomeState home) {
+    final target = home.weeklyMissionTarget > 0 ? home.weeklyMissionTarget : 1;
+    final progress = home.weeklyMissionProgress;
+    final description = home.weeklyMissionDescription.trim();
+    final isPrimeiraAula = description.toLowerCase().contains('primeira aula');
+
+    return _MissionDisplayData(
+      missionId: 'home-state-mission',
+      title: isPrimeiraAula || description.isEmpty
+          ? 'Primeira Aula'
+          : 'Missão da semana',
+      description: description.isNotEmpty
+          ? description
+          : 'Complete sua primeira aula de treino',
+      progressText: progress >= target
+          ? 'Completada! $progress/$target'
+          : '$progress de $target',
+      progress: progress.toDouble(),
+      totalRequired: target.toDouble(),
+      isCompleted: progress >= target && target > 0,
+    );
+  }
+
+  factory _MissionDisplayData.fallback() {
+    return const _MissionDisplayData(
+      missionId: 'fallback-primeira-aula',
+      title: 'Primeira Aula',
+      description: 'Complete sua primeira aula de treino',
+      progressText: '0 de 1',
+      progress: 0,
+      totalRequired: 1,
+      isCompleted: false,
+    );
+  }
+
   bool sameAs(_MissionDisplayData other) {
     return missionId == other.missionId &&
         title == other.title &&
         progress == other.progress &&
         isCompleted == other.isCompleted &&
-        progressText == other.progressText;
+        progressText == other.progressText &&
+        description == other.description;
   }
 }

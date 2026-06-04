@@ -113,10 +113,9 @@ class _HealthQuestionnaireButtonState extends State<HealthQuestionnaireButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Status ainda desconhecido: reserva o espaço (altura fixa 56) sem renderizar
-    // um card que precisaria ser trocado depois — evita o flicker.
+    // Status ainda desconhecido: assume questionário pendente (nunca fica vazio).
     if (_isQuestionnaireCompleted == null) {
-      return const SizedBox(height: 56);
+      return _buildHealthQuestionnaireButton();
     }
 
     if (_isQuestionnaireCompleted!) {
@@ -126,12 +125,15 @@ class _HealthQuestionnaireButtonState extends State<HealthQuestionnaireButton> {
       );
     }
 
-    // Botão "Questionário de saúde" quando ainda não foi completado
+    return _buildHealthQuestionnaireButton();
+  }
+
+  Widget _buildHealthQuestionnaireButton() {
     return Container(
       width: double.infinity,
-      height: 56, // Altura fixa 56px
+      height: 56,
       decoration: BoxDecoration(
-        color: AppColors.primaryOrange, // Laranja principal
+        color: AppColors.primaryOrange,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -149,25 +151,21 @@ class _HealthQuestionnaireButtonState extends State<HealthQuestionnaireButton> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center, // Centraliza texto e ícone
-              children: [
-                // Texto do botão
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
                 Text(
                   'Questionário de saúde',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600, // semibold
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                     height: 1.2,
                   ),
                 ),
-                
-                const SizedBox(width: 12), // Espaçamento entre texto e ícone
-                
-                // Ícone de coração à direita
+                SizedBox(width: 12),
                 Icon(
                   Icons.favorite,
-                  size: 20, // 18-20px conforme especificado
+                  size: 20,
                   color: Colors.white,
                 ),
               ],

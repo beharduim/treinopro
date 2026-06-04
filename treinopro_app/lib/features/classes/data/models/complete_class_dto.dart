@@ -1,13 +1,17 @@
 class CompleteClassDto {
   final String? notes;
+  final String? studentNotes;
 
   CompleteClassDto({
     this.notes,
+    this.studentNotes,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'notes': notes,
+      if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      if (studentNotes != null && studentNotes!.isNotEmpty)
+        'studentNotes': studentNotes,
     };
   }
 }

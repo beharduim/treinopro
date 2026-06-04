@@ -42,17 +42,22 @@ class EvaluationApiService {
         ),
       );
 
-      if (response.statusCode == 201) {
-        return response.data;
-      } else {
-        throw Exception('Erro ao criar avaliação: ${response.statusCode}');
+      final code = response.statusCode ?? 0;
+      if (code >= 200 && code < 300) {
+        return response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{'ok': true};
       }
+      throw Exception('Erro ao criar avaliação: $code');
     } on DioException catch (e) {
       if (e.response != null) {
-        throw Exception(e.response?.data['message'] ?? 'Erro na requisição');
-      } else {
-        throw Exception('Erro de conexão: ${e.message}');
+        final data = e.response?.data;
+        final message = data is Map
+            ? (data['message'] ?? data['error'] ?? 'Erro na requisição')
+            : 'Erro na requisição';
+        throw Exception(message.toString());
       }
+      throw Exception('Erro de conexão: ${e.message}');
     } catch (e) {
       throw Exception('Erro desconhecido: $e');
     }
@@ -90,17 +95,22 @@ class EvaluationApiService {
         ),
       );
 
-      if (response.statusCode == 201) {
-        return response.data;
-      } else {
-        throw Exception('Erro ao criar avaliação: ${response.statusCode}');
+      final code = response.statusCode ?? 0;
+      if (code >= 200 && code < 300) {
+        return response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : <String, dynamic>{'ok': true};
       }
+      throw Exception('Erro ao criar avaliação: $code');
     } on DioException catch (e) {
       if (e.response != null) {
-        throw Exception(e.response?.data['message'] ?? 'Erro na requisição');
-      } else {
-        throw Exception('Erro de conexão: ${e.message}');
+        final data = e.response?.data;
+        final message = data is Map
+            ? (data['message'] ?? data['error'] ?? 'Erro na requisição')
+            : 'Erro na requisição';
+        throw Exception(message.toString());
       }
+      throw Exception('Erro de conexão: ${e.message}');
     } catch (e) {
       throw Exception('Erro desconhecido: $e');
     }

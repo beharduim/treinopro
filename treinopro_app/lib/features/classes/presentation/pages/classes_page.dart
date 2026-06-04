@@ -10,6 +10,7 @@ import '../widgets/class_timer_widget.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
+import '../../../chat/presentation/pages/conversations_list_page.dart';
 import '../../../evaluation/presentation/pages/class_evaluation_page.dart';
 import 'personal_class_tracking_page.dart';
 import '../bloc/classes_bloc.dart';
@@ -876,17 +877,31 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Center(
-                        child: Text(
-                          'Minhas aulas',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF2D3748),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Text(
+                            'Minhas aulas',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2D3748),
+                            ),
                           ),
-                        ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              tooltip: 'Mensagens',
+                              onPressed: () => openConversationsList(context),
+                              icon: const Icon(
+                                Icons.chat_bubble_outline,
+                                color: Color(0xFF2D3748),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
                       _buildFilterSection(),

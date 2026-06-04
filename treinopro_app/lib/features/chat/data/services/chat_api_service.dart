@@ -142,6 +142,45 @@ class ChatApiService {
     }
   }
 
+  /// Lista conversas (um chat por match/aula)
+  Future<List<Map<String, dynamic>>> getConversations() async {
+    try {
+      final token = _apiService.getAccessToken();
+      if (token == null) {
+        throw Exception('Token de acesso não encontrado');
+      }
+
+      final url = Uri.parse('$_baseUrl/chat/conversations');
+      final response = await _client.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body);
+        if (body is List) {
+          return body
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
+        if (body is Map && body['data'] is List) {
+          return (body['data'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        }
+        return [];
+      }
+
+      final errorData = json.decode(response.body) as Map<String, dynamic>;
+      throw Exception(
+        errorData['message']?.toString() ?? 'Erro ao listar conversas',
+      );
+    } catch (e) {
+      print('❌ [CHAT API] Erro ao listar conversas: $e');
+      rethrow;
+    }
+  }
+
   /// Buscar estatísticas do chat
   Future<ChatStatsDto> getStats() async {
     try {

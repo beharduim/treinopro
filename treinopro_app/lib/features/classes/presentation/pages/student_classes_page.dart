@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../widgets/class_timer_widget.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
+import '../../../chat/presentation/pages/conversations_list_page.dart';
 import '../../../auth/domain/usecases/upload_usecase.dart';
 import '../../../evaluation/presentation/pages/personal_evaluation_page.dart';
 import '../../../proposals/presentation/pages/recontract_page.dart';
@@ -53,8 +54,8 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
   String? _selectedStatus;
   // ✅ Proteção contra navegação múltipla para tracking
   bool _hasNavigatedToTracking = false;
-  // ✅ Proteção contra navegação múltipla para a avaliação ao concluir a aula
-  bool _hasNavigatedToEvaluation = false;
+  // ✅ Evita abrir a tela de avaliação mais de uma vez para a mesma aula
+  final Set<String> _evaluationPromptedClassIds = {};
 
   // Valores para os filtros de aulas
   final List<String> _dates = [
@@ -423,27 +424,26 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
             ),
           );
         } else if (state is ClassesCompleteSuccess) {
-          // ✅ Prevenir navegação múltipla (evita dupla navegação/tela preta)
-          if (_hasNavigatedToEvaluation) return;
-          _hasNavigatedToEvaluation = true;
+          final classData = state.completedClass;
+          if (_evaluationPromptedClassIds.contains(classData.id)) {
+            return;
+          }
+          _evaluationPromptedClassIds.add(classData.id);
 
           // Redirecionar para avaliação do personal quando aula for finalizada.
-          // Usar push (não pushReplacement) para nunca substituir a rota base
-          // (home), garantindo que dá pra voltar sem esvaziar a pilha.
-          final classData = state.completedClass;
           Navigator.push(
             context,
             MaterialPageRoute(
+              settings: RouteSettings(name: 'personal_eval_${classData.id}'),
               builder: (_) => PersonalEvaluationPage(
                 trainerName: classData.personalName,
                 classId: classData.id,
+                personalId: classData.personalId,
               ),
             ),
           );
         } else if (state is ClassesLoaded) {
-          // ✅ Resetar flags quando estado voltar para ClassesLoaded (após navegação)
           _hasNavigatedToTracking = false;
-          _hasNavigatedToEvaluation = false;
           // ✅ Agendar snapshots de geolocalização para aulas agendadas
           _schedulePresenceSnapshots(context, state.classes);
         } else if (state is ClassesOperationSuccess) {
@@ -481,17 +481,31 @@ class _StudentClassesPageViewState extends State<_StudentClassesPageView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Center(
-                        child: Text(
-                          'Minhas aulas',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF2D3748),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Text(
+                            'Minhas aulas',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2D3748),
+                            ),
                           ),
-                        ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              tooltip: 'Mensagens',
+                              onPressed: () => openConversationsList(context),
+                              icon: const Icon(
+                                Icons.chat_bubble_outline,
+                                color: Color(0xFF2D3748),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
                       _buildFilterSection(),
