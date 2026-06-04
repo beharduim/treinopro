@@ -41,8 +41,9 @@ class ChatConversation {
     }
 
     DateTime? lastAt;
-    if (last?['sentAt'] != null) {
-      lastAt = DateTime.tryParse(last['sentAt'].toString());
+    final sentAt = last?['sentAt'];
+    if (sentAt != null) {
+      lastAt = DateTime.tryParse(sentAt.toString());
     }
 
     return ChatConversation(
