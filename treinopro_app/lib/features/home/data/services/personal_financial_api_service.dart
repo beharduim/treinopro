@@ -119,6 +119,7 @@ class PersonalFinancialApiService {
   Future<Map<String, dynamic>> requestWithdrawal({
     required String amount,
     required String method,
+    required String sourceBucket,
     String? description,
     String urgency = 'normal',
   }) async {
@@ -131,6 +132,7 @@ class PersonalFinancialApiService {
         body: json.encode({
           'amount': amount,
           'method': method,
+          'sourceBucket': sourceBucket,
           'description': description,
           'urgency': urgency,
         }),

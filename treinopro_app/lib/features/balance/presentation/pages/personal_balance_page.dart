@@ -8,6 +8,7 @@ import '../../../../core/di/dependency_injection.dart' show sl;
 import '../../../payouts/presentation/widgets/add_payout_method_bottom_sheet.dart';
 import '../../../payouts/data/models/financial_profile_model.dart';
 import '../../../home/data/models/payment_models.dart';
+import '../../../home/data/models/wallet_bucket_model.dart';
 
 /// Página de saldo do personal trainer
 class PersonalBalancePage extends StatelessWidget {
@@ -80,15 +81,21 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBalanceCard(state.profile),
-                    if ((state.profile.wallet?.pendingWithdrawalAmount ?? 0) > 0) ...[
-                      const SizedBox(height: 12),
-                      _buildPendingWithdrawalBanner(state.profile),
-                    ],
+                    _buildBucketCard(state.profile, state.profile.wallet?.pix ?? const WalletBucketModel(bucket: 'pix')),
+                    const SizedBox(height: 16),
+                    _buildBucketCard(state.profile, state.profile.wallet?.card ?? const WalletBucketModel(bucket: 'card')),
                     const SizedBox(height: 16),
                     _buildStripeStatusCard(state.profile.stripeAccount),
                     const SizedBox(height: 24),
-                    _buildWithdrawButton(state.profile),
+                    _buildWithdrawButton(
+                      state.profile,
+                      state.profile.wallet?.pix ?? const WalletBucketModel(bucket: 'pix'),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildWithdrawButton(
+                      state.profile,
+                      state.profile.wallet?.card ?? const WalletBucketModel(bucket: 'card'),
+                    ),
                     const SizedBox(height: 32),
                     _buildTransactionsSection(state.transactions),
                   ],
@@ -116,51 +123,87 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     );
   }
 
-  Widget _buildBalanceCard(FinancialProfileModel profile) {
-    final available = profile.wallet?.availableBalance ?? 0.0;
-    // Valor em liberação = saque solicitado aguardando aprovação/transferência.
-    // (pendingWithdrawalAmount é derivado dos saques abertos e equivale ao
-    // pendingBalance da carteira, então exibimos apenas uma linha.)
-    final withdrawalInReview = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
+  Widget _buildBucketCard(FinancialProfileModel profile, WalletBucketModel bucket) {
+    final available = bucket.availableBalance;
+    final withdrawalInReview = bucket.pendingWithdrawalAmount;
+    final awaitingBankDeposit = bucket.awaitingBankDeposit;
+    final settlementHint = bucket.settlementHint.isNotEmpty
+        ? bucket.settlementHint
+        : bucket.bucket == 'pix'
+            ? 'até 3 dias úteis'
+            : 'até 30 dias';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.secondary, Color(0xFF2D3748)],
+        gradient: LinearGradient(
+          colors: bucket.bucket == 'pix'
+              ? [const Color(0xFF0F766E), const Color(0xFF134E4A)]
+              : [AppColors.secondary, const Color(0xFF2D3748)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.secondary.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: (bucket.bucket == 'pix' ? const Color(0xFF0F766E) : AppColors.secondary)
+                .withOpacity(0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Saldo disponível para saque',
-            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+          Row(
+            children: [
+              Icon(
+                bucket.bucket == 'pix' ? Icons.pix : Icons.credit_card,
+                color: Colors.white70,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Saldo ${bucket.title} — libera $settlementHint',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
             _formatCurrency(available),
-            style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           if (withdrawalInReview > 0) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Container(height: 1, color: Colors.white10),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _buildBalanceSubRow(
-              label: 'Em liberação (saque solicitado)',
+              label: awaitingBankDeposit
+                  ? 'Aguardando depósito no banco'
+                  : 'Em liberação (saque solicitado)',
               value: withdrawalInReview,
-              icon: Icons.hourglass_top_outlined,
+              icon: awaitingBankDeposit
+                  ? Icons.account_balance_outlined
+                  : Icons.hourglass_top_outlined,
+            ),
+          ] else if (withdrawalInReview <= 0 && available <= 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Aulas pagas via ${bucket.title} entram nesta carteira.',
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
           ],
         ],
@@ -288,18 +331,23 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     );
   }
 
-  Widget _buildWithdrawButton(FinancialProfileModel profile) {
+  Widget _buildWithdrawButton(
+    FinancialProfileModel profile,
+    WalletBucketModel bucket,
+  ) {
     final canWithdraw = profile.stripeAccount?.isReadyForPayout ?? false;
-    final balance = profile.wallet?.availableBalance ?? 0.0;
-    final pendingWithdrawal = profile.wallet?.pendingWithdrawalAmount ?? 0.0;
-    final hasPendingWithdrawal =
-        profile.wallet?.hasOpenWithdrawal == true || pendingWithdrawal > 0;
+    final balance = bucket.availableBalance;
+    final pendingWithdrawal = bucket.pendingWithdrawalAmount;
+    final awaitingBankDeposit = bucket.awaitingBankDeposit;
+    final hasPendingWithdrawal = bucket.hasOpenWithdrawal || pendingWithdrawal > 0;
+    final bucketLabel = bucket.title;
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryOrange,
+          backgroundColor:
+              bucket.bucket == 'pix' ? const Color(0xFF0F766E) : AppColors.primaryOrange,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -313,14 +361,17 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                       profile.stripeAccount,
                       balance,
                       pendingWithdrawal,
+                      bucketLabel: bucketLabel,
+                      awaitingBankDeposit: awaitingBankDeposit,
                     )
                 : (canWithdraw && balance > 0)
-                    ? () => _requestWithdrawal(context, profile)
+                    ? () => _requestWithdrawal(context, profile, bucket)
                     : () => _showBlockedWithdrawalDialog(
                           context,
                           profile.stripeAccount,
                           balance,
                           pendingWithdrawal,
+                          bucketLabel: bucketLabel,
                         ),
         child: _isWithdrawing
             ? const SizedBox(
@@ -329,8 +380,10 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
             : Text(
-                hasPendingWithdrawal ? 'Saque em análise' : 'Solicitar Saque',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                hasPendingWithdrawal
+                    ? 'Saque $bucketLabel em análise'
+                    : 'Solicitar saque $bucketLabel',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
       ),
     );
@@ -340,18 +393,23 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     BuildContext context,
     StripeConnectAccountModel? stripe,
     double balance,
-    double pendingWithdrawal,
-  ) {
+    double pendingWithdrawal, {
+    required String bucketLabel,
+    bool awaitingBankDeposit = false,
+  }) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Saque Indisponível'),
         content: Text(
           pendingWithdrawal > 0
-              ? 'Você já possui um saque de ${_formatCurrency(pendingWithdrawal)} aguardando aprovação. '
-                  'Assim que a equipe TreinoPro liberar, o valor será enviado ao seu banco.'
+              ? awaitingBankDeposit
+                  ? 'Você já possui um saque $bucketLabel de ${_formatCurrency(pendingWithdrawal)} em análise. '
+                      'Aguarde o depósito na sua conta bancária antes de solicitar outro saque nesta carteira.'
+                  : 'Você já possui um saque $bucketLabel de ${_formatCurrency(pendingWithdrawal)} aguardando aprovação. '
+                      'Assim que a equipe TreinoPro liberar, o valor será enviado ao seu banco.'
               : balance <= 0
-                  ? 'Você ainda não possui saldo disponível para saque.'
+                  ? 'Você ainda não possui saldo $bucketLabel disponível para saque.'
                   : 'Sua conta bancária ainda não foi validada pela Stripe. Finalize seu cadastro para liberar os saques.',
         ),
         actions: [
@@ -470,16 +528,19 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
   Future<void> _requestWithdrawal(
     BuildContext context,
     FinancialProfileModel profile,
+    WalletBucketModel bucket,
   ) async {
-    final balance = profile.wallet?.availableBalance ?? 0.0;
+    final balance = bucket.availableBalance;
     if (balance <= 0) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar saque'),
+        title: Text('Confirmar saque ${bucket.title}'),
         content: Text(
-          'Deseja solicitar o saque de ${_formatCurrency(balance)}?\n\nO valor será enviado para análise da equipe TreinoPro. Após a aprovação, cairá na sua conta bancária cadastrada.',
+          'Deseja solicitar o saque ${bucket.title} de ${_formatCurrency(balance)}?\n\n'
+          'Prazo estimado após aprovação: ${bucket.settlementHint.isNotEmpty ? bucket.settlementHint : (bucket.bucket == 'pix' ? 'até 3 dias úteis' : 'até 30 dias')}.\n\n'
+          'O valor será enviado para análise da equipe TreinoPro.',
         ),
         actions: [
           TextButton(
@@ -510,7 +571,9 @@ class _PersonalBalanceViewState extends State<_PersonalBalanceView> {
     if (confirmed != true || !context.mounted) return;
 
     setState(() => _isWithdrawing = true);
-    context.read<BalanceBloc>().add(RequestWithdrawal(balance));
+    context.read<BalanceBloc>().add(
+          RequestWithdrawal(balance, sourceBucket: bucket.bucket),
+        );
   }
 
   String _formatCurrency(double value) {

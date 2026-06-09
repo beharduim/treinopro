@@ -51,9 +51,16 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
     final current = state;
     if (current is! BalanceLoaded) return;
 
-    if (current.profile.wallet?.hasOpenWithdrawal == true) {
+    final bucket = event.sourceBucket == 'pix'
+        ? current.profile.wallet?.pix
+        : current.profile.wallet?.card;
+
+    if (bucket?.hasOpenWithdrawal == true) {
+      final awaitingBank = bucket?.awaitingBankDeposit == true;
       emit(BalanceError(
-        'Você já possui um saque aguardando aprovação. Aguarde a liberação da equipe TreinoPro.',
+        awaitingBank
+            ? 'Você já possui um saque ${bucket!.title} em análise. Aguarde o depósito no banco antes de solicitar outro.'
+            : 'Você já possui um saque ${bucket!.title} aguardando aprovação. Aguarde a liberação da equipe TreinoPro.',
       ));
       emit(current);
       return;
@@ -63,7 +70,8 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
       final result = await _financialApi.requestWithdrawal(
         amount: event.amount.toStringAsFixed(2),
         method: 'stripe_connect',
-        description: 'Saque solicitado pelo app',
+        sourceBucket: event.sourceBucket,
+        description: 'Saque ${event.sourceBucket == 'pix' ? 'Pix' : 'Cartão'} solicitado pelo app',
       );
 
       final isIdempotent = result['idempotent'] == true;
@@ -87,8 +95,8 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
 
       emit(updatedState.copyWith(
         successMessage: isIdempotent
-            ? 'Você já possui um saque de R\$ ${(updatedState.profile.wallet?.pendingWithdrawalAmount ?? event.amount).toStringAsFixed(2).replaceAll('.', ',')} aguardando aprovação.'
-            : 'Solicitação enviada! Aguarde a aprovação da equipe TreinoPro. O valor ficará em processamento até a liberação.',
+            ? 'Você já possui um saque ${bucket!.title} de R\$ ${(bucket?.pendingWithdrawalAmount ?? event.amount).toStringAsFixed(2).replaceAll('.', ',')} aguardando aprovação.'
+            : 'Solicitação de saque ${bucket!.title} enviada! Aguarde a aprovação da equipe TreinoPro.',
       ));
     } catch (e) {
       emit(BalanceError('Erro ao solicitar saque: $e'));

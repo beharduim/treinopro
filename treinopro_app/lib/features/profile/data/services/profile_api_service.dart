@@ -116,12 +116,11 @@ class ProfileApiService {
   }
 
   /// Envia um código de verificação para o NOVO e-mail (troca de e-mail).
-  /// O backend rejeita caso o e-mail já esteja em uso.
   Future<void> sendEmailChangeCode(String newEmail) async {
     final response = await _httpClient.post(
-      Uri.parse('$_baseUrl/auth/send-verification-code'),
+      Uri.parse('$_baseUrl/users/profile/me/send-email-change-code'),
       headers: _headers,
-      body: json.encode({'email': newEmail}),
+      body: json.encode({'newEmail': newEmail}),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) return;
@@ -138,7 +137,7 @@ class ProfileApiService {
       body: json.encode({
         'email': newEmail,
         'code': code,
-        'purpose': 'registration',
+        'purpose': 'profile_email_change',
       }),
     );
 

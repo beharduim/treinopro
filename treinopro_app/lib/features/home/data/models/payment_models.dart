@@ -1,3 +1,5 @@
+import 'wallet_bucket_model.dart';
+
 class TransactionModel {
   final String id;
   final String userId;
@@ -125,6 +127,9 @@ class WalletBalanceModel {
   final double pendingBalance;
   final double pendingWithdrawalAmount;
   final bool hasOpenWithdrawal;
+  final bool awaitingBankDeposit;
+  final WalletBucketModel pix;
+  final WalletBucketModel card;
   final double totalEarned;
   final double totalWithdrawn;
   final bool isActive;
@@ -138,16 +143,28 @@ class WalletBalanceModel {
     required this.pendingBalance,
     this.pendingWithdrawalAmount = 0,
     this.hasOpenWithdrawal = false,
+    this.awaitingBankDeposit = false,
+    WalletBucketModel? pix,
+    WalletBucketModel? card,
     required this.totalEarned,
     required this.totalWithdrawn,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
-  });
+  })  : pix = pix ?? const WalletBucketModel(bucket: 'pix'),
+        card = card ?? const WalletBucketModel(bucket: 'card');
 
   factory WalletBalanceModel.fromJson(Map<String, dynamic> json) {
     final pendingWithdrawalAmount =
         (json['pendingWithdrawalAmount'] ?? 0.0).toDouble();
+    final buckets = json['buckets'];
+    final pixJson = buckets is Map<String, dynamic>
+        ? buckets['pix']
+        : json['pix'];
+    final cardJson = buckets is Map<String, dynamic>
+        ? buckets['card']
+        : json['card'];
+
     return WalletBalanceModel(
       id: json['id'] ?? '',
       userId: json['userId'] ?? '',
@@ -156,6 +173,15 @@ class WalletBalanceModel {
       pendingWithdrawalAmount: pendingWithdrawalAmount,
       hasOpenWithdrawal: json['hasOpenWithdrawal'] == true ||
           pendingWithdrawalAmount > 0,
+      awaitingBankDeposit: json['awaitingBankDeposit'] == true,
+      pix: WalletBucketModel.fromJson(
+        pixJson is Map<String, dynamic> ? pixJson : null,
+        fallbackBucket: 'pix',
+      ),
+      card: WalletBucketModel.fromJson(
+        cardJson is Map<String, dynamic> ? cardJson : null,
+        fallbackBucket: 'card',
+      ),
       totalEarned: (json['totalEarned'] ?? 0.0).toDouble(),
       totalWithdrawn: (json['totalWithdrawn'] ?? 0.0).toDouble(),
       isActive: _parseBool(json['isActive']),

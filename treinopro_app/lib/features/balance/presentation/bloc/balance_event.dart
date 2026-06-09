@@ -19,9 +19,10 @@ class RefreshBalance extends BalanceEvent {}
 
 class RequestWithdrawal extends BalanceEvent {
   final double amount;
+  final String sourceBucket;
 
-  const RequestWithdrawal(this.amount);
+  const RequestWithdrawal(this.amount, {required this.sourceBucket});
 
   @override
-  List<Object?> get props => [amount];
+  List<Object?> get props => [amount, sourceBucket];
 }
