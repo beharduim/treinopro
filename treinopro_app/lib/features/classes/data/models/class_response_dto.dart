@@ -31,6 +31,7 @@ class ClassResponseDto {
   final double? studentRating;
   final String? proposalModality;
   final double? proposalPrice;
+  final String? paymentMethod;
   final String? paymentStatus;
   final String? noShowReportedBy; // 'student' | 'personal'
   final DateTime? noShowReportedAt;
@@ -76,6 +77,7 @@ class ClassResponseDto {
     this.studentRating,
     this.proposalModality,
     this.proposalPrice,
+    this.paymentMethod,
     this.paymentStatus,
     this.noShowReportedBy,
     this.noShowReportedAt,
@@ -162,7 +164,14 @@ class ClassResponseDto {
 
     final resolvedProposalPrice = _firstParsableDouble([
       proposal?['value'],
+      proposal?['price'],
       json['proposalPrice'],
+    ]);
+
+    final resolvedPaymentMethod = _firstNonEmptyString([
+      json['paymentMethod'],
+      proposal?['paymentMethod'],
+      proposal?['payment_method'],
     ]);
 
     return ClassResponseDto(
@@ -201,7 +210,8 @@ class ClassResponseDto {
           : null,
       proposalModality: resolvedProposalModality,
       proposalPrice: resolvedProposalPrice,
-      paymentStatus: json['paymentStatus'],
+      paymentMethod: resolvedPaymentMethod,
+      paymentStatus: json['paymentStatus'] ?? proposal?['paymentStatus'],
       noShowReportedBy: json['noShowReportedBy']?.toString(),
       noShowReportedAt: json['noShowReportedAt'] != null
           ? DateTime.tryParse(json['noShowReportedAt'].toString())
@@ -256,6 +266,7 @@ class ClassResponseDto {
       'personalEmail': personalEmail,
       'proposalModality': proposalModality,
       'proposalPrice': proposalPrice,
+      'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),

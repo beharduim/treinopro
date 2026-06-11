@@ -762,61 +762,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
 
     final current = classesCopy[idx];
     final merged = event.classData;
-    final mergedProposalPrice =
-        (merged.proposalPrice != null && merged.proposalPrice! > 0)
-        ? merged.proposalPrice
-        : ((current.proposalPrice != null && current.proposalPrice! > 0)
-              ? current.proposalPrice
-              : null);
-    _classes[idx] = ClassResponseDto(
-      id: merged.id,
-      proposalId: merged.proposalId,
-      studentId: merged.studentId,
-      personalId: merged.personalId,
-      location: merged.location.isNotEmpty ? merged.location : current.location,
-      date: merged.date,
-      time: merged.time.isNotEmpty ? merged.time : current.time,
-      duration: merged.duration,
-      status: merged.status,
-      disputeStatus: merged.disputeStatus ?? current.disputeStatus,
-      startTime: merged.startTime ?? current.startTime,
-      endTime: merged.endTime ?? current.endTime,
-      studentFirstName: merged.studentFirstName ?? current.studentFirstName,
-      studentLastName: merged.studentLastName ?? current.studentLastName,
-      studentEmail: merged.studentEmail ?? current.studentEmail,
-      personalFirstName:
-          (merged.personalFirstName ?? current.personalFirstName),
-      personalLastName: (merged.personalLastName ?? current.personalLastName),
-      personalEmail: merged.personalEmail ?? current.personalEmail,
-      personalProfileImageUrl:
-          merged.personalProfileImageUrl ?? current.personalProfileImageUrl,
-      studentProfileImageUrl:
-          merged.studentProfileImageUrl ?? current.studentProfileImageUrl,
-      personalRating: merged.personalRating ?? current.personalRating,
-      personalTimeOnPlatform:
-          merged.personalTimeOnPlatform ?? current.personalTimeOnPlatform,
-      studentRating: merged.studentRating ?? current.studentRating,
-      proposalModality: merged.proposalModality ?? current.proposalModality,
-      proposalPrice: mergedProposalPrice,
-      paymentStatus: merged.paymentStatus ?? current.paymentStatus,
-      noShowReportedBy: merged.noShowReportedBy ?? current.noShowReportedBy,
-      noShowReportedAt: merged.noShowReportedAt ?? current.noShowReportedAt,
-      evidenceDeadline: merged.evidenceDeadline ?? current.evidenceDeadline,
-      custodyExpiresAt: merged.custodyExpiresAt ?? current.custodyExpiresAt,
-      studentDefenseText:
-          merged.studentDefenseText ?? current.studentDefenseText,
-      personalDefenseText:
-          merged.personalDefenseText ?? current.personalDefenseText,
-      studentDefenseSubmittedAt:
-          merged.studentDefenseSubmittedAt ?? current.studentDefenseSubmittedAt,
-      personalDefenseSubmittedAt:
-          merged.personalDefenseSubmittedAt ??
-          current.personalDefenseSubmittedAt,
-      studentEvidence: merged.studentEvidence ?? current.studentEvidence,
-      personalEvidence: merged.personalEvidence ?? current.personalEvidence,
-      createdAt: merged.createdAt,
-      updatedAt: merged.updatedAt,
-    );
+    _classes[idx] = _mergeClassDto(current, merged);
 
     if (event.action == 'class_confirmed' &&
         merged.status == ClassStatus.ACTIVE) {
@@ -916,10 +862,12 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       }
 
       final idx = _classes.indexWhere((c) => c.id == event.classId);
+      ClassResponseDto mergedStart = startResponse;
       if (idx != -1) {
-        _classes[idx] = startResponse;
+        mergedStart = _mergeClassDto(_classes[idx], startResponse);
+        _classes[idx] = mergedStart;
       } else {
-        _classes.insert(0, startResponse);
+        _classes.insert(0, mergedStart);
       }
 
       await _ensureTimelineFresh(event.classId);
@@ -929,7 +877,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           classes: List<ClassResponseDto>.from(_classes),
           timelines: Map<String, ClassTimelineDto>.from(_timelines),
           timers: Map<String, ClassTimerState>.from(_timers),
-          startedClass: startResponse,
+          startedClass: mergedStart,
           selectedDate: _selectedDate,
           selectedTime: _selectedTime,
           selectedStatus: _selectedStatus,
@@ -1856,6 +1804,69 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
     emit(const ClassesInitial());
 
     print('✅ [CLASSES_BLOC] Estado resetado com sucesso');
+  }
+
+  ClassResponseDto _mergeClassDto(
+    ClassResponseDto current,
+    ClassResponseDto merged,
+  ) {
+    final mergedProposalPrice =
+        (merged.proposalPrice != null && merged.proposalPrice! > 0)
+        ? merged.proposalPrice
+        : ((current.proposalPrice != null && current.proposalPrice! > 0)
+              ? current.proposalPrice
+              : null);
+
+    return ClassResponseDto(
+      id: merged.id,
+      proposalId: merged.proposalId,
+      studentId: merged.studentId,
+      personalId: merged.personalId,
+      location: merged.location.isNotEmpty ? merged.location : current.location,
+      date: merged.date,
+      time: merged.time.isNotEmpty ? merged.time : current.time,
+      duration: merged.duration,
+      status: merged.status,
+      disputeStatus: merged.disputeStatus ?? current.disputeStatus,
+      startTime: merged.startTime ?? current.startTime,
+      endTime: merged.endTime ?? current.endTime,
+      studentFirstName: merged.studentFirstName ?? current.studentFirstName,
+      studentLastName: merged.studentLastName ?? current.studentLastName,
+      studentEmail: merged.studentEmail ?? current.studentEmail,
+      personalFirstName:
+          merged.personalFirstName ?? current.personalFirstName,
+      personalLastName: merged.personalLastName ?? current.personalLastName,
+      personalEmail: merged.personalEmail ?? current.personalEmail,
+      personalProfileImageUrl:
+          merged.personalProfileImageUrl ?? current.personalProfileImageUrl,
+      studentProfileImageUrl:
+          merged.studentProfileImageUrl ?? current.studentProfileImageUrl,
+      personalRating: merged.personalRating ?? current.personalRating,
+      personalTimeOnPlatform:
+          merged.personalTimeOnPlatform ?? current.personalTimeOnPlatform,
+      studentRating: merged.studentRating ?? current.studentRating,
+      proposalModality: merged.proposalModality ?? current.proposalModality,
+      proposalPrice: mergedProposalPrice,
+      paymentMethod: merged.paymentMethod ?? current.paymentMethod,
+      paymentStatus: merged.paymentStatus ?? current.paymentStatus,
+      noShowReportedBy: merged.noShowReportedBy ?? current.noShowReportedBy,
+      noShowReportedAt: merged.noShowReportedAt ?? current.noShowReportedAt,
+      evidenceDeadline: merged.evidenceDeadline ?? current.evidenceDeadline,
+      custodyExpiresAt: merged.custodyExpiresAt ?? current.custodyExpiresAt,
+      studentDefenseText:
+          merged.studentDefenseText ?? current.studentDefenseText,
+      personalDefenseText:
+          merged.personalDefenseText ?? current.personalDefenseText,
+      studentDefenseSubmittedAt:
+          merged.studentDefenseSubmittedAt ?? current.studentDefenseSubmittedAt,
+      personalDefenseSubmittedAt:
+          merged.personalDefenseSubmittedAt ??
+          current.personalDefenseSubmittedAt,
+      studentEvidence: merged.studentEvidence ?? current.studentEvidence,
+      personalEvidence: merged.personalEvidence ?? current.personalEvidence,
+      createdAt: merged.createdAt,
+      updatedAt: merged.updatedAt,
+    );
   }
 
   @override

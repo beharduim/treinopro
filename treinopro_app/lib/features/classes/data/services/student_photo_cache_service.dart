@@ -55,15 +55,15 @@ class StudentPhotoCacheService {
       }
 
       print('🔍 [PHOTO_CACHE] Foto encontrada para $studentId: $photoUrl');
-      
-      // Armazena no cache (mesmo se for null)
-      _photoCache[studentId] = photoUrl;
-      
+
+      // Só cacheia URLs válidas — falhas temporárias podem ser re-tentadas
+      if (photoUrl != null && photoUrl.isNotEmpty) {
+        _photoCache[studentId] = photoUrl;
+      }
+
       return photoUrl;
     } catch (e) {
       print('❌ [PHOTO_CACHE] Erro ao buscar foto do aluno $studentId: $e');
-      // Armazena null no cache para evitar tentativas repetidas
-      _photoCache[studentId] = null;
       return null;
     } finally {
       _loadingStudents.remove(studentId);

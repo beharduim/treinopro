@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../auth/domain/usecases/upload_usecase.dart';
 import '../../data/models/report_no_show_dto.dart';
 import '../widgets/class_timer_widget.dart';
+import '../widgets/personal_lesson_card_widgets.dart';
 import '../../data/models/class_response_dto.dart';
 import '../../data/models/class_timeline_dto.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
@@ -416,7 +417,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
         builder: (context) => ChatPage(
           classId: classData.id,
           receiverId: classData.studentId,
-          receiverName: _formatName(classData.studentName),
+          receiverName: _formatName(classData.studentName, studentId: classData.studentId),
           location: classData.location,
           date: _formatDate(classData.date),
           time: classData.time,
@@ -503,9 +504,16 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
           child: PersonalClassTrackingPage(
             aula: {
               'id': classData.id,
-              'studentName': _formatName(classData.studentName),
+              'studentName': _formatName(
+                classData.studentName,
+                studentId: classData.studentId,
+              ),
+              'studentId': classData.studentId,
               'personalName': classData.personalName,
               'location': classData.location,
+              if (classData.studentProfileImageUrl != null &&
+                  classData.studentProfileImageUrl!.isNotEmpty)
+                'studentPhotoUrl': classData.studentProfileImageUrl,
               'date': _formatDate(classData.date),
               'time': classData.time,
               'duration': '${classData.duration}min',
@@ -539,7 +547,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
       context: context,
       builder: (context) => StudentHealthModal(
         studentId: classData.studentId,
-        studentName: _formatName(classData.studentName),
+        studentName: _formatName(classData.studentName, studentId: classData.studentId),
         studentProfileImage: '', // TODO: Adicionar campo no backend
         studentScore: (classData.studentRating ?? 0.0).round(),
       ),
@@ -641,102 +649,20 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
 
   String _formatClassPrice(double? price) {
     final classPrice = price ?? 0.0;
-    return 'R\$ ${classPrice.toStringAsFixed(0)}';
+    return 'R\$ ${classPrice.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 
-  Widget _buildModalityAndPrice(
+  bool _hasClassMeta(ClassResponseDto classData) =>
+      PersonalLessonCardWidgets.hasMeta(classData);
+
+  Widget _buildClassMetaRow(
     ClassResponseDto classData, {
     required Color accentColor,
-    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.start,
-  }) {
-    final modality = classData.proposalModality?.trim();
-    final price = classData.proposalPrice;
-    final hasModality = modality != null && modality.isNotEmpty;
-    final hasPrice = price != null && price > 0;
+  }) =>
+      PersonalLessonCardWidgets.metaRow(classData, accentColor: accentColor);
 
-    if (!hasModality && !hasPrice) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        if (hasModality)
-          Container(
-            constraints: const BoxConstraints(maxWidth: double.infinity),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              modality!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Fira Sans',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: accentColor,
-              ),
-            ),
-          ),
-        if (hasPrice) ...[
-          if (hasModality) const SizedBox(height: 6),
-          Align(
-            alignment: crossAxisAlignment == CrossAxisAlignment.end
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: double.infinity),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: accentColor.withValues(alpha: 0.22)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.payments_outlined, size: 14, color: accentColor),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      'Valor ${_formatClassPrice(price)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Fira Sans',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: accentColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  String _formatName(String name) {
-    // Usuário sem nome = conta excluída (hard delete). Mantém um rótulo claro
-    // em vez de um card "quebrado".
-    if (name.trim().isEmpty) return 'Usuário removido';
-
-    return name
-        .split(' ')
-        .map(
-          (word) => word.isNotEmpty
-              ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-              : '',
-        )
-        .join(' ');
-  }
+  String _formatName(String name, {String? studentId}) =>
+      PersonalLessonCardWidgets.formatStudentName(name, studentId: studentId);
 
   /// Cria avatar com iniciais do nome do aluno ou foto se disponível
   Widget _buildStudentInitialsAvatar(String studentName, {String? photoUrl}) {
@@ -1256,7 +1182,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatName(classData.studentName),
+                      _formatName(classData.studentName, studentId: classData.studentId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1289,14 +1215,11 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         ),
                       ],
                     ),
-                    if ((classData.proposalModality ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _buildModalityAndPrice(
+                    if (_hasClassMeta(classData))
+                      _buildClassMetaRow(
                         classData,
                         accentColor: AppColors.primaryOrange,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -1417,7 +1340,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatName(classData.studentName),
+                      _formatName(classData.studentName, studentId: classData.studentId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1450,14 +1373,11 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         ),
                       ],
                     ),
-                    if ((classData.proposalModality ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _buildModalityAndPrice(
+                    if (_hasClassMeta(classData))
+                      _buildClassMetaRow(
                         classData,
                         accentColor: Colors.blue.shade700,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -1649,7 +1569,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatName(classData.studentName),
+                      _formatName(classData.studentName, studentId: classData.studentId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1682,14 +1602,11 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         ),
                       ],
                     ),
-                    if ((classData.proposalModality ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _buildModalityAndPrice(
+                    if (_hasClassMeta(classData))
+                      _buildClassMetaRow(
                         classData,
                         accentColor: Colors.orange.shade700,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -1825,7 +1742,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatName(classData.studentName),
+                      _formatName(classData.studentName, studentId: classData.studentId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1858,14 +1775,11 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                         ),
                       ],
                     ),
-                    if ((classData.proposalModality ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _buildModalityAndPrice(
+                    if (_hasClassMeta(classData))
+                      _buildClassMetaRow(
                         classData,
                         accentColor: Colors.green.shade700,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -2007,7 +1921,7 @@ class _ClassesPageViewState extends State<_ClassesPageView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatName(classData.studentName),
+                      _formatName(classData.studentName, studentId: classData.studentId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

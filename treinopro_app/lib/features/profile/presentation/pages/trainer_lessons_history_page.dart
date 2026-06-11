@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../classes/presentation/bloc/classes_history_bloc.dart';
 import '../../../classes/data/services/classes_api_service.dart';
 import '../../../classes/data/models/class_response_dto.dart';
+import '../../../classes/presentation/widgets/personal_lesson_card_widgets.dart';
 import '../../../../core/di/dependency_injection.dart' show sl;
 
 const _kIconColor = AppColors.primaryOrange;
@@ -751,89 +752,39 @@ class _TrainerLessonsHistoryPageState extends State<TrainerLessonsHistoryPage> {
   Widget _buildLessonCardFromClass(ClassResponseDto classData) {
     final statusColor = _getStatusColorFromClass(classData.status);
     final statusText = _getStatusTextFromClass(classData.status);
-    final studentName = '${classData.studentFirstName ?? ''} ${classData.studentLastName ?? ''}'.trim();
-    final location = classData.location;
-    final price = classData.proposalPrice ?? 0.0;
-    
-    // Log para verificar valores da API
-    print('🔍 [TRAINER_HISTORY] Aula ${classData.id}:');
-    print('  - Preço da proposta: ${classData.proposalPrice}');
-    print('  - Preço final: $price');
-    print('  - Personal Rating: ${classData.personalRating}');
-    print('  - Student Rating: ${classData.studentRating}');
-    print('  - Modalidade: ${classData.proposalModality}');
-    
-    final rating = classData.studentRating?.round() ?? 5; // Usar avaliação real do aluno
+    final statusIcon = _getStatusIconFromClass(classData.status);
+    final studentName = PersonalLessonCardWidgets.formatStudentName(
+      classData.studentName,
+      studentId: classData.studentId,
+    );
+    final cardBg = _getCardBackgroundFromClass(classData.status);
 
     return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F9F9),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: statusColor,
-          width: 1.5,
-        ),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: 0.35), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Status e Modalidade chips
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Status chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        fontFamily: 'Fira Sans',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
-                  // Modalidade chip
-                  if (classData.proposalModality != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _kIconColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        classData.proposalModality!,
-                        style: const TextStyle(
-                          fontFamily: 'Fira Sans',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _kIconColor,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-          
-          // Informações do aluno
+        children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 47,
                 height: 47,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _kIconColor,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: statusColor, width: 2),
+                  color: Colors.white,
                 ),
                 child: _buildStudentAvatar(
                   studentName,
@@ -846,91 +797,98 @@ class _TrainerLessonsHistoryPageState extends State<TrainerLessonsHistoryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      studentName,
+                      studentName.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Fira Sans',
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF2D3748),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Avaliação: mostra estrelas laranja conforme rating
                     Row(
-                      children: List.generate(5, (s) {
-                        final filled = s < rating;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6.0),
-                          child: Icon(
-                            Icons.star,
-                            size: 20,
-                            color: filled
-                                ? _kIconColor
-                                : const Color(0xFFBDBDBD),
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: 18,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            classData.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Fira Sans',
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
-                        );
-                      }),
+                        ),
+                      ],
                     ),
+                    if (PersonalLessonCardWidgets.hasMeta(classData))
+                      PersonalLessonCardWidgets.metaRow(
+                        classData,
+                        accentColor: statusColor,
+                      ),
                   ],
                 ),
               ),
-              // Valor da aula
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'Valor',
-                    style: TextStyle(
-                      fontFamily: 'Fira Sans',
-                      fontSize: 12,
-                      color: Color(0xFF42464D),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'R\$ ${price.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontFamily: 'Fira Sans',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF2D3748),
-                    ),
-                  ),
-                ],
+              PersonalLessonCardWidgets.statusBadge(
+                text: statusText,
+                color: statusColor,
+                icon: statusIcon,
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Divider(
-            color: Color(0xFFA6A6A6),
-            height: 1,
-            thickness: 0.6,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildInfoColumn(
-                Icons.calendar_today,
-                'Data',
-                _formatDate(classData.date),
-              ),
-              _buildInfoColumn(
-                Icons.access_time,
-                'Horário',
-                classData.time,
-              ),
-              _buildInfoColumn(
-                Icons.place,
-                'Local',
-                location,
-                flex: 2,
-              ),
-            ],
+          const SizedBox(height: 16),
+          Container(height: 1, color: const Color(0xFFA6A6A6)),
+          const SizedBox(height: 16),
+          PersonalLessonCardWidgets.lessonInfoRow(
+            dateIcon: Icons.calendar_today,
+            dateLabel: 'Data',
+            dateValue: _formatShortDate(classData.date),
+            timeValue: classData.time,
+            durationValue: '${classData.duration}min',
           ),
         ],
       ),
     );
+  }
+
+  Color _getCardBackgroundFromClass(ClassStatus status) {
+    switch (status) {
+      case ClassStatus.COMPLETED:
+        return Colors.green.shade50;
+      case ClassStatus.CANCELLED:
+        return Colors.red.shade50;
+      case ClassStatus.NO_SHOW_DISPUTE:
+        return Colors.red.shade50;
+      default:
+        return Colors.white;
+    }
+  }
+
+  IconData _getStatusIconFromClass(ClassStatus status) {
+    switch (status) {
+      case ClassStatus.COMPLETED:
+        return Icons.check_circle_outline;
+      case ClassStatus.CANCELLED:
+        return Icons.cancel_outlined;
+      case ClassStatus.NO_SHOW_DISPUTE:
+      case ClassStatus.CUSTODY:
+        return Icons.gavel_outlined;
+      default:
+        return Icons.schedule;
+    }
+  }
+
+  String _formatShortDate(DateTime d) {
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
   }
 
 

@@ -201,10 +201,34 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
     }
   }
 
+  String _resolveStudentName(
+    ClassResponseDto? currentClass,
+    Map<String, dynamic> aula,
+  ) {
+    if (currentClass != null && currentClass.studentName.trim().isNotEmpty) {
+      return currentClass.studentName;
+    }
+    final fromAula = aula['studentName']?.toString().trim() ?? '';
+    if (fromAula.isNotEmpty && fromAula != 'Usuário removido') {
+      return fromAula;
+    }
+    return 'Aluno';
+  }
+
+  String? _resolveStudentPhoto(
+    ClassResponseDto? currentClass,
+    Map<String, dynamic> aula,
+  ) {
+    final fromClass = currentClass?.studentProfileImageUrl;
+    if (fromClass != null && fromClass.isNotEmpty) return fromClass;
+    final fromAula = aula['studentPhotoUrl']?.toString();
+    if (fromAula != null && fromAula.isNotEmpty) return fromAula;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final aula = widget.aula;
-    final studentName = aula['studentName'] ?? 'Aluno';
     final location = aula['location'] ?? 'Local não informado';
     final classId =
         aula['id']?.toString() ??
@@ -223,24 +247,24 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           timeline = state.timelines[classId];
           try {
             currentClass = state.classes.firstWhere((c) => c.id == classId);
-            studentPhotoUrl = currentClass.studentProfileImageUrl;
             if (currentClass.proposalPrice != null &&
                 currentClass.proposalPrice! > 0) {
               _lastKnownProposalPrice = currentClass.proposalPrice;
             }
           } catch (_) {
             currentClass = null;
-            studentPhotoUrl = null;
           }
         } else if (state is ClassesStartSuccess &&
             state.startedClass.id == classId) {
           currentClass = state.startedClass;
-          studentPhotoUrl = currentClass.studentProfileImageUrl;
           if (currentClass.proposalPrice != null &&
               currentClass.proposalPrice! > 0) {
             _lastKnownProposalPrice = currentClass.proposalPrice;
           }
         }
+
+        final studentName = _resolveStudentName(currentClass, aula);
+        studentPhotoUrl = _resolveStudentPhoto(currentClass, aula);
 
         final ClassTimerState effectiveTimerState = (() {
           if (timerState != null) return timerState;
