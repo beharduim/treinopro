@@ -375,8 +375,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
       emit(
         HomeLoaded(
           currentState.homeState.copyWith(
-            isSearchingActive: false, // IMPORTANTE: Parar busca ativa
+            isSearchingActive: false,
             pendingProposals: updatedProposals,
+            workoutCardData: _workoutCardDataAfterProposalCancel(
+              currentState.homeState.workoutCardData,
+              event.proposalId,
+            ),
           ),
         ),
       );
@@ -403,9 +407,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
       emit(
         HomeLoaded(
           currentState.homeState.copyWith(
-            isSearchingActive:
-                false, // IMPORTANTE: Parar busca ativa mesmo em caso de erro
+            isSearchingActive: false,
             pendingProposals: updatedProposals,
+            workoutCardData: _workoutCardDataAfterProposalCancel(
+              currentState.homeState.workoutCardData,
+              event.proposalId,
+            ),
           ),
         ),
       );
@@ -659,14 +666,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
       // ✅ CORREÇÃO: Se não há propostas pendentes reais, isSearchingActive deve ser false.
       // Além disso, se a proposta que iniciou a busca sumiu da lista de pendentes, a busca acabou.
       final bool hasPendingProposals = pendingProposals.isNotEmpty;
-      
+      final bool hasBroadcastPending = pendingProposals.any(
+        (prop) => !_isDirectRecontractProposal(prop),
+      );
+
       final updatedState = currentState.homeState.copyWith(
         scheduledClasses: scheduledClasses,
         pendingProposals: pendingProposals,
-        // Se a lista de pendentes esvaziou, a busca COM CERTEZA acabou.
-        // Se ainda há pendentes, mantemos o estado anterior (que pode ter sido setado para false pelo ProposalMatched)
-        isSearchingActive: hasPendingProposals 
-            ? currentState.homeState.isSearchingActive 
+        // Recontratação direta não usa fluxo de busca/match aberto.
+        isSearchingActive: hasPendingProposals && hasBroadcastPending
+            ? currentState.homeState.isSearchingActive
             : false,
       );
 
@@ -901,6 +910,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
   ) {
     final now = DateTime.now();
     final recentlyPaid = pendingProposals.where((prop) {
+      if (_isDirectRecontractProposal(prop)) return false;
+
       final propStatus = (prop['status'] as String?)?.toLowerCase() ?? '';
       if (propStatus != 'pending') return false;
       if (!isProposalMapPaymentConfirmed(prop)) return false;
@@ -949,6 +960,33 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
         trainingTime: trainingTime,
       ),
     );
+  }
+
+  bool _isDirectRecontractProposal(Map<String, dynamic> prop) {
+    final targetPersonalId = prop['targetPersonalId']?.toString().trim() ?? '';
+    if (targetPersonalId.isNotEmpty) return true;
+    return prop['isRecontract'] == true;
+  }
+
+  Map<String, dynamic>? _workoutCardDataAfterProposalCancel(
+    Map<String, dynamic>? currentData,
+    String? cancelledProposalId,
+  ) {
+    if (currentData == null) return null;
+    if (cancelledProposalId == null) return null;
+
+    final currentProposalId = currentData['id']?.toString();
+    if (currentProposalId == cancelledProposalId) {
+      return null;
+    }
+
+    // Remove dados de match antigos (personalName) se não forem da proposta cancelada.
+    if (currentData.containsKey('personalName') &&
+        currentProposalId != cancelledProposalId) {
+      return null;
+    }
+
+    return currentData;
   }
 
   /// Encontra a próxima proposta pendente

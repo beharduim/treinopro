@@ -802,11 +802,61 @@ class ProposalSearchBloc
           totalTime: currentState.elapsedTime,
         ),
       );
+    } else if (state is ProposalSearchMatched) {
+      final currentState = state as ProposalSearchMatched;
+      await _cancelProposalFromState(
+        currentState,
+        emit,
+        proposalId: currentState.proposalId,
+        location: currentState.location,
+        totalTime: currentState.totalTime,
+      );
+    } else if (state is ProposalSearchConfirmingSessionCancel) {
+      final currentState = state as ProposalSearchConfirmingSessionCancel;
+      await _cancelProposalFromState(
+        currentState,
+        emit,
+        proposalId: currentState.proposalId,
+        location: currentState.location,
+        totalTime: const Duration(minutes: 1),
+      );
     } else {
       print(
         '⚠️ [PROPOSAL_SEARCH] Estado não esperado para cancelamento: ${state.runtimeType}',
       );
     }
+  }
+
+  Future<void> _cancelProposalFromState(
+    ProposalSearchState currentState,
+    Emitter<ProposalSearchState> emit, {
+    String? proposalId,
+    required String location,
+    required Duration totalTime,
+  }) async {
+    _timer?.cancel();
+    _matchTimer?.cancel();
+
+    try {
+      sl<home_bloc.HomeBloc>().add(
+        home_events.ProposalCancelled(proposalId: proposalId),
+      );
+    } catch (_) {}
+
+    if (proposalId != null) {
+      try {
+        await _proposalsApiService.cancelProposal(proposalId);
+      } catch (e) {
+        print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
+      }
+    }
+
+    emit(
+      ProposalSearchCancelled(
+        location: location,
+        totalTime: totalTime,
+      ),
+    );
   }
 
   void _onShowCancelConfirmation(
@@ -819,6 +869,17 @@ class ProposalSearchBloc
         ProposalSearchConfirmingCancel(
           location: currentState.location,
           elapsedTime: currentState.elapsedTime,
+          trainingDate: currentState.trainingDate,
+          trainingTime: currentState.trainingTime,
+          proposalId: currentState.proposalId,
+        ),
+      );
+    } else if (state is ProposalSearchMatched) {
+      final currentState = state as ProposalSearchMatched;
+      emit(
+        ProposalSearchConfirmingCancel(
+          location: currentState.location,
+          elapsedTime: currentState.totalTime,
           trainingDate: currentState.trainingDate,
           trainingTime: currentState.trainingTime,
           proposalId: currentState.proposalId,
@@ -852,23 +913,6 @@ class ProposalSearchBloc
         final elapsedTime = DateTime.now().difference(startTime);
         add(UpdateSearchTime(elapsedTime: elapsedTime));
       });
-
-      // Calcular tempo restante para o match (se ainda não passou dos 12 segundos)
-      final totalElapsed = currentState.elapsedTime.inSeconds;
-      if (totalElapsed < 12) {
-        final remainingTime = 12 - totalElapsed;
-        _matchTimer?.cancel();
-        _matchTimer = Timer(Duration(seconds: remainingTime), () {
-          add(
-            const MatchFound(
-              personalName: 'João Silva',
-              personalPhoto: 'assets/images/trainer_profile.png',
-              personalRating: 4.8,
-              personalResponseTime: '2 min',
-            ),
-          );
-        });
-      }
     }
   }
 

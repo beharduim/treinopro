@@ -589,6 +589,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
         proposalData['trainingTime'] ??
         homeState.workoutCardTime ??
         'Horário não informado';
+    final isRecontract = _isDirectRecontractProposal(proposalData);
 
     return Container(
       width: double.infinity,
@@ -614,10 +615,16 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.hourglass_empty, size: 24, color: Colors.amber[700]),
+              Icon(
+                isRecontract ? Icons.person_pin : Icons.hourglass_empty,
+                size: 24,
+                color: Colors.amber[700],
+              ),
               const SizedBox(width: 8),
               Text(
-                'Aguardando Match',
+                isRecontract
+                    ? 'Aguardando resposta do personal'
+                    : 'Aguardando Match',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 18,
@@ -760,7 +767,9 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Personais podem aceitar a qualquer momento',
+                  isRecontract
+                      ? 'O personal receberá sua proposta de recontratação'
+                      : 'Personais podem aceitar a qualquer momento',
                   style: TextStyle(
                     fontFamily: 'Fira Sans',
                     fontSize: 13,
@@ -879,22 +888,32 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
     return '$dayText às $timeText';
   }
 
-  /// Mostrar modal de busca
   void _showSearchModal(BuildContext context, HomeState homeState) {
+    final searchBloc = context.read<proposal_search.ProposalSearchBloc>();
+    final proposalId = homeState.workoutCardData?['id']?.toString();
+
+    // Evita reutilizar tela de match de proposta/aula anterior.
+    if (searchBloc.state is proposal_search.ProposalSearchMatched ||
+        searchBloc.state is proposal_search.ProposalSearchConfirmingSessionCancel) {
+      searchBloc.add(const proposal_search.ResetProposalSearch());
+    }
+
     showProposalStatusModal(
       context,
       location: homeState.workoutCardLocation ?? 'Localização',
-      onClose: () {
-        // Modal fechado, busca continua
-      },
-      proposalSearchBloc: context.read<proposal_search.ProposalSearchBloc>(),
-      proposalId: homeState.workoutCardData != null
-          ? (homeState.workoutCardData?['id']?.toString() ?? '')
-          : null,
+      onClose: () {},
+      proposalSearchBloc: searchBloc,
+      proposalId: proposalId,
     );
   }
 
-  /// Cancela uma proposta pendente
+  bool _isDirectRecontractProposal(Map<String, dynamic> proposalData) {
+    final targetPersonalId =
+        proposalData['targetPersonalId']?.toString().trim() ?? '';
+    if (targetPersonalId.isNotEmpty) return true;
+    return proposalData['isRecontract'] == true;
+  }
+
   void _cancelProposal(BuildContext context, HomeState homeState) {
     final proposalData = homeState.workoutCardData;
     if (proposalData == null) return;
@@ -902,9 +921,10 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
     final proposalId = proposalData['id'] as String?;
     if (proposalId == null) return;
 
-    // Capturar o HomeBloc ANTES de abrir o dialog
+    // Capturar blocs ANTES de abrir o dialog
     final homeBloc = context.read<HomeBloc>();
-    print('🗑️ [CANCEL_PROPOSAL_SETUP] HomeBloc capturado: ${homeBloc.hashCode}');
+    final searchBloc = context.read<proposal_search.ProposalSearchBloc>();
+    searchBloc.add(const proposal_search.ResetProposalSearch());
 
     // Mostrar diálogo de confirmação (mesmo estilo do cancelamento de aula)
     showDialog(
@@ -944,7 +964,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
                     border: Border.all(color: Colors.grey[300]!, width: 1),
                   ),
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1045,6 +1065,11 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
 
       // Disparar evento de cancelamento imediatamente
       print('🗑️ [CANCEL_PROPOSAL] Disparando evento ProposalCancelled...');
+      try {
+        context.read<proposal_search.ProposalSearchBloc>().add(
+          const proposal_search.ResetProposalSearch(),
+        );
+      } catch (_) {}
       homeBloc.add(ProposalCancelled(proposalId: proposalId));
       print('🗑️ [CANCEL_PROPOSAL] Evento ProposalCancelled disparado com sucesso');
 
@@ -1140,7 +1165,7 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
                     border: Border.all(color: Colors.grey[300]!, width: 1),
                   ),
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,

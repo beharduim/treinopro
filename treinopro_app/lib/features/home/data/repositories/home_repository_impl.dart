@@ -566,6 +566,8 @@ class HomeRepositoryImpl implements HomeRepository {
       'additionalNotes': proposalDto.additionalNotes,
       'status': proposalDto.status.name,
       'paymentStatus': proposalDto.paymentStatus,
+      'isRecontract': proposalDto.isRecontract ?? false,
+      'targetPersonalId': proposalDto.targetPersonalId,
       'createdAt': proposalDto.createdAt.toIso8601String(),
       'updatedAt': proposalDto.updatedAt.toIso8601String(),
       'payment': proposalDto.payment != null ? {

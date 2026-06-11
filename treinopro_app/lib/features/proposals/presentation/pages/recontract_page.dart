@@ -18,6 +18,9 @@ import '../bloc/proposals_state.dart';
 import '../../../payment_methods/presentation/pages/payment_methods_page.dart';
 import '../../../payment_methods/presentation/bloc/payment_methods_bloc.dart';
 import '../../../payment_methods/domain/entities/payment_method.dart';
+import '../../../home/presentation/bloc/home_bloc.dart';
+import '../../../home/presentation/bloc/home_event.dart';
+import '../../presentation/bloc/proposal_search_bloc.dart';
 
 /// Tela de recontratação para o cliente
 class RecontractPage extends StatefulWidget {
@@ -1004,7 +1007,7 @@ class _RecontractPageState extends State<RecontractPage> {
           ),
         );
 
-        appNavigator.pushNamedAndRemoveUntil('/student-home', (route) => false);
+        _finishRecontractAndGoHome(appNavigator);
         return;
       }
 
@@ -1015,10 +1018,7 @@ class _RecontractPageState extends State<RecontractPage> {
           context,
           response.payment!,
           onAcknowledged: () {
-            appNavigator.pushNamedAndRemoveUntil(
-              '/student-home',
-              (route) => false,
-            );
+            _finishRecontractAndGoHome(appNavigator);
           },
         );
         return;
@@ -1047,5 +1047,16 @@ class _RecontractPageState extends State<RecontractPage> {
         ),
       );
     }
+  }
+
+  void _finishRecontractAndGoHome(NavigatorState appNavigator) {
+    try {
+      sl<ProposalSearchBloc>().add(const ResetProposalSearch());
+      sl<HomeBloc>()
+        ..add(const LoadWorkoutCardData())
+        ..add(const UpdateWorkoutCard());
+    } catch (_) {}
+
+    appNavigator.pushNamedAndRemoveUntil('/student-home', (route) => false);
   }
 }
