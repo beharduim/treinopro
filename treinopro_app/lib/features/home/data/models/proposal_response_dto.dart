@@ -23,6 +23,8 @@ class ProposalResponseDto extends Equatable {
   final String? additionalNotes;
   final ProposalStatus status;
   final String? paymentStatus;
+  final bool? isRecontract;
+  final String? targetPersonalId;
   final DateTime createdAt;
   final DateTime updatedAt;
   final PaymentInfo? payment;
@@ -41,6 +43,8 @@ class ProposalResponseDto extends Equatable {
     this.additionalNotes,
     required this.status,
     this.paymentStatus,
+    this.isRecontract,
+    this.targetPersonalId,
     required this.createdAt,
     required this.updatedAt,
     this.payment,
@@ -61,6 +65,8 @@ class ProposalResponseDto extends Equatable {
       additionalNotes: json['additionalNotes'] as String?,
       status: _parseProposalStatus(json['status'] as String),
       paymentStatus: json['paymentStatus'] as String?,
+      isRecontract: json['isRecontract'] as bool?,
+      targetPersonalId: json['targetPersonalId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       payment: json['payment'] != null ? PaymentInfo.fromJson(json['payment'] as Map<String, dynamic>) : null,
@@ -82,6 +88,8 @@ class ProposalResponseDto extends Equatable {
       'additionalNotes': additionalNotes,
       'status': status.name,
       'paymentStatus': paymentStatus,
+      'isRecontract': isRecontract,
+      'targetPersonalId': targetPersonalId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'payment': payment?.toJson(),
@@ -118,6 +126,8 @@ class ProposalResponseDto extends Equatable {
         additionalNotes,
         status,
         paymentStatus,
+        isRecontract,
+        targetPersonalId,
         createdAt,
         updatedAt,
         payment,
