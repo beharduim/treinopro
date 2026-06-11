@@ -5,6 +5,7 @@ import '../../../payouts/data/services/payout_methods_api_service.dart';
 import '../../../payouts/data/models/financial_profile_model.dart';
 import '../../../home/data/services/personal_financial_api_service.dart';
 import '../../../home/data/models/payment_models.dart';
+import '../../../home/data/models/wallet_dashboard_model.dart';
 
 class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
   final PayoutMethodsApiService _payoutApi;
@@ -55,12 +56,17 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
         ? current.profile.wallet?.pix
         : current.profile.wallet?.card;
 
-    if (bucket?.hasOpenWithdrawal == true) {
-      final awaitingBank = bucket?.awaitingBankDeposit == true;
+    if (bucket == null || bucket.availableBalance <= 0) {
       emit(BalanceError(
-        awaitingBank
-            ? 'Você já possui um saque ${bucket!.title} em análise. Aguarde o depósito no banco antes de solicitar outro.'
-            : 'Você já possui um saque ${bucket!.title} aguardando aprovação. Aguarde a liberação da equipe TreinoPro.',
+        'Você não possui saldo disponível nesta carteira para sacar.',
+      ));
+      emit(current);
+      return;
+    }
+
+    if (event.amount > bucket.availableBalance + 0.009) {
+      emit(BalanceError(
+        'Valor maior que o saldo disponível (${bucket.title}: R\$ ${bucket.availableBalance.toStringAsFixed(2).replaceAll('.', ',')}).',
       ));
       emit(current);
       return;
@@ -79,24 +85,15 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
       BalanceLoaded updatedState = current;
 
       if (walletJson is Map<String, dynamic>) {
-        final wallet = WalletBalanceModel.fromJson(walletJson);
-        updatedState = BalanceLoaded(
-          profile: FinancialProfileModel(
-            preferredMethod: current.profile.preferredMethod,
-            canReceivePayments: current.profile.canReceivePayments,
-            stripeAccount: current.profile.stripeAccount,
-            wallet: wallet,
-          ),
-          transactions: current.transactions,
-        );
+        updatedState = await _loadBalanceData();
       } else {
         updatedState = await _loadBalanceData();
       }
 
       emit(updatedState.copyWith(
         successMessage: isIdempotent
-            ? 'Você já possui um saque ${bucket!.title} de R\$ ${(bucket?.pendingWithdrawalAmount ?? event.amount).toStringAsFixed(2).replaceAll('.', ',')} aguardando aprovação.'
-            : 'Solicitação de saque ${bucket!.title} enviada! Aguarde a aprovação da equipe TreinoPro.',
+            ? 'Saque ${bucket.title} já registrado. Aguarde a aprovação.'
+            : 'Solicitação de saque ${bucket.title} de R\$ ${event.amount.toStringAsFixed(2).replaceAll('.', ',')} enviada!',
       ));
     } catch (e) {
       emit(BalanceError('Erro ao solicitar saque: $e'));
@@ -122,8 +119,15 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
       }
     }
 
-    final walletData = await _financialApi.getWalletBalance();
-    final wallet = WalletBalanceModel.fromJson(walletData);
+    final dashboardData = await _financialApi.getWalletDashboard();
+    final dashboard = WalletDashboardModel.fromJson(dashboardData);
+
+    final walletJson = dashboardData['wallet'];
+    final wallet = walletJson is Map<String, dynamic>
+        ? WalletBalanceModel.fromJson(walletJson)
+        : WalletBalanceModel.fromJson(
+            await _financialApi.getWalletBalance(),
+          );
 
     final enrichedProfile = FinancialProfileModel(
       preferredMethod: profile.preferredMethod,
@@ -141,6 +145,7 @@ class BalanceBloc extends Bloc<BalanceEvent, BalanceState> {
     return BalanceLoaded(
       profile: enrichedProfile,
       transactions: transactions,
+      dashboard: dashboard,
     );
   }
 }

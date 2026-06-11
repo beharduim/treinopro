@@ -55,6 +55,78 @@ class PersonalFinancialApiService {
     }
   }
 
+  /// Busca dashboard completo da carteira (mock Minha Carteira)
+  Future<Map<String, dynamic>> getWalletDashboard() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/payments/personal/wallet/dashboard'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Map<String, dynamic>.from(data['data'] as Map);
+      }
+      throw Exception(
+        'Erro ao buscar dashboard da carteira: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      throw Exception('Falha ao conectar com a API da carteira: $e');
+    }
+  }
+
+  /// Histórico completo de saques do personal
+  Future<List<Map<String, dynamic>>> getWithdrawalHistory({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/payments/personal/wallet/withdrawals')
+          .replace(queryParameters: {
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      });
+
+      final response = await _client.get(uri, headers: _headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
+      throw Exception(
+        'Erro ao buscar histórico de saques: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      throw Exception('Falha ao conectar com a API de saques: $e');
+    }
+  }
+
+  /// Histórico paginado de ganhos (aulas)
+  Future<Map<String, dynamic>> getWalletEarnings({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/payments/personal/wallet/earnings')
+          .replace(queryParameters: {
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      });
+
+      final response = await _client.get(uri, headers: _headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Map<String, dynamic>.from(data['data'] as Map);
+      }
+      throw Exception(
+        'Erro ao buscar histórico de ganhos: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      throw Exception('Falha ao conectar com a API de ganhos: $e');
+    }
+  }
+
   /// Busca saldo da carteira do personal trainer
   Future<Map<String, dynamic>> getWalletBalance() async {
     try {
