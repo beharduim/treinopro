@@ -64,58 +64,41 @@ class PersonalLessonCardWidgets {
     final paymentLabel = paymentMethodLabel(classData.paymentMethod);
     final price = classData.proposalPrice;
     final paymentColor = paymentMethodColor(classData.paymentMethod, accentColor);
-    final items = <Widget>[];
 
-    void addSeparator() {
-      if (items.isNotEmpty) {
-        items.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              '·',
-              style: TextStyle(
-                fontFamily: 'Fira Sans',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade400,
-              ),
-            ),
-          ),
-        );
-      }
+    final hasModality = modality != null && modality.isNotEmpty;
+    final hasPayment = paymentLabel.isNotEmpty;
+    final hasPrice = price != null && price > 0;
+
+    if (!hasModality && !hasPayment && !hasPrice) {
+      return const SizedBox.shrink();
     }
 
-    if (modality != null && modality.isNotEmpty) {
-      items.add(
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (hasModality) ...[
             Icon(Icons.fitness_center, size: 14, color: accentColor),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                modality,
+                modality!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: TextStyle(
                   fontFamily: 'Fira Sans',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: accentColor,
+                  height: 1.2,
                 ),
               ),
             ),
           ],
-        ),
-      );
-    }
-
-    if (paymentLabel.isNotEmpty) {
-      addSeparator();
-      items.add(
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          if (hasPayment) ...[
+            if (hasModality) _metaSeparator(),
             Icon(
               paymentLabel == 'PIX'
                   ? Icons.bolt_rounded
@@ -126,47 +109,51 @@ class PersonalLessonCardWidgets {
             const SizedBox(width: 4),
             Text(
               paymentLabel,
+              maxLines: 1,
+              softWrap: false,
               style: TextStyle(
                 fontFamily: 'Fira Sans',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: paymentColor,
+                height: 1.2,
               ),
             ),
           ],
-        ),
-      );
-    }
-
-    if (price != null && price > 0) {
-      addSeparator();
-      items.add(
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          if (hasPrice) ...[
+            if (hasModality || hasPayment) _metaSeparator(),
             Icon(Icons.payments_outlined, size: 14, color: accentColor),
             const SizedBox(width: 4),
             Text(
               formatPrice(price),
+              maxLines: 1,
+              softWrap: false,
               style: TextStyle(
                 fontFamily: 'Fira Sans',
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: accentColor,
+                height: 1.2,
               ),
             ),
           ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
+  }
 
-    if (items.isEmpty) return const SizedBox.shrink();
-
+  static Widget _metaSeparator() {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: items,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: Text(
+        '·',
+        style: TextStyle(
+          fontFamily: 'Fira Sans',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade400,
+          height: 1.2,
+        ),
       ),
     );
   }

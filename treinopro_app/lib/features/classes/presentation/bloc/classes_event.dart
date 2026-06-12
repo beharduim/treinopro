@@ -215,6 +215,16 @@ class ClassesStartGlobalTimer extends ClassesEvent {
   List<Object?> get props => [data];
 }
 
+/// Timer da aula chegou a zero — finalizar automaticamente
+class ClassesTimerExpired extends ClassesEvent {
+  final String classId;
+
+  const ClassesTimerExpired({required this.classId});
+
+  @override
+  List<Object?> get props => [classId];
+}
+
 /// Resetar o estado do ClassesBloc (usado no logout)
 class ClassesReset extends ClassesEvent {
   const ClassesReset();

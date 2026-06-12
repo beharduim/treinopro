@@ -42,6 +42,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
   StreamSubscription<Map<String, dynamic>>? _wsSub;
   StreamSubscription<bool>? _connSub;
   Timer? _timerUpdateTimer;
+  final Set<String> _timerExpirationHandled = {};
 
   // Rastreamento de conexão para sincronização após reconexão
   bool _wasDisconnected = false;
@@ -74,6 +75,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
     on<ClassesStopTimer>(_onStopTimer);
     on<ClassesUpdateTimer>(_onUpdateTimer);
     on<ClassesStartGlobalTimer>(_onStartGlobalTimer);
+    on<ClassesTimerExpired>(_onTimerExpired);
 
     // Evento de reset (logout)
     on<ClassesReset>(_onReset);
@@ -410,18 +412,22 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           print('⏰ [CLASSES_BLOC] ClassId: ${data['classId']}');
           print('⏰ [CLASSES_BLOC] Action: ${data['action']}');
 
-          // Limpar timer local
           final classId = data['classId'] as String;
           _timers.remove(classId);
           _persistentTimer.clearTimer();
 
-          print('⏰ [CLASSES_BLOC] Timer local removido e dados atualizados');
-          if (!isClosed) {
-            add(const ClassesRefresh());
-          } else {
-            print(
-              '⚠️ [CLASSES_BLOC] Bloc já fechado, não é possível adicionar ClassesRefresh',
+          final classJson = data['class'] as Map<String, dynamic>?;
+          if (classJson != null && !isClosed) {
+            add(
+              ClassesUpdateFromWebSocket(
+                data: {
+                  'action': 'class_completed_by_timer',
+                  'class': classJson,
+                },
+              ),
             );
+          } else if (!isClosed) {
+            add(const ClassesRefresh());
           }
         } else {
           print('❌ [CLASSES_BLOC] Data é null no evento class_timer_expired');
@@ -1299,8 +1305,9 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
           );
           hasChanges = true;
 
-          // Chamar API para finalizar aula por expiração do timer
-          _completeClassByTimerExpiration(entry.key);
+          if (!_timerExpirationHandled.contains(entry.key)) {
+            add(ClassesTimerExpired(classId: entry.key));
+          }
         } else {
           // Atualizar remainingSeconds apenas se mudou
           if (timer.remainingSeconds != remainingSeconds) {
@@ -1410,8 +1417,20 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
     }
   }
 
+  Future<void> _onTimerExpired(
+    ClassesTimerExpired event,
+    Emitter<ClassesState> emit,
+  ) async {
+    if (_timerExpirationHandled.contains(event.classId)) return;
+    _timerExpirationHandled.add(event.classId);
+    await _completeClassByTimerExpiration(event.classId, emit);
+  }
+
   /// Finalizar aula automaticamente quando timer expira
-  Future<void> _completeClassByTimerExpiration(String classId) async {
+  Future<void> _completeClassByTimerExpiration(
+    String classId,
+    Emitter<ClassesState> emit,
+  ) async {
     try {
       print('⏰ [TIMER_EXPIRATION] Timer expirou para aula: $classId');
       print(
@@ -1439,11 +1458,12 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
         _currentUserId = await _getUserId();
       }
 
-      // Aluno precisa ir para avaliação mesmo sem evento WebSocket (só na 1ª conclusão)
+      // Participantes (aluno ou personal) vão para avaliação na 1ª conclusão
       if (!isClosed &&
           !wasAlreadyCompleted &&
           _currentUserId != null &&
-          completedClass.studentId == _currentUserId) {
+          (completedClass.studentId == _currentUserId ||
+              completedClass.personalId == _currentUserId)) {
         emit(
           ClassesCompleteSuccess(
             classes: List<ClassResponseDto>.from(_classes),
@@ -1467,6 +1487,7 @@ class ClassesBloc extends Bloc<ClassesEvent, ClassesState> {
       print(
         '❌ [TIMER_EXPIRATION] Erro ao finalizar aula por expiração do timer: $e',
       );
+      _timerExpirationHandled.remove(classId);
     }
   }
 

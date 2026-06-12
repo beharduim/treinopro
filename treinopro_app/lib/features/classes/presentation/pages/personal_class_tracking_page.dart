@@ -9,6 +9,7 @@ import '../../data/models/complete_class_dto.dart';
 import '../../../evaluation/presentation/pages/class_evaluation_page.dart';
 import '../bloc/classes_bloc.dart';
 import '../bloc/classes_state.dart';
+import '../utils/class_timer_expiration_helper.dart';
 import '../bloc/classes_event.dart';
 import '../../data/models/class_timer_state.dart';
 import '../../data/models/class_response_dto.dart';
@@ -31,6 +32,8 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
   final ClassesApiService _classesApiService = sl<ClassesApiService>();
   bool _isCompleting = false;
   bool _hasNavigatedToEvaluation = false;
+  bool _hasHandledCompleteSuccess = false;
+  bool _hasTriggeredAutoComplete = false;
   bool _hasHandledRollback = false;
   double? _lastKnownProposalPrice;
 
@@ -235,7 +238,30 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
         aula['classId']?.toString() ??
         'unknown_class';
 
-    return BlocBuilder<ClassesBloc, ClassesState>(
+    return BlocListener<ClassesBloc, ClassesState>(
+      listener: (context, state) {
+        if (state is ClassesCompleteSuccess) {
+          final completed = state.completedClass;
+          if (completed.id != classId) return;
+          if (_hasHandledCompleteSuccess || _hasNavigatedToEvaluation) return;
+          _hasHandledCompleteSuccess = true;
+          _hasNavigatedToEvaluation = true;
+
+          final studentName = _resolveStudentName(completed, aula);
+          final amountEarned = _resolveAmountEarned();
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ClassEvaluationPage(
+                studentName: studentName,
+                classId: completed.id,
+                amountEarned: _amountEarnedOrFallback(amountEarned),
+              ),
+            ),
+          );
+        }
+      },
+      child: BlocBuilder<ClassesBloc, ClassesState>(
       builder: (context, state) {
         ClassTimerState? timerState;
         ClassResponseDto? currentClass;
@@ -291,6 +317,18 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
             isActive: false,
           );
         })();
+
+        maybeTriggerClassTimerExpiration(
+          currentClass: currentClass,
+          effectiveTimer: effectiveTimerState,
+          alreadyTriggered: _hasTriggeredAutoComplete,
+          onTrigger: () {
+            _hasTriggeredAutoComplete = true;
+            context.read<ClassesBloc>().add(
+              ClassesTimerExpired(classId: classId),
+            );
+          },
+        );
 
         if (currentClass != null &&
             currentClass.status == ClassStatus.SCHEDULED &&
@@ -418,6 +456,13 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
                               FluidTimerWidget(
                                 timerState: effectiveTimerState,
                                 size: 250.0,
+                                onExpired: () {
+                                  if (_hasTriggeredAutoComplete) return;
+                                  _hasTriggeredAutoComplete = true;
+                                  context.read<ClassesBloc>().add(
+                                    ClassesTimerExpired(classId: classId),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -848,6 +893,7 @@ class _PersonalClassTrackingPageState extends State<PersonalClassTrackingPage> {
           },
         );
       },
+      ),
     );
   }
 }

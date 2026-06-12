@@ -14,6 +14,8 @@ import '../bloc/classes_bloc.dart';
 import '../bloc/classes_state.dart';
 import '../bloc/classes_event.dart';
 import '../../data/models/class_timer_state.dart';
+import '../utils/class_timer_expiration_helper.dart';
+import '../../../evaluation/presentation/pages/personal_evaluation_page.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 
 class ClassTrackingPage extends StatefulWidget {
@@ -25,6 +27,9 @@ class ClassTrackingPage extends StatefulWidget {
 }
 
 class _ClassTrackingPageState extends State<ClassTrackingPage> {
+  bool _hasTriggeredAutoComplete = false;
+  bool _hasHandledCompleteSuccess = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,9 +61,26 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
 
     return BlocListener<ClassesBloc, ClassesState>(
       listener: (context, state) {
-        // A navegação para a avaliação ao concluir a aula é tratada de forma
-        // única em StudentClassesPage (que está sempre montada no IndexedStack).
-        // Navegar aqui também causava dupla navegação e tela preta ao fechar.
+        if (state is ClassesCompleteSuccess) {
+          final completed = state.completedClass;
+          final classId = widget.aula['id']?.toString() ??
+              widget.aula['classId']?.toString();
+          if (classId == null || completed.id != classId) return;
+          if (_hasHandledCompleteSuccess) return;
+          _hasHandledCompleteSuccess = true;
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              settings: RouteSettings(name: 'personal_eval_${completed.id}'),
+              builder: (_) => PersonalEvaluationPage(
+                trainerName: completed.personalName,
+                classId: completed.id,
+                personalId: completed.personalId,
+              ),
+            ),
+          );
+        }
       },
       child: BlocBuilder<ClassesBloc, ClassesState>(
       builder: (context, state) {
@@ -227,6 +249,18 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
           );
         })();
         
+        maybeTriggerClassTimerExpiration(
+          currentClass: _currentClass,
+          effectiveTimer: effectiveTimerState,
+          alreadyTriggered: _hasTriggeredAutoComplete,
+          onTrigger: () {
+            _hasTriggeredAutoComplete = true;
+            context.read<ClassesBloc>().add(
+              ClassesTimerExpired(classId: classId),
+            );
+          },
+        );
+
         // SSOT: canReportPersonalNoShow vem da timeline da API
         final canReportPersonalNoShow =
             timeline?.canReportPersonalNoShow ?? false;
@@ -298,6 +332,13 @@ class _ClassTrackingPageState extends State<ClassTrackingPage> {
                             FluidTimerWidget(
                               timerState: effectiveTimerState,
                               size: 250.0,
+                              onExpired: () {
+                                if (_hasTriggeredAutoComplete) return;
+                                _hasTriggeredAutoComplete = true;
+                                context.read<ClassesBloc>().add(
+                                  ClassesTimerExpired(classId: classId),
+                                );
+                              },
                             ),
                       ],
                     ),

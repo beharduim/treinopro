@@ -192,7 +192,7 @@ class _CreateProposalView extends StatelessWidget {
     context.read<proposal_search.ProposalSearchBloc>().add(
       const proposal_search.ResetProposalSearch(),
     );
-    context.read<ProposalsBloc>().add(const ProposalsClear());
+    // Mantém rascunho salvo para retomar depois (fechar app ou voltar à home).
     Navigator.of(context).pop();
   }
 

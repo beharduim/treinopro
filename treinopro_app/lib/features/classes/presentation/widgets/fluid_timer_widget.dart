@@ -9,6 +9,7 @@ class FluidTimerWidget extends StatefulWidget {
   final double size;
   final TextStyle? textStyle;
   final bool showSeconds;
+  final VoidCallback? onExpired;
 
   const FluidTimerWidget({
     super.key,
@@ -16,6 +17,7 @@ class FluidTimerWidget extends StatefulWidget {
     this.size = 250.0,
     this.textStyle,
     this.showSeconds = true,
+    this.onExpired,
   });
 
   @override
@@ -26,6 +28,7 @@ class _FluidTimerWidgetState extends State<FluidTimerWidget> {
   Timer? _timer;
   int _remainingSeconds = 0;
   double _progress = 0.0;
+  bool _expiredCallbackFired = false;
 
   @override
   void initState() {
@@ -38,6 +41,9 @@ class _FluidTimerWidgetState extends State<FluidTimerWidget> {
   void didUpdateWidget(FluidTimerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.timerState != widget.timerState) {
+      if (oldWidget.timerState.classId != widget.timerState.classId) {
+        _expiredCallbackFired = false;
+      }
       _updateTimer();
     }
   }
@@ -60,15 +66,22 @@ class _FluidTimerWidgetState extends State<FluidTimerWidget> {
   }
 
   void _updateTimer() {
-    if (!widget.timerState.isActive || widget.timerState.startTime == null) {
+    final startTime = widget.timerState.startTime;
+    if (startTime == null) {
       _remainingSeconds = 0;
       _progress = 0.0;
     } else {
-      final now = DateTime.now();
-      final elapsed = now.difference(widget.timerState.startTime!).inSeconds;
+      final elapsed = DateTime.now().difference(startTime).inSeconds;
       final totalSeconds = widget.timerState.durationMinutes * 60;
       _remainingSeconds = (totalSeconds - elapsed).clamp(0, totalSeconds);
       _progress = totalSeconds > 0 ? _remainingSeconds / totalSeconds : 0.0;
+
+      if (_remainingSeconds <= 0 &&
+          !_expiredCallbackFired &&
+          widget.onExpired != null) {
+        _expiredCallbackFired = true;
+        widget.onExpired!();
+      }
     }
 
     if (mounted) {

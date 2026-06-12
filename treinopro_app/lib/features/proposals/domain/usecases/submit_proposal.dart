@@ -1,5 +1,6 @@
 import '../entities/proposal.dart';
 import '../repositories/proposals_repository.dart';
+import '../../data/services/popular_locations_service.dart';
 
 /// Caso de uso para submeter proposta finalizada
 class SubmitProposal {
@@ -26,6 +27,13 @@ class SubmitProposal {
     final success = await repository.submitProposal(completedProposal);
 
     if (success) {
+      await PopularLocationsService.rememberFromProposalFields(
+        locationId: completedProposal.locationId,
+        locationName: completedProposal.locationName,
+        locationAddress: completedProposal.locationAddress,
+        locationLat: completedProposal.locationLat,
+        locationLng: completedProposal.locationLng,
+      );
       // Limpar proposta salva localmente após sucesso
       await repository.clearProposal();
     }

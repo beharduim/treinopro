@@ -39,6 +39,16 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
   }
 
   @override
+  void didUpdateWidget(LocationSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextValue = widget.initialValue ?? '';
+    if (oldWidget.initialValue != widget.initialValue &&
+        _controller.text != nextValue) {
+      _controller.text = nextValue;
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();

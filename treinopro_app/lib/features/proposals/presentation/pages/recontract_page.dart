@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/di/dependency_injection.dart';
 import '../../data/services/proposals_api_service.dart';
+import '../../data/services/popular_locations_service.dart';
 import '../../data/utils/payment_status_utils.dart';
 import '../widgets/pix_payment_pending_dialog.dart';
 import '../widgets/location_search_field.dart';
@@ -444,6 +445,7 @@ class _RecontractPageState extends State<RecontractPage> {
                 setState(() {
                   _selectedLocation = location;
                 });
+                PopularLocationsService.addLocationUsage(location);
               },
             ),
           ],

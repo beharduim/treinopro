@@ -12,11 +12,62 @@ class PopularLocationsService {
   static const String _locationRecencyKey = 'location_recency';
   static const int _maxPopularLocations = 10;
 
+  /// Persiste local a partir dos campos de uma proposta (ex.: após envio).
+  static Future<void> rememberFromProposalFields({
+    String? locationId,
+    String? locationName,
+    String? locationAddress,
+    double? locationLat,
+    double? locationLng,
+  }) async {
+    final name = locationName?.trim() ?? '';
+    if (name.isEmpty) return;
+
+    final id = (locationId?.trim().isNotEmpty == true)
+        ? locationId!.trim()
+        : _stableLocationId(
+            name: name,
+            address: locationAddress ?? '',
+            lat: locationLat,
+            lng: locationLng,
+          );
+
+    await addLocationUsage(
+      TrainingLocation(
+        id: id,
+        name: name,
+        address: locationAddress ?? '',
+        latitude: locationLat,
+        longitude: locationLng,
+      ),
+    );
+  }
+
+  static String _stableLocationId({
+    required String name,
+    required String address,
+    double? lat,
+    double? lng,
+  }) {
+    if (lat != null && lng != null) {
+      return 'geo_${lat.toStringAsFixed(5)}_${lng.toStringAsFixed(5)}';
+    }
+    final normalized = '${name.toLowerCase()}|${address.toLowerCase()}';
+    return 'loc_${normalized.hashCode.abs()}';
+  }
+
   /// Adicionar um local aos populares quando selecionado
   static Future<void> addLocationUsage(TrainingLocation location) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final locationId = location.id;
+      final locationId = location.id.isNotEmpty
+          ? location.id
+          : _stableLocationId(
+              name: location.name,
+              address: location.address,
+              lat: location.latitude,
+              lng: location.longitude,
+            );
 
       // Incrementar contador de uso (mantido para estatísticas)
       final usageJson = prefs.getString(_locationUsageKey) ?? '{}';
@@ -28,7 +79,7 @@ class PopularLocationsService {
       // também voltam a aparecer na próxima proposta).
       final objectsJson = prefs.getString(_locationObjectsKey) ?? '{}';
       final Map<String, dynamic> objects = json.decode(objectsJson);
-      objects[locationId] = location.toJson();
+      objects[locationId] = location.copyWith(id: locationId).toJson();
       await prefs.setString(_locationObjectsKey, json.encode(objects));
 
       // Atualizar ordem de recência: o último selecionado vai para o topo.
