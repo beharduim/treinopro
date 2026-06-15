@@ -578,7 +578,10 @@ class DeepLinkService {
                   studentImageUrl:
                       studentImageUrl ?? proposal.student.profilePicture,
                   proposalId: proposal.id,
-                  // ✅ NOVO: Callback para quando match acontecer via WebSocket
+                  paymentMethod: proposal.payment?.method,
+                  netAmount: proposal.payment?.personalAmount ??
+                      (proposal.price * 0.9),
+                  isRecontract: proposal.isRecontract ?? false,
                   onMatched: _onProposalMatched,
                   // ✅ REMOVIDO: playSound: false
                   // O som do modal deve sempre tocar, independente de como foi aberto

@@ -20,6 +20,10 @@ class ProposalModal extends StatefulWidget {
   final String? studentExperience; // ex: "7 dias"
   final String? studentImageUrl;
   final String? proposalId; // ID da proposta para buscar dados da aula
+  final String? paymentMethod;
+  final double? netAmount;
+  final double? distanceKm;
+  final bool isRecontract;
   final VoidCallback? onChatPressed; // usado no estado de match para abrir chat
   final VoidCallback onAccept;
   final VoidCallback onIgnore;
@@ -45,6 +49,10 @@ class ProposalModal extends StatefulWidget {
     this.studentExperience,
     this.studentImageUrl,
     this.proposalId,
+    this.paymentMethod,
+    this.netAmount,
+    this.distanceKm,
+    this.isRecontract = false,
     this.onChatPressed,
     this.playSound = true, // ✅ Padrão: tocar som (quando aberto via WebSocket)
   });
@@ -317,7 +325,7 @@ class _ProposalModalState extends State<ProposalModal>
             child: Container(
               decoration: BoxDecoration(
                 color: _isMatched ? const Color(0xFFF9F9F9) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.15),
@@ -362,430 +370,627 @@ class _ProposalModalState extends State<ProposalModal>
     );
   }
 
+  String _formatCurrency(num value) {
+    return 'R\$ ${value.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  String _displayPrice() {
+    final raw = widget.price.replaceAll(' reais', '').replaceAll('R\$', '').trim();
+    final parsed = double.tryParse(raw.replaceAll(',', '.'));
+    if (parsed == null) return 'R\$ $raw';
+    return _formatCurrency(parsed);
+  }
+
+  double _displayNetAmount() {
+    if (widget.netAmount != null && widget.netAmount! > 0) {
+      return widget.netAmount!;
+    }
+    final raw = widget.price.replaceAll(' reais', '').replaceAll('R\$', '').trim();
+    final parsed = double.tryParse(raw.replaceAll(',', '.'));
+    if (parsed == null) return 0;
+    return parsed * 0.9;
+  }
+
+  String _paymentMethodLabel() {
+    final normalized = (widget.paymentMethod ?? '').toLowerCase();
+    if (normalized.contains('pix')) return 'PIX';
+    if (normalized.contains('card') ||
+        normalized.contains('cartao') ||
+        normalized.contains('credit') ||
+        normalized.contains('debit')) {
+      return 'Cartão';
+    }
+    return 'PIX';
+  }
+
+  bool get _isPixPayment => _paymentMethodLabel() == 'PIX';
+
+  String _formatCountdown() {
+    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String _formatDateLabel() {
+    final date = widget.date;
+    if (date == null || date.isEmpty || date == '-') return 'Data não informada';
+
+    final parts = date.split('/');
+    if (parts.length == 2) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      if (day != null && month != null) {
+        final now = DateTime.now();
+        final isToday = now.day == day && now.month == month;
+        if (isToday) return 'Hoje, $date';
+      }
+    }
+    return date;
+  }
+
+  String _formatStudentName(String name) {
+    if (name.trim().isEmpty) return 'Aluno';
+    return name
+        .split(' ')
+        .where((part) => part.trim().isNotEmpty)
+        .map(
+          (part) =>
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
+
+  String _formatDistance() {
+    final km = widget.distanceKm;
+    if (km == null) return '';
+    if (km < 1) {
+      return '${(km * 1000).round()} m de você';
+    }
+    return '${km.toStringAsFixed(1).replaceAll('.', ',')} km de você';
+  }
+
+  Widget _buildPaymentBadge() {
+    final isPix = _isPixPayment;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: isPix ? const Color(0xFFE8F8F1) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isPix ? const Color(0xFF32BCAD) : const Color(0xFF3B82F6),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPix ? Icons.pix_rounded : Icons.credit_card_rounded,
+            size: 16,
+            color: isPix ? const Color(0xFF32BCAD) : const Color(0xFF3B82F6),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _paymentMethodLabel(),
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isPix ? const Color(0xFF32BCAD) : const Color(0xFF3B82F6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProposalDetailDivider() {
+    return Container(
+      height: 1,
+      color: const Color(0xFFE5E7EB),
+    );
+  }
+
+  Widget _buildProposalDetailRow({
+    required Widget leading,
+    required Widget content,
+    Widget? trailing,
+    EdgeInsets padding = const EdgeInsets.symmetric(vertical: 14),
+  }) {
+    return Padding(
+      padding: padding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          leading,
+          const SizedBox(width: 12),
+          Expanded(child: content),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrangeIcon(IconData icon) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: AppColors.primaryOrange.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 18, color: AppColors.primaryOrange),
+    );
+  }
+
+  void _showNetAmountInfo() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Valor líquido'),
+        content: const Text(
+          'Valor estimado que você recebe após a taxa da plataforma. '
+          'O repasse final pode variar conforme o método de pagamento.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Entendi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Método para construir o conteúdo da proposta
   Widget _buildProposalContent() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Header compacto
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              // Contador menor
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: AnimatedBuilder(
-                      animation: _progressAnimation,
-                      builder: (context, child) {
-                        // Transição suave de cor baseada no tempo restante
-                        final colorProgress =
-                            (_remainingSeconds / widget.countdownSeconds).clamp(
-                              0.0,
-                              1.0,
-                            );
-                        final currentColor = Color.lerp(
-                          Colors.red, // Cor final (vermelho)
-                          AppColors.primaryOrange, // Cor inicial (laranja)
-                          colorProgress,
-                        )!;
+    final distanceLabel = _formatDistance();
+    final studentName = _formatStudentName(widget.studentName);
+    final rating = widget.studentRating ?? '5,0';
 
-                        return CircularProgressIndicator(
-                          value: _progressAnimation.value,
-                          strokeWidth: 3,
-                          backgroundColor: const Color(0xFFF3F3F3),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            currentColor,
-                          ),
-                        );
-                      },
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryOrange.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(
+                      Icons.notifications_none_rounded,
+                      color: AppColors.primaryOrange,
+                      size: 22,
                     ),
-                  ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: () {
-                        // Mesma transição suave de cor para o container
-                        final colorProgress =
-                            (_remainingSeconds / widget.countdownSeconds).clamp(
-                              0.0,
-                              1.0,
-                            );
-                        return Color.lerp(
-                          Colors.red, // Cor final (vermelho)
-                          AppColors.primaryOrange, // Cor inicial (laranja)
-                          colorProgress,
-                        )!;
-                      }(),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$_remainingSeconds',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Nova proposta!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1F2937),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-
-        // Informações organizadas como no Uber
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              // VALOR EM DESTAQUE (igual ao preço do Uber)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'R\$ ${widget.price.replaceAll(' reais', '').replaceAll('R\$', '').trim()}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
-                  overflow: TextOverflow.visible,
-                  softWrap: true,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Informações com border e alinhamento melhorado
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    // Nome e Pontuação
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.person,
-                                  size: 16,
-                                  color: AppColors.primaryOrange,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Nome',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.studentName,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.star,
-                                  size: 16,
-                                  color: AppColors.primaryOrange,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Pontuação',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.studentRating ?? '0.0',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Local
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 16,
-                              color: const Color(0xFFFF6A00),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Local',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.location,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1F2937),
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Data, Horário e Modalidade em uma única linha
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.event,
-                                    size: 16,
-                                    color: AppColors.primaryOrange,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Data',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.date ?? '-',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1F2937),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.schedule,
-                                  size: 16,
-                                  color: AppColors.primaryOrange,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'Horário',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.time,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1F2937),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.fitness_center,
-                                  size: 16,
-                                  color: AppColors.primaryOrange,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'Modalidade',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.modality,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1F2937),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'NOVA PROPOSTA!',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  _stopProposalSound();
+                  widget.onIgnore();
+                },
+                icon: const Icon(Icons.close, color: Color(0xFF9CA3AF)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
             ],
           ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Botões compactos
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          child: Column(
+          const SizedBox(height: 16),
+          Text(
+            _displayPrice(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 40,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryOrange,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildPaymentBadge(),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Botão Aceitar - destaque total
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isMatched
-                      ? null
-                      : () {
-                          print('✅ [PROPOSAL_MODAL] Botão Aceitar pressionado');
-                          // ✅ CORREÇÃO: NÃO transicionar para matched ainda!
-                          // Apenas chamar onAccept - o WebSocket vai notificar quando o match acontecer
-                          // e o callback onMatched vai transicionar o modal
-                          print('✅ [PROPOSAL_MODAL] Chamando onAccept callback - aguardando confirmação via WebSocket');
-                          widget.onAccept();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Aceitar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
+              Text(
+                'Você recebe líquido: ',
+                style: TextStyle(
+                  fontFamily: 'Fira Sans',
+                  fontSize: 14,
+                  color: Colors.grey[600],
                 ),
               ),
-              const SizedBox(height: 8),
-
-              // Botão Ignorar - outline
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    _stopProposalSound();
-                    widget.onIgnore();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primaryOrange,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(
-                      color: Color(0xFFFF6A00), // Laranja principal
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Ignorar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
+              Text(
+                _formatCurrency(_displayNetAmount()),
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF059669),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _showNetAmountInfo,
+                child: Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.grey[500],
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 18),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                children: [
+                  _buildProposalDetailRow(
+                  leading: _buildOrangeIcon(Icons.location_on_outlined),
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.location,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      if (distanceLabel.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          distanceLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Fira Sans',
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey[400],
+                    size: 22,
+                  ),
+                ),
+                _buildProposalDetailDivider(),
+                _buildProposalDetailRow(
+                  leading: _buildOrangeIcon(Icons.fitness_center_outlined),
+                  content: Text(
+                    widget.modality,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ),
+                _buildProposalDetailDivider(),
+                _buildProposalDetailRow(
+                  leading: _buildOrangeIcon(Icons.calendar_today_outlined),
+                  content: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _formatDateLabel(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.schedule,
+                        size: 18,
+                        color: AppColors.primaryOrange,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.time,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryOrange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey[400],
+                    size: 22,
+                  ),
+                ),
+                _buildProposalDetailDivider(),
+                _buildProposalDetailRow(
+                  leading: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    backgroundImage:
+                        widget.studentImageUrl != null &&
+                            widget.studentImageUrl!.isNotEmpty
+                        ? NetworkImage(widget.studentImageUrl!)
+                        : null,
+                    child:
+                        widget.studentImageUrl == null ||
+                            widget.studentImageUrl!.isEmpty
+                        ? Text(
+                            studentName
+                                .split(' ')
+                                .map((s) => s.isNotEmpty ? s[0] : '')
+                                .take(2)
+                                .join(),
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF374151),
+                            ),
+                          )
+                        : null,
+                  ),
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        studentName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      if (widget.isRecontract) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F8F1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Aluno recorrente',
+                            style: TextStyle(
+                              fontFamily: 'Fira Sans',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF059669),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFBBF24),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        rating,
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryOrange.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.access_time_rounded,
+                  color: AppColors.primaryOrange,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Tempo para responder',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Fira Sans',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryOrange,
+                    ),
+                  ),
+                ),
+                Text(
+                  _formatCountdown(),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryOrange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isMatched
+                  ? null
+                  : () {
+                      print('✅ [PROPOSAL_MODAL] Botão Aceitar pressionado');
+                      print(
+                        '✅ [PROPOSAL_MODAL] Chamando onAccept callback - aguardando confirmação via WebSocket',
+                      );
+                      widget.onAccept();
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryOrange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 16,
+                      color: AppColors.primaryOrange,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'ACEITAR PROPOSTA',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                _stopProposalSound();
+                widget.onIgnore();
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryOrange,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(
+                  color: AppColors.primaryOrange,
+                  width: 1.5,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    color: AppColors.primaryOrange.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'IGNORAR PROPOSTA',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

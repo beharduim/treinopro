@@ -255,6 +255,62 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     return false;
   }
 
+  double? _proposalDistanceKm(Map<String, dynamic> proposal) {
+    double? centerLat = _selectedLocation?.latitude;
+    double? centerLng = _selectedLocation?.longitude;
+    try {
+      final prefs = sl<SharedPreferences>();
+      centerLat = centerLat ?? prefs.getDouble('personal_location_lat');
+      centerLng = centerLng ?? prefs.getDouble('personal_location_lng');
+    } catch (_) {}
+
+    final coords = _extractProposalLatLng(proposal);
+    final lat = coords.lat;
+    final lng = coords.lng;
+    if (centerLat == null ||
+        centerLng == null ||
+        lat == null ||
+        lng == null) {
+      return null;
+    }
+
+    return _haversineKm(
+      lat1: centerLat,
+      lng1: centerLng,
+      lat2: lat,
+      lng2: lng,
+    );
+  }
+
+  String? _proposalPaymentMethod(Map<String, dynamic> proposal) {
+    final payment = proposal['payment'];
+    if (payment is Map) {
+      final method = payment['method']?.toString();
+      if (method != null && method.isNotEmpty) return method;
+    }
+    final direct = proposal['paymentMethod']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    return null;
+  }
+
+  double? _proposalNetAmount(Map<String, dynamic> proposal) {
+    final payment = proposal['payment'];
+    if (payment is Map) {
+      final personalAmount = payment['personalAmount'];
+      if (personalAmount is num && personalAmount > 0) {
+        return personalAmount.toDouble();
+      }
+    }
+    final price = (proposal['price'] as num?)?.toDouble();
+    if (price != null && price > 0) return price * 0.9;
+    return null;
+  }
+
+  bool _proposalIsRecontract(Map<String, dynamic> proposal) {
+    return proposal['isRecontract'] == true ||
+        (proposal['targetPersonalId']?.toString().isNotEmpty ?? false);
+  }
+
   DateTime? _extractProposalNotificationTimestamp(
     Map<String, dynamic> proposal, {
     Map<String, dynamic>? wrapper,
@@ -2184,6 +2240,10 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                   studentExperience: experienceStr,
                   studentImageUrl: imageUrl,
                   proposalId: proposalId,
+                  paymentMethod: _proposalPaymentMethod(proposal),
+                  netAmount: _proposalNetAmount(proposal),
+                  distanceKm: _proposalDistanceKm(proposal),
+                  isRecontract: _proposalIsRecontract(proposal),
                   onAccept: () async {
                     try {
                       if (_acceptingProposalIds.contains(proposalId)) return;
