@@ -411,7 +411,8 @@ class _ProposalModalState extends State<ProposalModal>
   }
 
   String _paymentMethodLabel() {
-    final normalized = (widget.paymentMethod ?? '').toLowerCase();
+    final normalized = (widget.paymentMethod ?? '').toLowerCase().trim();
+    if (normalized.isEmpty) return '';
     if (normalized.contains('pix')) return 'PIX';
     if (normalized.contains('card') ||
         normalized.contains('cartao') ||
@@ -419,7 +420,7 @@ class _ProposalModalState extends State<ProposalModal>
         normalized.contains('debit')) {
       return 'Cartão';
     }
-    return 'PIX';
+    return 'Cartão';
   }
 
   bool get _isPixPayment => _paymentMethodLabel() == 'PIX';
@@ -469,7 +470,10 @@ class _ProposalModalState extends State<ProposalModal>
   }
 
   Widget _buildPaymentBadge() {
-    final isPix = _isPixPayment;
+    final label = _paymentMethodLabel();
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    final isPix = label == 'PIX';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
