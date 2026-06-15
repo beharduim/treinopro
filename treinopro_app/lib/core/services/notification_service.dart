@@ -292,6 +292,18 @@ class NotificationService {
     return shouldIgnoreIncomingMessageNotification(data);
   }
 
+  /// Cancela a notificação local de uma proposta específica.
+  static Future<void> cancelProposalNotification(String proposalId) async {
+    if (proposalId.isEmpty) return;
+
+    try {
+      await flutterLocalNotificationsPlugin.cancel(proposalId.hashCode);
+      print('🔕 [NOTIF] Notificação de proposta cancelada: $proposalId');
+    } catch (e) {
+      print('⚠️ [NOTIF] Erro ao cancelar notificação de proposta: $e');
+    }
+  }
+
   static Future<void> setPushNotificationsEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_pushNotificationsEnabledKey, enabled);

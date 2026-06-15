@@ -49,6 +49,8 @@ import '../../../proposals/presentation/bloc/proposals_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/deep_link_service.dart';
 import '../../../../core/services/wakelock_service.dart';
+import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/proposal_notification_service.dart';
 import '../../../balance/presentation/bloc/balance_bloc.dart';
 import '../../../balance/presentation/bloc/balance_state.dart';
 import '../../../balance/presentation/bloc/balance_event.dart';
@@ -658,6 +660,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 print(
                   '✅ [PERSONAL_HOME] Proposta aceita por este personal - transicionando modal para matched: $proposalId',
                 );
+                _stopProposalAlertSound();
                 // ✅ NOVO: Transicionar modal para estado matched
                 _transitionModalToMatched();
               }
@@ -674,6 +677,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
 
           if (eventProposalId != null &&
               _visibleProposalId == eventProposalId) {
+            _stopProposalAlertSound();
             final isMyAcceptance =
                 _iAcceptedProposalId == eventProposalId ||
                 _acceptingProposalIds.contains(eventProposalId);
@@ -696,6 +700,19 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     print('✅ [PERSONAL_HOME] Listener de propostas configurado com sucesso');
   }
 
+  /// Para som de alerta da proposta (modal + notificações locais).
+  void _stopProposalAlertSound() {
+    if (_currentProposalModalKey?.currentState != null) {
+      (_currentProposalModalKey!.currentState as dynamic).stopAlertSound();
+    }
+
+    final proposalId = _visibleProposalId;
+    if (proposalId != null) {
+      unawaited(NotificationService.cancelProposalNotification(proposalId));
+    }
+    unawaited(ProposalNotificationService.instance.cancelNotification());
+  }
+
   /// ✅ NOVO: Transicionar modal para estado matched
   void _transitionModalToMatched() {
     if (_currentProposalModalKey?.currentState != null) {
@@ -711,6 +728,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
   /// Fecha o modal de proposta se estiver aberto
   void _closeProposalModal() {
     if (_visibleProposalId == null) return;
+    _stopProposalAlertSound();
     _currentProposalModalKey = null; // ✅ Limpar key ao fechar
 
     print('🚪 [PERSONAL_HOME] Fechando modal de proposta: $_visibleProposalId');
@@ -2248,6 +2266,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                     try {
                       if (_acceptingProposalIds.contains(proposalId)) return;
                       _acceptingProposalIds.add(proposalId);
+                      _stopProposalAlertSound();
 
                       // ✅ CORREÇÃO: Definir _iAcceptedProposalId ANTES de chamar a API
                       // Isso garante que o listener não feche o modal quando o evento WebSocket chegar

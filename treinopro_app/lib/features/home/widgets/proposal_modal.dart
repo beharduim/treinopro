@@ -68,6 +68,7 @@ class _ProposalModalState extends State<ProposalModal>
 
   // Áudio de alerta (loop durante o modal de proposta)
   late final AudioPlayer _audioPlayer;
+  bool _isProposalSoundPlaying = false;
 
   // Controllers para animações
   late AnimationController _modalPulseController;
@@ -174,18 +175,12 @@ class _ProposalModalState extends State<ProposalModal>
   }
 
   Future<void> _startProposalSound() async {
+    if (_isMatched || _isProposalSoundPlaying) return;
+
     try {
       print('🔊 [PROPOSAL_MODAL] Iniciando reprodução de som...');
-      
-      // Tentar reproduzir primeiro, depois configurar contexto se necessário
-      await _audioPlayer.setVolume(1.0);
-      print('🔊 [PROPOSAL_MODAL] Volume definido como 1.0');
-      
-      await _audioPlayer.play(AssetSource('sounds/alert_proposal.mp3'));
-      print('✅ [PROPOSAL_MODAL] Som tocando!');
-      
-      // Define contexto de áudio em Android DEPOIS de começar a tocar
-      // iOS: não precisa configurar pois o contexto padrão já funciona
+      _isProposalSoundPlaying = true;
+
       await _audioPlayer.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -200,17 +195,41 @@ class _ProposalModalState extends State<ProposalModal>
           ),
         ),
       );
-      print('✅ [PROPOSAL_MODAL] Contexto de áudio configurado');
+
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayer.setVolume(1.0);
+      await _audioPlayer.play(AssetSource('sounds/alert_proposal.mp3'));
+      print('✅ [PROPOSAL_MODAL] Som tocando!');
     } catch (e, stackTrace) {
+      _isProposalSoundPlaying = false;
       print('❌ [PROPOSAL_MODAL] Erro ao tocar som: $e');
       print('❌ [PROPOSAL_MODAL] StackTrace: $stackTrace');
     }
   }
 
   Future<void> _stopProposalSound() async {
+    if (!_isProposalSoundPlaying) {
+      try {
+        await _audioPlayer.setReleaseMode(ReleaseMode.stop);
+        await _audioPlayer.stop();
+      } catch (_) {}
+      return;
+    }
+
+    _isProposalSoundPlaying = false;
     try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
       await _audioPlayer.stop();
-    } catch (_) {}
+      await _audioPlayer.release();
+      print('🔕 [PROPOSAL_MODAL] Som de alerta parado');
+    } catch (e) {
+      print('⚠️ [PROPOSAL_MODAL] Erro ao parar som: $e');
+    }
+  }
+
+  /// Para o som imediatamente (ex.: aceite da proposta, antes do match via WebSocket).
+  void stopAlertSound() {
+    unawaited(_stopProposalSound());
   }
 
   void _startCountdown() {
@@ -904,6 +923,7 @@ class _ProposalModalState extends State<ProposalModal>
                   ? null
                   : () {
                       print('✅ [PROPOSAL_MODAL] Botão Aceitar pressionado');
+                      _stopProposalSound();
                       print(
                         '✅ [PROPOSAL_MODAL] Chamando onAccept callback - aguardando confirmação via WebSocket',
                       );
