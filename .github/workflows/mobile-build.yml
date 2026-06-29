@@ -13,14 +13,14 @@ jobs:
         working-directory: treinopro_app
     env:
       APP_API_BASE_URL: https://api.treinopro.com
-      APP_JWT_SECRET: 9421ebfdca9cd70be09b5319ee5fcc44f284bda393d802c6b2c9143adafc048deea3d96d4476c3f3937faf2ef8dfac13e0a6bc6be487dc397d72e5bf8550713c
-      STRIPE_PUBLISHABLE_KEY: "pk_live_51TOerkC3Vq1gzef3fzrznClsOMMlVFjRte3MSOMPtJTfDp3JmJ0SJT2WF0BWAtD0ivjyAugye2GnHsFr5kr6USai00b4cByDRB"
-      IOS_TEAM_ID: "CQNC9U55RT"
+      APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
       IOS_BUNDLE_ID: "com.treinopro.oficial"
       IOS_EXTENSION_BUNDLE_ID: "com.treinopro.oficial.ProposalLiveActivity"
-      APPSTORE_ISSUER_ID: "5aa12238-f9ae-4cde-88e5-1dc2d94509e7"
-      APPSTORE_KEY_ID: "3ADQADQHNQ"
-      P12_PASSWORD: "treinoPRO123"
+      APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+      APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
       PROVISIONING_PROFILE_NAME: "TreinoPro App Store"
       PROVISIONING_PROFILE_EXT_NAME: "TreinoPro LiveActivity App Store"
 
@@ -232,8 +232,8 @@ jobs:
         working-directory: treinopro_app
     env:
       APP_API_BASE_URL: https://api.treinopro.com
-      APP_JWT_SECRET: 9421ebfdca9cd70be09b5319ee5fcc44f284bda393d802c6b2c9143adafc048deea3d96d4476c3f3937faf2ef8dfac13e0a6bc6be487dc397d72e5bf8550713c
-      STRIPE_PUBLISHABLE_KEY: "pk_live_51TOerkC3Vq1gzef3fzrznClsOMMlVFjRte3MSOMPtJTfDp3JmJ0SJT2WF0BWAtD0ivjyAugye2GnHsFr5kr6USai00b4cByDRB"
+      APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
       APP_JWT_EXPIRES_IN: 24h
       APP_JWT_REFRESH_EXPIRES_IN: 7d
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

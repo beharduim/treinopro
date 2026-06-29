@@ -22,17 +22,6 @@ class SavedCardsList extends StatelessWidget {
   }
 
   Widget _buildCardItem(BuildContext context, PaymentMethod card) {
-    // Debug: imprimir dados do cartão
-    print('🔍 SavedCardsList._buildCardItem - Dados do cartão:');
-    print('  - id: ${card.id}');
-    print('  - cardNumber: ${card.cardNumber}');
-    print('  - cardBrand: ${card.cardBrand}');
-    print('  - cardType: ${card.cardType}');
-    print('  - cardHolderName: ${card.cardHolderName}');
-    print('  - expiryMonth: ${card.expiryMonth}');
-    print('  - expiryYear: ${card.expiryYear}');
-    print('  - isDefault: ${card.isDefault}');
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
