@@ -755,7 +755,7 @@ class ProposalSearchBloc
         emit,
         proposalId: proposalId ?? currentState.proposalId,
         location: currentState.location,
-        totalTime: currentState.elapsedTime,
+        totalTime: Duration.zero,
       );
       return;
     } else {

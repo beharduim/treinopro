@@ -59,6 +59,24 @@ jobs:
           fi
           pod install
 
+      - name: Verify iOS signing secrets
+        run: |
+          missing=()
+          for var in P12_PASSWORD IOS_TEAM_ID APPSTORE_KEY_ID APPSTORE_ISSUER_ID; do
+            if [ -z "${!var:-}" ]; then
+              missing+=("$var")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing GitHub Actions secrets: ${missing[*]}"
+            echo "Configure them in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [ ! -f "../Certificates.p12" ]; then
+            echo "Certificates.p12 not found in repository root."
+            exit 1
+          fi
+
       - name: Install Apple certificate and provisioning profile
         run: |
           # Criar keychain temporário
