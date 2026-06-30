@@ -23,6 +23,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
   // Timer para expiração da busca (3min)
   Timer? _proposalSearchTimer;
 
+  /// Propostas canceladas explicitamente pelo usuário — não reiniciar busca.
+  final Set<String> _userCancelledProposalIds = {};
+
   HomeBloc({
     required this.getHomeStateUseCase,
     required this.updateWeeklyMissionProgressUseCase,
@@ -223,7 +226,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
             workoutCardDate: event.trainingDate,
             workoutCardTime: event.trainingTime,
             isSearchingActive: true,
-            workoutCardData: {'startTime': DateTime.now().toIso8601String()},
+            workoutCardData: {
+              'startTime': DateTime.now().toIso8601String(),
+              if (event.proposalId != null) 'id': event.proposalId,
+            },
           ),
         ),
       );
@@ -350,6 +356,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
 
       if (event.proposalId != null) {
         print('🗑️ [HOME_BLOC] Cancelando proposta via API...');
+        _userCancelledProposalIds.add(event.proposalId!);
         // Cancelar proposta específica via API
         await homeRepository.cancelProposal(event.proposalId!);
         print('🗑️ [HOME_BLOC] Proposta cancelada via API com sucesso');
@@ -397,6 +404,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
           currentState.homeState.pendingProposals;
 
       if (event.proposalId != null) {
+        _userCancelledProposalIds.add(event.proposalId!);
         updatedProposals = updatedProposals
             .where((proposal) => proposal['id'] != event.proposalId)
             .toList();
@@ -912,6 +920,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
     final recentlyPaid = pendingProposals.where((prop) {
       if (_isDirectRecontractProposal(prop)) return false;
 
+      final propId = prop['id']?.toString();
+      if (propId != null && _userCancelledProposalIds.contains(propId)) {
+        return false;
+      }
+
       final propStatus = (prop['status'] as String?)?.toLowerCase() ?? '';
       if (propStatus != 'pending') return false;
       if (!isProposalMapPaymentConfirmed(prop)) return false;
@@ -958,6 +971,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeBlocState> {
         location: location,
         trainingDate: trainingDate,
         trainingTime: trainingTime,
+        proposalId: nextProposal['id']?.toString(),
       ),
     );
   }

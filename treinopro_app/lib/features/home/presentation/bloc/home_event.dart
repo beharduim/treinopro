@@ -55,15 +55,17 @@ class StartProposalSearch extends HomeEvent {
   final String location;
   final DateTime trainingDate;
   final String trainingTime;
+  final String? proposalId;
 
   const StartProposalSearch({
     required this.location,
     required this.trainingDate,
     required this.trainingTime,
+    this.proposalId,
   });
 
   @override
-  List<Object?> get props => [location, trainingDate, trainingTime];
+  List<Object?> get props => [location, trainingDate, trainingTime, proposalId];
 }
 
 /// Evento para parar busca de profissional

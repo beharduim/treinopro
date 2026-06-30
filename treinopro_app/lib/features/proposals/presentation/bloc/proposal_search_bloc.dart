@@ -216,7 +216,12 @@ class CompleteProposalSearch extends ProposalSearchEvent {
 
 /// Cancelar busca
 class CancelProposalSearch extends ProposalSearchEvent {
-  const CancelProposalSearch();
+  final String? proposalId;
+
+  const CancelProposalSearch({this.proposalId});
+
+  @override
+  List<Object?> get props => [proposalId];
 }
 
 /// Mostrar confirmação de cancelamento
@@ -714,117 +719,67 @@ class ProposalSearchBloc
     print('🛑 [PROPOSAL_SEARCH] Cancelando busca...');
     print('🛑 [PROPOSAL_SEARCH] Estado atual: ${state.runtimeType}');
 
+    _timer?.cancel();
+    _matchTimer?.cancel();
+
+    String? proposalId = event.proposalId;
+    String location = 'Localização';
+    Duration totalTime = Duration.zero;
+
     if (state is ProposalSearchActive) {
       final currentState = state as ProposalSearchActive;
-      _timer?.cancel();
-      _matchTimer?.cancel();
+      proposalId ??= currentState.proposalId;
+      location = currentState.location;
+      totalTime = currentState.elapsedTime;
       print('🛑 [PROPOSAL_SEARCH] Cancelando busca ativa');
-
-      // Atualizar Home imediatamente para remover card de busca ativa
-      try {
-        sl<home_bloc.HomeBloc>().add(const home_events.ProposalCancelled());
-      } catch (_) {}
-
-      // Cancelar proposta via API se tivermos o ID
-      if (currentState.proposalId != null) {
-        try {
-          await _proposalsApiService.cancelProposal(currentState.proposalId!);
-          print('✅ [PROPOSAL_SEARCH] Proposta cancelada via API');
-        } catch (e) {
-          print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
-          // Se a proposta já expirou (404), continuar mesmo assim
-          if (e.toString().contains('404') ||
-              e.toString().contains('Not Found')) {
-            print(
-              '⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento',
-            );
-          } else {
-            // Para outros erros, continuar mesmo com erro na API
-            print(
-              '⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro',
-            );
-          }
-        }
-      } else {
-        print(
-          '⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento',
-        );
-      }
-
-      emit(
-        ProposalSearchCancelled(
-          location: currentState.location,
-          totalTime: currentState.elapsedTime,
-        ),
-      );
     } else if (state is ProposalSearchConfirmingCancel) {
       final currentState = state as ProposalSearchConfirmingCancel;
-      _timer?.cancel();
-      _matchTimer?.cancel();
+      proposalId ??= currentState.proposalId;
+      location = currentState.location;
+      totalTime = currentState.elapsedTime;
       print('🛑 [PROPOSAL_SEARCH] Cancelando busca em confirmação');
-
-      // Atualizar Home imediatamente para remover card de busca ativa
-      try {
-        sl<home_bloc.HomeBloc>().add(
-          home_events.ProposalCancelled(proposalId: currentState.proposalId),
-        );
-      } catch (_) {}
-
-      // Cancelar proposta via API se tivermos o ID
-      if (currentState.proposalId != null) {
-        try {
-          await _proposalsApiService.cancelProposal(currentState.proposalId!);
-          print('✅ [PROPOSAL_SEARCH] Proposta cancelada via API');
-        } catch (e) {
-          print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
-          // Se a proposta já expirou (404), continuar mesmo assim
-          if (e.toString().contains('404') ||
-              e.toString().contains('Not Found')) {
-            print(
-              '⚠️ [PROPOSAL_SEARCH] Proposta provavelmente já expirou - continuando cancelamento',
-            );
-          } else {
-            // Para outros erros, continuar mesmo com erro na API
-            print(
-              '⚠️ [PROPOSAL_SEARCH] Continuando cancelamento apesar do erro',
-            );
-          }
-        }
-      } else {
-        print(
-          '⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento',
-        );
-      }
-
-      emit(
-        ProposalSearchCancelled(
-          location: currentState.location,
-          totalTime: currentState.elapsedTime,
-        ),
-      );
     } else if (state is ProposalSearchMatched) {
       final currentState = state as ProposalSearchMatched;
       await _cancelProposalFromState(
         currentState,
         emit,
-        proposalId: currentState.proposalId,
+        proposalId: proposalId ?? currentState.proposalId,
         location: currentState.location,
         totalTime: currentState.totalTime,
       );
+      return;
     } else if (state is ProposalSearchConfirmingSessionCancel) {
       final currentState = state as ProposalSearchConfirmingSessionCancel;
       await _cancelProposalFromState(
         currentState,
         emit,
-        proposalId: currentState.proposalId,
+        proposalId: proposalId ?? currentState.proposalId,
         location: currentState.location,
-        totalTime: const Duration(minutes: 1),
+        totalTime: currentState.elapsedTime,
       );
+      return;
     } else {
       print(
-        '⚠️ [PROPOSAL_SEARCH] Estado não esperado para cancelamento: ${state.runtimeType}',
+        '⚠️ [PROPOSAL_SEARCH] Estado ${state.runtimeType} — cancelamento direto via HomeBloc',
       );
     }
+
+    if (proposalId == null) {
+      print('⚠️ [PROPOSAL_SEARCH] ProposalId não disponível para cancelamento');
+    }
+
+    try {
+      sl<home_bloc.HomeBloc>().add(
+        home_events.ProposalCancelled(proposalId: proposalId),
+      );
+    } catch (_) {}
+
+    emit(
+      ProposalSearchCancelled(
+        location: location,
+        totalTime: totalTime,
+      ),
+    );
   }
 
   Future<void> _cancelProposalFromState(
@@ -842,14 +797,6 @@ class ProposalSearchBloc
         home_events.ProposalCancelled(proposalId: proposalId),
       );
     } catch (_) {}
-
-    if (proposalId != null) {
-      try {
-        await _proposalsApiService.cancelProposal(proposalId);
-      } catch (e) {
-        print('❌ [PROPOSAL_SEARCH] Erro ao cancelar proposta via API: $e');
-      }
-    }
 
     emit(
       ProposalSearchCancelled(

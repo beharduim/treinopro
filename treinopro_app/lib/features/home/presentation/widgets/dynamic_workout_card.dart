@@ -924,7 +924,6 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
     // Capturar blocs ANTES de abrir o dialog
     final homeBloc = context.read<HomeBloc>();
     final searchBloc = context.read<proposal_search.ProposalSearchBloc>();
-    searchBloc.add(const proposal_search.ResetProposalSearch());
 
     // Mostrar diálogo de confirmação (mesmo estilo do cancelamento de aula)
     showDialog(
@@ -1063,15 +1062,18 @@ class _DynamicWorkoutCardState extends State<DynamicWorkoutCard>
         return;
       }
 
-      // Disparar evento de cancelamento imediatamente
-      print('🗑️ [CANCEL_PROPOSAL] Disparando evento ProposalCancelled...');
+      // Cancelar busca + proposta (API via HomeBloc dentro do CancelProposalSearch)
+      print('🗑️ [CANCEL_PROPOSAL] Disparando CancelProposalSearch...');
       try {
         context.read<proposal_search.ProposalSearchBloc>().add(
-          const proposal_search.ResetProposalSearch(),
+          proposal_search.CancelProposalSearch(
+            proposalId: proposalId,
+          ),
         );
-      } catch (_) {}
-      homeBloc.add(ProposalCancelled(proposalId: proposalId));
-      print('🗑️ [CANCEL_PROPOSAL] Evento ProposalCancelled disparado com sucesso');
+      } catch (_) {
+        homeBloc.add(ProposalCancelled(proposalId: proposalId));
+      }
+      print('🗑️ [CANCEL_PROPOSAL] Cancelamento disparado com sucesso');
 
       // Mostrar feedback visual imediato
       ScaffoldMessenger.of(context).showSnackBar(
