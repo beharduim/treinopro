@@ -211,7 +211,8 @@ jobs:
             --type ios \
             --file "$IPA_PATH" \
             --apiKey "${APPSTORE_KEY_ID}" \
-            --apiIssuer "${APPSTORE_ISSUER_ID}"
+            --apiIssuer "${APPSTORE_ISSUER_ID}" \
+            --apple-id "6756798032"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
